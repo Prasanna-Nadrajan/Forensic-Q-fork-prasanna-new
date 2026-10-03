@@ -1,4 +1,4 @@
-<div class="bg-white dark:bg-zinc-900 rounded-xl p-4 sm:p-5 border border-slate-200 dark:border-zinc-800 shadow-sm w-full overflow-hidden {{ class }}">
+<div class="bg-white dark:bg-zinc-900 rounded-xl p-4 sm:p-5 border border-slate-200 dark:border-zinc-800 shadow-sm w-full overflow-x-auto {{ class }}">
     {% if title or actions %}
     <div class="flex items-center justify-between mb-3.5 flex-wrap gap-2">
         <div class="flex items-center space-x-2.5">
@@ -34,8 +34,8 @@
     document.addEventListener("DOMContentLoaded", function () {
         if (!document.getElementById("{{ id }}")) return;
         
-        const rawData = {{ data|safe }};
-        const rawCols = {{ columns|safe }};
+        const rawData = {{ data|default:"[]"|safe }};
+        const rawCols = {{ columns|default:"[]"|safe }};
 
         window["tabulator_{{ id|slugify }}"] = new Tabulator("#{{ id }}", {
             data: rawData,
@@ -45,7 +45,7 @@
             paginationSize: {{ pagination_size|default:10 }},
             paginationSizeSelector: [5, 10, 25, 50],
             movableColumns: {{ movable_columns|default:'true' }},
-            responsiveLayout: "collapse",
+            responsiveLayout: {{ responsive|default:'"collapse"' }},
             placeholder: "No records found.",
         });
     });

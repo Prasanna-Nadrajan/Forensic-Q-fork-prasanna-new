@@ -371,7 +371,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_material.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_material %}
+                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_material table_id="grid-material" %}
             </div>
 
             <!-- Tab 2: ERSA Spare Parts -->
@@ -383,7 +383,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_ersa.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_ersa %}
+                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_ersa table_id="grid-ersa" %}
             </div>
 
             <!-- Tab 3: Open POs -->
@@ -395,7 +395,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_openpo.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_openpo %}
+                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_openpo table_id="grid-openpo" %}
             </div>
 
             <!-- Tab 4: Unit Price Inconsistency -->
@@ -407,7 +407,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_unitprice.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_unitprice %}
+                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_unitprice table_id="grid-unitprice" %}
             </div>
 
             <!-- Tab 5: Conflicting Material Types -->
@@ -419,7 +419,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_diffmaterial.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_diffmaterial %}
+                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_diffmaterial table_id="grid-diffmaterial" %}
             </div>
 
             <!-- Tab 6: Delivery Gap -->
@@ -431,7 +431,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_receiptgap.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_receiptgap %}
+                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_receiptgap table_id="grid-receiptgap" %}
             </div>
 
             <!-- Tab 7: Delayed Delivery -->
@@ -443,7 +443,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_receipt1year.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_receipt1year %}
+                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_receipt1year table_id="grid-receipt1year" %}
             </div>
 
         </div>

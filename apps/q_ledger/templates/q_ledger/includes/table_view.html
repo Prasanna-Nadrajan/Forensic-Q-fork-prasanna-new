@@ -4,37 +4,11 @@
     <span>{{ table_data.error }}</span>
 </div>
 {% elif table_data.rows %}
-<div class="overflow-x-auto max-h-[500px] rounded-xl border border-theme-border scrollbar-thin">
-    <table class="w-full text-left text-xs border-collapse">
-        <thead class="sticky top-0 bg-theme-app border-b border-theme-border z-10">
-            <tr>
-                {% for col in table_data.columns %}
-                <th class="py-2.5 px-3 font-bold uppercase tracking-wider text-[11px] text-theme-muted whitespace-nowrap">
-                    {{ col.title }}
-                </th>
-                {% endfor %}
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-theme-border/60 bg-theme-surface">
-            {% for row in table_data.rows %}
-            <tr class="hover:bg-theme-subtle/50 transition">
-                {% for col in table_data.columns %}
-                <td class="py-2 px-3 text-theme-text whitespace-nowrap text-xs font-mono">
-                    {% for key, val in row.items %}
-                        {% if key == col.field %}
-                            {{ val }}
-                        {% endif %}
-                    {% endfor %}
-                </td>
-                {% endfor %}
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+<c-data-grid id="{{ table_id|default:'table-grid' }}" :data="table_data.rows" :columns="table_data.columns"
+    layout="fitData" pagination="local" pagination_size="10" movable_columns="true" responsive="false" />
 {% else %}
 <div class="p-8 text-center bg-theme-app/30 rounded-xl border border-dashed border-theme-border">
     <i class="fa-solid fa-check-circle text-2xl text-emerald-500 mb-2 block"></i>
-    <p class="text-xs text-theme-muted">No anomaly records detected for this checkpoint in the current selection.</p>
+    <p class="text-xs text-theme-muted">No anomaly records detected for this checkpoint.</p>
 </div>
 {% endif %}
