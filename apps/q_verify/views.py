@@ -12,13 +12,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from .selectors import (
+    get_all_custodian_profiles,
     get_case_risk_chart_html,
     get_case_summary_metrics,
-    get_global_verification_stats,
     get_paginated_verified_documents,
     get_verification_case,
     get_verified_document_detail,
-    list_verification_cases,
 )
 from .services import create_verification_case_with_profile, ingest_and_verify_document
 
@@ -26,17 +25,15 @@ from .services import create_verification_case_with_profile, ingest_and_verify_d
 @require_GET
 def dashboard_view(request: HttpRequest) -> HttpResponse:
     """
-    Main Q-Verify Dashboard: Global stats, rapid dropzone, and case list.
+    Main Q-Verify Dashboard: Custodian profiles directory.
     """
-    cases = list_verification_cases()
-    stats = get_global_verification_stats()
+    custodian_profiles = get_all_custodian_profiles()
 
     return render(
         request,
         "q_verify/dashboard.html",
         {
-            "cases": cases,
-            "stats": stats,
+            "custodian_profiles": custodian_profiles,
         },
     )
 

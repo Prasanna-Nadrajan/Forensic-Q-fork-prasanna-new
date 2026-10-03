@@ -20,6 +20,67 @@ def list_verification_cases() -> QuerySet[VerificationCase]:
     return VerificationCase.objects.all().order_by("-created_at")
 
 
+def get_all_custodian_profiles() -> list[dict[str, Any]]:
+    """
+    Groups all verification cases by custodian name and returns aggregate
+    forensic metrics per custodian for the profiles directory card grid.
+    """
+    cases = VerificationCase.objects.prefetch_related("documents").all().order_by("-created_at")
+    custodian_map: dict[str, dict[str, Any]] = {}
+
+    for case in cases:
+        key = case.custodian_name.strip() or "Unassigned Custodian"
+        if key not in custodian_map:
+            custodian_map[key] = {
+                "custodian_name": key,
+                "custodian_department": case.custodian_department or "",
+                "custodian_email": case.custodian_email or "",
+                "cases": [],
+                "total_cases": 0,
+                "total_documents": 0,
+                "authentic_count": 0,
+                "suspicious_count": 0,
+                "tampered_count": 0,
+                "avg_score_sum": 0.0,
+                "avg_score_count": 0,
+            }
+
+        profile = custodian_map[key]
+        profile["cases"].append(case)
+        profile["total_cases"] += 1
+        profile["total_documents"] += case.total_documents
+        profile["authentic_count"] += case.authentic_count
+        profile["suspicious_count"] += case.suspicious_count
+        profile["tampered_count"] += case.tampered_count
+
+        if case.total_documents > 0:
+            profile["avg_score_sum"] += case.average_authenticity_score * case.total_documents
+            profile["avg_score_count"] += case.total_documents
+
+    results = []
+    for profile in custodian_map.values():
+        avg_score = (
+            round(profile["avg_score_sum"] / profile["avg_score_count"], 1)
+            if profile["avg_score_count"] > 0
+            else 100.0
+        )
+        results.append(
+            {
+                "custodian_name": profile["custodian_name"],
+                "custodian_department": profile["custodian_department"],
+                "custodian_email": profile["custodian_email"],
+                "cases": profile["cases"],
+                "total_cases": profile["total_cases"],
+                "total_documents": profile["total_documents"],
+                "authentic_count": profile["authentic_count"],
+                "suspicious_count": profile["suspicious_count"],
+                "tampered_count": profile["tampered_count"],
+                "average_score": avg_score,
+            }
+        )
+    return results
+
+
 def get_verification_case(case_id: str | uuid.UUID) -> VerificationCase:
     """
     Retrieves a single verification case.
@@ -198,20 +259,21 @@ def get_case_risk_chart_html(risk_dist: dict[str, int]) -> str:
         },
         hole=0.6,
     )
+    fig.update_traces(textposition="inside", textinfo="percent")
     fig.update_layout(
         template="plotly_dark",
-        margin={"l": 10, "r": 10, "t": 10, "b": 10},
+        margin={"l": 10, "r": 10, "t": 20, "b": 80},
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         font={"family": "Inter, sans-serif", "color": "#a1a1aa"},
         showlegend=True,
         legend={
             "orientation": "h",
-            "yanchor": "bottom",
-            "y": -0.2,
+            "yanchor": "top",
+            "y": -0.1,
             "xanchor": "center",
             "x": 0.5,
         },
-        height=260,
+        height=300,
     )
     return fig.to_html(full_html=False, include_plotlyjs=False)
