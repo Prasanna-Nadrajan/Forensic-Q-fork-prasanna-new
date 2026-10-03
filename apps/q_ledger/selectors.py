@@ -4,9 +4,10 @@ Read-only queries, data filtering routines, KPI aggregations, Plotly charts,
 and forensic checkpoint table generation.
 """
 
+import json
 from pathlib import Path
 from typing import Any
-import json
+
 import pandas as pd
 from django.conf import settings
 from loguru import logger
@@ -391,7 +392,7 @@ def prepare_table_dict(df: pd.DataFrame | None, max_rows: int = 500) -> dict[str
         if not c_str:
             c_str = "unnamed"
         cols.append(c_str)
-    
+
     limited_df.columns = cols
     columns = [{"title": col, "field": col} for col in cols]
     records = limited_df.to_dict(orient="records")
