@@ -307,7 +307,7 @@
                 :class="activeTab === 'prpo' ? 'bg-amber-500 text-zinc-950 font-bold' : 'bg-theme-surface text-theme-muted hover:text-theme-text border border-theme-border'"
                 class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center space-x-2 shadow-sm">
                 <i class="fa-solid fa-file-invoice text-xs"></i>
-                <span>PR/PO List</span>
+                <span>1. PR/PO List</span>
                 <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10">{{ checkpoint_prpo.count|default:"0" }}</span>
             </button>
 
@@ -315,7 +315,7 @@
                 :class="activeTab === 'material' ? 'bg-amber-500 text-zinc-950 font-bold' : 'bg-theme-surface text-theme-muted hover:text-theme-text border border-theme-border'"
                 class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center space-x-2 shadow-sm">
                 <i class="fa-solid fa-list-check text-xs"></i>
-                <span>1. Material List</span>
+                <span>2. Material List</span>
                 <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10">{{ checkpoint_material.count|default:"0" }}</span>
             </button>
 
@@ -323,7 +323,7 @@
                 :class="activeTab === 'ersa' ? 'bg-amber-500 text-zinc-950 font-bold' : 'bg-theme-surface text-theme-muted hover:text-theme-text border border-theme-border'"
                 class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center space-x-2 shadow-sm">
                 <i class="fa-solid fa-screwdriver-wrench text-xs"></i>
-                <span>2. ERSA (Spares) Audit</span>
+                <span>3. ERSA (Spares) Audit</span>
                 <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10">{{ checkpoint_ersa.count|default:"0" }}</span>
             </button>
 
@@ -331,7 +331,7 @@
                 :class="activeTab === 'openpo' ? 'bg-amber-500 text-zinc-950 font-bold' : 'bg-theme-surface text-theme-muted hover:text-theme-text border border-theme-border'"
                 class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center space-x-2 shadow-sm">
                 <i class="fa-solid fa-clock-rotate-left text-xs"></i>
-                <span>3. Open POs (&gt;750d)</span>
+                <span>4. Open POs (&gt;750d)</span>
                 <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10">{{ checkpoint_openpo.count|default:"0" }}</span>
             </button>
 
@@ -339,7 +339,7 @@
                 :class="activeTab === 'unitprice' ? 'bg-amber-500 text-zinc-950 font-bold' : 'bg-theme-surface text-theme-muted hover:text-theme-text border border-theme-border'"
                 class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center space-x-2 shadow-sm">
                 <i class="fa-solid fa-tags text-xs"></i>
-                <span>4. Price Stagnation</span>
+                <span>5. Price Stagnation</span>
                 <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10">{{ checkpoint_unitprice.count|default:"0" }}</span>
             </button>
 
@@ -347,7 +347,7 @@
                 :class="activeTab === 'diffmaterial' ? 'bg-amber-500 text-zinc-950 font-bold' : 'bg-theme-surface text-theme-muted hover:text-theme-text border border-theme-border'"
                 class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center space-x-2 shadow-sm">
                 <i class="fa-solid fa-code-compare text-xs"></i>
-                <span>5. Material Type Conflict</span>
+                <span>6. Material Type Conflict</span>
                 <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10">{{ checkpoint_diffmaterial.count|default:"0" }}</span>
             </button>
 
@@ -355,7 +355,7 @@
                 :class="activeTab === 'receiptgap' ? 'bg-amber-500 text-zinc-950 font-bold' : 'bg-theme-surface text-theme-muted hover:text-theme-text border border-theme-border'"
                 class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center space-x-2 shadow-sm">
                 <i class="fa-solid fa-calendar-xmark text-xs"></i>
-                <span>6. GR Gap (&gt;1 Year)</span>
+                <span>7. GR Gap (&gt;1 Year)</span>
                 <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10">{{ checkpoint_receiptgap.count|default:"0" }}</span>
             </button>
 
@@ -363,7 +363,7 @@
                 :class="activeTab === 'receipt1year' ? 'bg-amber-500 text-zinc-950 font-bold' : 'bg-theme-surface text-theme-muted hover:text-theme-text border border-theme-border'"
                 class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center space-x-2 shadow-sm">
                 <i class="fa-solid fa-hourglass-end text-xs"></i>
-                <span>7. Delayed GR (&gt;1y PO)</span>
+                <span>8. Delayed GR (&gt;1y PO)</span>
                 <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10">{{ checkpoint_receipt1year.count|default:"0" }}</span>
             </button>
 
@@ -394,8 +394,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_material.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_material table_id="grid-material" %}
-            </div>
+{% include "q_ledger/includes/table_view.html" with table_data=checkpoint_material table_id="grid-material" %}            </div>
 
             <!-- Tab 2: ERSA Spare Parts -->
             <div x-show="activeTab === 'ersa'" x-cloak class="space-y-4">
@@ -406,8 +405,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_ersa.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_ersa table_id="grid-ersa" %}
-            </div>
+{% include "q_ledger/includes/table_view.html" with table_data=checkpoint_ersa table_id="grid-ersa" %}            </div>
 
             <!-- Tab 3: Open POs -->
             <div x-show="activeTab === 'openpo'" x-cloak class="space-y-4">
@@ -418,8 +416,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_openpo.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_openpo table_id="grid-openpo" %}
-            </div>
+{% include "q_ledger/includes/table_view.html" with table_data=checkpoint_openpo table_id="grid-openpo" %}            </div>
 
             <!-- Tab 4: Unit Price Inconsistency -->
             <div x-show="activeTab === 'unitprice'" x-cloak class="space-y-4">
@@ -430,8 +427,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_unitprice.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_unitprice table_id="grid-unitprice" %}
-            </div>
+{% include "q_ledger/includes/table_view.html" with table_data=checkpoint_unitprice table_id="grid-unitprice" %}            </div>
 
             <!-- Tab 5: Conflicting Material Types -->
             <div x-show="activeTab === 'diffmaterial'" x-cloak class="space-y-4">
@@ -442,8 +438,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_diffmaterial.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_diffmaterial table_id="grid-diffmaterial" %}
-            </div>
+{% include "q_ledger/includes/table_view.html" with table_data=checkpoint_diffmaterial table_id="grid-diffmaterial" %}            </div>
 
             <!-- Tab 6: Delivery Gap -->
             <div x-show="activeTab === 'receiptgap'" x-cloak class="space-y-4">
@@ -454,8 +449,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_receiptgap.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_receiptgap table_id="grid-receiptgap" %}
-            </div>
+{% include "q_ledger/includes/table_view.html" with table_data=checkpoint_receiptgap table_id="grid-receiptgap" %}            </div>
 
             <!-- Tab 7: Delayed Delivery -->
             <div x-show="activeTab === 'receipt1year'" x-cloak class="space-y-4">
@@ -466,8 +460,7 @@
                     </div>
                     <span class="text-xs font-mono text-amber-500">{{ checkpoint_receipt1year.count|default:"0" }} Rows</span>
                 </div>
-                {% include "q_ledger/includes/table_view.html" with table_data=checkpoint_receipt1year table_id="grid-receipt1year" %}
-            </div>
+{% include "q_ledger/includes/table_view.html" with table_data=checkpoint_receipt1year table_id="grid-receipt1year" %}            </div>
 
         </div>
 
