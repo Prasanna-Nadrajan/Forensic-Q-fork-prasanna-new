@@ -77,8 +77,8 @@ class QLedgerSelectorAndAnalysisTests(TestCase):
     def test_prepare_table_dict_empty(self):
         result = prepare_table_dict(None)
         self.assertEqual(result["count"], 0)
-        self.assertEqual(result["rows"], [])
-        self.assertEqual(result["columns"], [])
+        self.assertEqual(result["rows"], "[]")
+        self.assertEqual(result["columns"], "[]")
 
         empty_df = pd.DataFrame()
         result_empty = prepare_table_dict(empty_df)
@@ -95,10 +95,13 @@ class QLedgerSelectorAndAnalysisTests(TestCase):
         )
         result = prepare_table_dict(df, max_rows=10)
         self.assertEqual(result["count"], 2)
-        self.assertEqual(len(result["columns"]), 4)
-        self.assertEqual(result["rows"][0]["PO_Number"], "PO-101")
-        self.assertEqual(result["rows"][0]["Date"], "2026-03-15")
-        self.assertEqual(result["rows"][0]["Notes"], "—")
+        import json
+        cols = json.loads(result["columns"])
+        rows = json.loads(result["rows"])
+        self.assertEqual(len(cols), 4)
+        self.assertEqual(rows[0]["PO_Number"], "PO-101")
+        self.assertEqual(rows[0]["Date"], "2026-03-15")
+        self.assertEqual(rows[0]["Notes"], "—")
 
     def test_get_checkpoint_tables_and_charts_execution(self):
         from .selectors import (

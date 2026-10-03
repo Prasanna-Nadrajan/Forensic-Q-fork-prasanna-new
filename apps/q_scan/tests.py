@@ -204,18 +204,19 @@ class HighPerformanceDiskScannerTests(TestCase):
 
     def test_is_directory_excluded_variations(self):
         target_root = str(self.root_path)
+        exclude_dir = str(self.root_path / "excluded_dir")
         scanner = HighPerformanceDiskScanner(
             target_directories=[target_root],
             keywords=["secret"],
-            exclude_directories=["C:\\excluded_dir", "sub_exclude"],
+            exclude_directories=[exclude_dir, "sub_exclude"],
         )
 
         # Target root should not be excluded
         self.assertFalse(scanner.is_directory_excluded(target_root))
 
         # Configured exclusion matches
-        self.assertTrue(scanner.is_directory_excluded("C:\\excluded_dir"))
-        self.assertTrue(scanner.is_directory_excluded("C:\\excluded_dir\\nested"))
+        self.assertTrue(scanner.is_directory_excluded(exclude_dir))
+        self.assertTrue(scanner.is_directory_excluded(str(self.root_path / "excluded_dir" / "nested")))
         self.assertTrue(scanner.is_directory_excluded(str(self.root_path / "sub_exclude" / "data")))
 
         # Normal non-excluded folder
