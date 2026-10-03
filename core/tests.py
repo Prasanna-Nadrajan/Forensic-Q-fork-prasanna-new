@@ -714,3 +714,59 @@ class CoreProfileViewsTests(TestCase):
             {"file": uploaded_file},
         )
         self.assertEqual(res.status_code, 404)
+
+    def test_upload_profile_keywords_csv_non_utf8(self):
+        # Create a non-utf8 byte string to trigger latin-1 fallback
+        csv_content = "header1,Keyword\nval1,fráud\nval2,bribe,extra".encode("latin-1")
+        uploaded_file = SimpleUploadedFile(
+            "test_non_utf8.csv", csv_content, content_type="text/csv"
+        )
+        url = reverse("upload_profile_keywords_file", kwargs={"profile_id": str(self.profile.id)})
+        res = self.client.post(url, {"file": uploaded_file})
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("fráud", res.json()["profile"]["keywords"])
+        self.assertIn("bribe", res.json()["profile"]["keywords"])
+
+    def test_upload_profile_keywords_csv(self):
+        csv_content = b"header1,Keyword\nval1,fraud\nval2,bribe"
+        uploaded_file = SimpleUploadedFile("test.csv", csv_content, content_type="text/csv")
+        url = reverse("upload_profile_keywords_file", kwargs={"profile_id": str(self.profile.id)})
+        res = self.client.post(url, {"file": uploaded_file})
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("fraud", res.json()["profile"]["keywords"])
+        self.assertIn("bribe", res.json()["profile"]["keywords"])
+
+    def test_sync_global_profiles_from_apps(self):
+        # Test the sync behavior for q_verify and q_voice
+        # Since these apps are installed, the imports should succeed and the loops will run.
+        from q_verify.models import VerificationCase
+
+        from .profiles import sync_all_existing_entities_to_profiles
+
+        VerificationCase.objects.create(
+            case_ref="TEST-VER-1",
+            case_title="Sync Test Case",
+            custodian_name="Test Sync Custodian",
+            custodian_email="sync@test.com",
+            custodian_department="IT",
+        )
+
+        from django.utils import timezone
+        from q_voice.models import AudioRecording
+
+        AudioRecording.objects.create(
+            source_filename="test_sync.wav",
+            custodian_name="Test Voice Sync Custodian",
+            risk_score=60,
+            call_timestamp=timezone.now(),
+        )
+
+        from q_bank.models import AuditedPerson
+
+        AuditedPerson.objects.create(
+            full_name="Test Bank Sync Custodian",
+            notes="flagged",
+        )
+
+        created = sync_all_existing_entities_to_profiles()
+        self.assertGreaterEqual(created, 3)
