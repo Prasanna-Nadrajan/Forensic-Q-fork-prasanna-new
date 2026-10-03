@@ -3,7 +3,7 @@
     <i class="fa-solid fa-triangle-exclamation mr-1.5"></i>
     <span>{{ table_data.error }}</span>
 </div>
-{% elif table_data.rows %}
+{% elif table_data.count > 0 %}
 <c-data-grid id="{{ table_id|default:'table-grid' }}" :data="table_data.rows" :columns="table_data.columns"
     layout="fitData" pagination="local" pagination_size="10" movable_columns="true" responsive="false" />
 {% else %}

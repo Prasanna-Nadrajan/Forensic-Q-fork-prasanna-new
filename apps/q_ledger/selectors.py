@@ -4,6 +4,7 @@ Read-only queries, data filtering routines, KPI aggregations, Plotly charts,
 and forensic checkpoint table generation.
 """
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -379,12 +380,21 @@ def prepare_table_dict(df: pd.DataFrame | None, max_rows: int = 500) -> dict[str
     for high-performance Tabulator.js / HTML table rendering.
     """
     if df is None or df.empty:
-        return {"columns": [], "rows": [], "count": 0}
+        return {"columns": "[]", "rows": "[]", "count": 0}
 
     limited_df = df.head(max_rows).copy()
     limited_df = limited_df.fillna("—")
 
-    columns = [{"title": str(col), "field": str(col)} for col in limited_df.columns]
+    # Sanitize column names for Tabulator fields (replace empty with 'unnamed')
+    cols = []
+    for c in limited_df.columns:
+        c_str = str(c).strip()
+        if not c_str:
+            c_str = "unnamed"
+        cols.append(c_str)
+
+    limited_df.columns = cols
+    columns = [{"title": col, "field": col} for col in cols]
     records = limited_df.to_dict(orient="records")
 
     clean_records = []
@@ -393,12 +403,14 @@ def prepare_table_dict(df: pd.DataFrame | None, max_rows: int = 500) -> dict[str
         for k, v in r.items():
             if isinstance(v, pd.Timestamp):
                 clean_row[str(k)] = v.strftime("%Y-%m-%d")
+            elif pd.isna(v):  # Catches NaN, NaT, None
+                clean_row[str(k)] = "—"
             else:
                 clean_row[str(k)] = str(v) if not isinstance(v, (int, float, bool)) else v
         clean_records.append(clean_row)
 
     return {
-        "columns": columns,
-        "rows": clean_records,
+        "columns": json.dumps(columns),
+        "rows": json.dumps(clean_records),
         "count": len(df),
     }
