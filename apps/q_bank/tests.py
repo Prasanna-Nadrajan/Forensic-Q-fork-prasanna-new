@@ -588,3 +588,57 @@ class QBankServicesAndSelectorsTests(TestCase):
         res_empty = self.client.get(f"{url}?account_id={empty_acc.id}")
         self.assertEqual(res_empty.status_code, 200)
         self.assertEqual(res_empty.context["view_metrics"]["closing_balance"], Decimal("0.00"))
+
+    def test_parse_keywords_api_and_file_fuzzy_search(self):
+        # 1. Test parse_keywords_api with plain text file
+        txt_content = b"# Forensic Watchlist\ntrust\nsarla\nhawala\n# Comments\n"
+        txt_file = SimpleUploadedFile("keywords.txt", txt_content, content_type="text/plain")
+        parse_url = reverse("q_bank:parse_keywords_api")
+        res = self.client.post(parse_url, {"file": txt_file})
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["filename"], "keywords.txt")
+        self.assertEqual(data["total_count"], 3)
+        self.assertIn("trust", data["keywords"])
+        self.assertIn("sarla", data["keywords"])
+        self.assertIn("hawala", data["keywords"])
+
+        # 2. Test parse_keywords_api with Excel file
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Keywords"
+        ws.append(["Keyword", "Category"])
+        ws.append(["sarla", "Entity"])
+        ws.append(["trust", "Entity"])
+        ws.append(["kickback", "Risk"])
+        bio = io.BytesIO()
+        wb.save(bio)
+        bio.seek(0)
+        excel_file = SimpleUploadedFile(
+            "test_terms.xlsx", bio.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        res_xl = self.client.post(parse_url, {"file": excel_file})
+        self.assertEqual(res_xl.status_code, 200)
+        data_xl = res_xl.json()
+        self.assertEqual(data_xl["status"], "ok")
+        self.assertIn("sarla", data_xl["keywords"])
+        self.assertIn("trust", data_xl["keywords"])
+        self.assertIn("kickback", data_xl["keywords"])
+
+        # 3. Test fuzzy_search_api with uploaded file
+        fuzzy_url = reverse("q_bank:fuzzy_search_api")
+        txt_search_file = SimpleUploadedFile("search.txt", b"sarla\ntrust", content_type="text/plain")
+        res_fuzzy_file = self.client.post(
+            fuzzy_url,
+            {"account_id": str(self.account.id), "file": txt_search_file, "threshold": 50},
+        )
+        self.assertEqual(res_fuzzy_file.status_code, 200)
+        fuzzy_data = res_fuzzy_file.json()
+        self.assertEqual(fuzzy_data["status"], "ok")
+        self.assertGreaterEqual(fuzzy_data["total_matches"], 1)
+        self.assertIn("matched_keyword", fuzzy_data["matches"][0])
+        self.assertTrue(fuzzy_data["matches"][0]["matched_keyword"])
+

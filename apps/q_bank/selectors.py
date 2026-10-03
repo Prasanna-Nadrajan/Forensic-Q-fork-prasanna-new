@@ -3,13 +3,13 @@ Q-Bank Selectors Layer (Read-Only Queries)
 Optimized, N+1 safe queries for financial dashboards, Tabulator grids, and analytical aggregations.
 """
 
-import re
 import uuid
 from typing import Any
 
 from django.core.paginator import Paginator
 from django.db.models import Avg, Count, Q, QuerySet, Sum
-from rapidfuzz import fuzz
+
+from core.fuzzy import extract_keywords_from_string, score_text_against_keywords
 
 from .backend.statement_parser import format_inr
 from .models import AuditedPerson, BankAccount, BankTransaction
@@ -584,15 +584,33 @@ def fuzzy_search_transactions(
     *,
     account_id: str | uuid.UUID | None = None,
     person_id: str | uuid.UUID | None = None,
-    keywords_str: str = "trust, sarla",
+    keywords_str: str | None = None,
+    keywords: list[str] | None = None,
     threshold: int = 80,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
     """
-    Performs rapidfuzz fuzzy sequence matching against transaction narrations.
+    Performs rapidfuzz fuzzy sequence matching against transaction narrations using centralized core.fuzzy.
     """
-    keywords = [kw.strip().lower() for kw in keywords_str.split(",") if kw.strip()]
-    if not keywords:
+    clean_keywords = []
+    seen = set()
+    if keywords:
+        for kw in keywords:
+            k = kw.strip()
+            if k and k.lower() not in seen:
+                seen.add(k.lower())
+                clean_keywords.append(k)
+
+    if keywords_str is not None:
+        for kw in extract_keywords_from_string(keywords_str):
+            if kw.lower() not in seen:
+                seen.add(kw.lower())
+                clean_keywords.append(kw)
+    elif keywords is None:
+        # Default fallback
+        clean_keywords = ["trust", "sarla"]
+
+    if not clean_keywords:
         return []
 
     qs = BankTransaction.objects.select_related("account").all()
@@ -603,42 +621,14 @@ def fuzzy_search_transactions(
 
     matches = []
     for t in qs.iterator(chunk_size=1000):
-        narration = (t.narration or "").lower()
+        narration = t.narration or ""
         if not narration:
             continue
 
-        narration_super_clean = re.sub(r"[^a-z0-9]", "", narration)
-        narration_clean = re.sub(r"[^a-z0-9\s]", " ", narration)
-        tokens = narration_clean.split()
-        found = False
-        best_score = 0
-
-        for kw in keywords:
-            kw_clean = re.sub(r"[^a-z0-9]", "", kw.lower())
-            if not kw_clean:
-                continue
-
-            if kw_clean in narration_super_clean:
-                found = True
-                best_score = 100
-                break
-
-            ratio_sub = fuzz.partial_ratio(narration_super_clean, kw_clean)
-            if ratio_sub >= threshold:
-                found = True
-                best_score = max(best_score, int(ratio_sub))
-                break
-
-            for tok in tokens:
-                tok_ratio = fuzz.ratio(tok, kw_clean)
-                if tok_ratio >= threshold:
-                    found = True
-                    best_score = max(best_score, int(tok_ratio))
-                    break
-            if found:
-                break
-
-        if found:
+        is_matched, best_score, matched_kw = score_text_against_keywords(
+            narration, clean_keywords, threshold=threshold
+        )
+        if is_matched:
             matches.append(
                 {
                     "id": str(t.id),
@@ -650,6 +640,7 @@ def fuzzy_search_transactions(
                     "credit_formatted": format_inr(t.credit_amount) if t.credit_amount > 0 else "-",
                     "closing_balance_formatted": format_inr(t.closing_balance),
                     "fuzzy_score": best_score,
+                    "matched_keyword": matched_kw,
                 }
             )
             if len(matches) >= limit:
@@ -657,3 +648,4 @@ def fuzzy_search_transactions(
 
     matches.sort(key=lambda x: x["fuzzy_score"], reverse=True)
     return matches
+

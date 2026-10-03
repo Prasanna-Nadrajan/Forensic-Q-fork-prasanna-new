@@ -11,7 +11,13 @@ import openpyxl
 from django.contrib import messages
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
+
+from core.fuzzy import (
+    extract_keywords_from_file,
+    extract_keywords_from_request,
+    extract_keywords_from_string,
+)
 
 from .backend.statement_parser import format_inr
 from .selectors import (
@@ -243,15 +249,32 @@ def transactions_api_view(request: HttpRequest) -> JsonResponse:
     return JsonResponse(result)
 
 
-@require_GET
+@require_http_methods(["GET", "POST"])
 def fuzzy_search_api_view(request: HttpRequest) -> JsonResponse:
     """
     Live fuzzy sequence search endpoint for rapid narration text matching.
+    Supports keywords via text parameter and/or uploaded keyword files (.xlsx, .txt, .csv).
     """
-    account_id = request.GET.get("account_id", "").strip() or None
-    person_id = request.GET.get("person_id", "").strip() or None
-    keywords = request.GET.get("keywords", "").strip()
-    if not keywords:
+    account_id = (request.POST.get("account_id") or request.GET.get("account_id", "")).strip() or None
+    person_id = (request.POST.get("person_id") or request.GET.get("person_id", "")).strip() or None
+    try:
+        raw_thresh = request.POST.get("threshold") or request.GET.get("threshold", "80")
+        threshold = int(raw_thresh)
+    except (ValueError, TypeError):
+        threshold = 80
+
+    # Extract keywords from request (supports text input + attached file)
+    keywords = extract_keywords_from_request(request, param_name="keywords", file_param="file")
+
+    raw_kw_param = request.POST.get("keywords", None)
+    if raw_kw_param is None:
+        raw_kw_param = request.GET.get("keywords", None)
+
+    # Edge case: if keywords was explicitly provided as empty string and no file uploaded
+    if raw_kw_param is not None and not raw_kw_param.strip() and not request.FILES:
+        keywords_str = ""
+        keywords_list = None
+    elif not keywords and raw_kw_param is None and not request.FILES:
         from core.profiles import get_profile_keywords
 
         custodian_name = None
@@ -266,22 +289,76 @@ def fuzzy_search_api_view(request: HttpRequest) -> JsonResponse:
 
         p_kws = get_profile_keywords(custodian_name=custodian_name, request=request)
         if p_kws:
-            keywords = ", ".join(p_kws)
+            keywords_list = list(p_kws)
         else:
-            keywords = "trust, sarla"
-
-    try:
-        threshold = int(request.GET.get("threshold", 80))
-    except (ValueError, TypeError):
-        threshold = 80
+            keywords_list = ["trust", "sarla"]
+        keywords_str = None
+    else:
+        keywords_list = keywords
+        keywords_str = None
 
     matches = fuzzy_search_transactions(
         account_id=account_id,
         person_id=person_id,
-        keywords_str=keywords,
+        keywords=keywords_list,
+        keywords_str=keywords_str,
         threshold=threshold,
     )
-    return JsonResponse({"status": "ok", "total_matches": len(matches), "matches": matches})
+    return JsonResponse(
+        {
+            "status": "ok",
+            "total_matches": len(matches),
+            "matches": matches,
+            "keywords_count": len(keywords_list) if keywords_list is not None else 0,
+            "searched_keywords": keywords_list or [],
+        }
+    )
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def parse_keywords_api_view(request: HttpRequest) -> JsonResponse:
+    """
+    Parses and extracts keywords from an uploaded file (.xlsx, .txt, .csv) or text.
+    Returns extracted keywords list and metadata for immediate UI feedback.
+    """
+    uploaded_file = (
+        request.FILES.get("file")
+        or request.FILES.get("keywords_file")
+        or request.FILES.get("file_upload")
+    )
+    if not uploaded_file and "text" not in request.POST and "keywords" not in request.POST and "keywords" not in request.GET:
+        return JsonResponse(
+            {"status": "error", "message": "No file or keywords provided."},
+            status=400,
+        )
+
+    filename = ""
+    if uploaded_file:
+        filename = uploaded_file.name
+        try:
+            keywords = extract_keywords_from_file(uploaded_file, filename=filename)
+        except Exception as e:
+            return JsonResponse(
+                {"status": "error", "message": f"Failed to parse keyword file: {e}"},
+                status=400,
+            )
+    else:
+        raw_text = (
+            request.POST.get("text", "")
+            or request.POST.get("keywords", "")
+            or request.GET.get("keywords", "")
+        )
+        keywords = extract_keywords_from_string(raw_text)
+
+    return JsonResponse(
+        {
+            "status": "ok",
+            "filename": filename,
+            "total_count": len(keywords),
+            "keywords": keywords,
+        }
+    )
 
 
 @require_POST
