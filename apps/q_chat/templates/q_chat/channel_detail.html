@@ -56,6 +56,14 @@
                                class="w-full pl-8 pr-4 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-sky-500">
                     </div>
 
+                    <!-- Small Fuzzy Threshold Slider -->
+                    <div class="flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-xs" x-data="{ thresh: {{ threshold|default:75 }} }">
+                        <span class="text-[11px] font-medium text-slate-500 dark:text-zinc-400 whitespace-nowrap">Fuzzy:</span>
+                        <input type="range" name="threshold" min="50" max="100" step="5" :value="thresh" @input="thresh = $event.target.value"
+                               class="w-20 sm:w-24 accent-sky-500 cursor-pointer h-1.5" title="Fuzzy Match Threshold">
+                        <span class="font-mono text-[11px] text-sky-500 dark:text-sky-400 font-bold w-7" x-text="thresh + '%'">{{ threshold|default:75 }}%</span>
+                    </div>
+
                     <!-- Sender Filter -->
                     <select name="sender" onchange="this.form.submit()" class="px-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-sky-500">
                         <option value="">-- All Senders --</option>
@@ -78,7 +86,7 @@
                     <button type="submit" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold">
                         Filter
                     </button>
-                    {% if search_query or selected_sender or flagged_only or deleted_only %}
+                    {% if search_query or selected_sender or flagged_only or deleted_only or threshold != 75 %}
                     <a href="{% url 'q_chat:channel_detail' channel.id %}" class="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-semibold hover:bg-slate-300">
                         Reset
                     </a>
@@ -181,7 +189,7 @@
 
                 <div class="flex items-center gap-1.5 font-mono">
                     {% if messages_data.has_previous %}
-                    <a href="?page={{ messages_data.previous_page }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if selected_sender %}&sender={{ selected_sender|urlencode }}{% endif %}{% if flagged_only %}&flagged=1{% endif %}{% if deleted_only %}&deleted=1{% endif %}{% if right_sender %}&right={{ right_sender|urlencode }}{% endif %}"
+                    <a href="?page={{ messages_data.previous_page }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if threshold and threshold != 75 %}&threshold={{ threshold }}{% endif %}{% if selected_sender %}&sender={{ selected_sender|urlencode }}{% endif %}{% if flagged_only %}&flagged=1{% endif %}{% if deleted_only %}&deleted=1{% endif %}{% if right_sender %}&right={{ right_sender|urlencode }}{% endif %}"
                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-semibold transition" title="Previous Messages">
                         <i class="fa-solid fa-chevron-left text-[10px]"></i>
                         <span>Prev</span>
@@ -201,7 +209,7 @@
                             {{ p_num }}
                         </span>
                         {% else %}
-                        <a href="?page={{ p_num }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if selected_sender %}&sender={{ selected_sender|urlencode }}{% endif %}{% if flagged_only %}&flagged=1{% endif %}{% if deleted_only %}&deleted=1{% endif %}{% if right_sender %}&right={{ right_sender|urlencode }}{% endif %}"
+                        <a href="?page={{ p_num }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if threshold and threshold != 75 %}&threshold={{ threshold }}{% endif %}{% if selected_sender %}&sender={{ selected_sender|urlencode }}{% endif %}{% if flagged_only %}&flagged=1{% endif %}{% if deleted_only %}&deleted=1{% endif %}{% if right_sender %}&right={{ right_sender|urlencode }}{% endif %}"
                            class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-semibold transition">
                             {{ p_num }}
                         </a>
@@ -209,7 +217,7 @@
                     {% endfor %}
 
                     {% if messages_data.has_next %}
-                    <a href="?page={{ messages_data.next_page }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if selected_sender %}&sender={{ selected_sender|urlencode }}{% endif %}{% if flagged_only %}&flagged=1{% endif %}{% if deleted_only %}&deleted=1{% endif %}{% if right_sender %}&right={{ right_sender|urlencode }}{% endif %}"
+                    <a href="?page={{ messages_data.next_page }}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}{% if threshold and threshold != 75 %}&threshold={{ threshold }}{% endif %}{% if selected_sender %}&sender={{ selected_sender|urlencode }}{% endif %}{% if flagged_only %}&flagged=1{% endif %}{% if deleted_only %}&deleted=1{% endif %}{% if right_sender %}&right={{ right_sender|urlencode }}{% endif %}"
                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-semibold transition" title="Next Messages">
                         <span>Next</span>
                         <i class="fa-solid fa-chevron-right text-[10px]"></i>
