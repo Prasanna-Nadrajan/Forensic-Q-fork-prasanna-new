@@ -434,3 +434,72 @@ class QVerifyUnitTests(TestCase):
         res_stripped = DiscrepancyAnalyzer.analyze(meta_stripped)
         stripped_codes = [f.code for f in res_stripped.anomalies]
         self.assertIn("METADATA_STRIPPED", stripped_codes)
+
+    def test_get_all_custodian_profiles(self):
+        from .selectors import get_all_custodian_profiles
+        from .models import VerificationCase, VerifiedDocument
+
+        # Create cases with different custodians
+        case1 = VerificationCase.objects.create(
+            case_ref="CUST-1",
+            case_title="Test Custodian 1",
+            custodian_name="Alice Auditee",
+            custodian_department="Finance",
+            total_documents=2,
+            authentic_count=1,
+            suspicious_count=1,
+            tampered_count=0,
+            average_authenticity_score=75.0,
+        )
+        case2 = VerificationCase.objects.create(
+            case_ref="CUST-2",
+            case_title="Test Custodian 2",
+            custodian_name="Alice Auditee",  # Same custodian
+            total_documents=1,
+            authentic_count=1,
+            average_authenticity_score=100.0,
+        )
+        case3 = VerificationCase.objects.create(
+            case_ref="CUST-3",
+            case_title="Test Custodian 3",
+            custodian_name="Bob Auditee",
+            total_documents=1,
+            tampered_count=1,
+            average_authenticity_score=20.0,
+        )
+
+        profiles = get_all_custodian_profiles()
+
+        # We should have 2 profiles (Alice and Bob)
+        self.assertEqual(len(profiles), 2)
+
+        # Check Alice's profile aggregation
+        alice_profile = next((p for p in profiles if p["custodian_name"] == "Alice Auditee"), None)
+        self.assertIsNotNone(alice_profile)
+        self.assertEqual(alice_profile["total_cases"], 2)
+        self.assertEqual(alice_profile["total_documents"], 3)
+        self.assertEqual(alice_profile["authentic_count"], 2)
+        self.assertEqual(alice_profile["suspicious_count"], 1)
+
+        # Check average score: (75.0 * 2 + 100.0 * 1) / 3 = 250 / 3 = 83.33... -> rounded to 83.3
+        self.assertAlmostEqual(alice_profile["average_score"], 83.3)
+
+        # Check Bob's profile aggregation
+        bob_profile = next((p for p in profiles if p["custodian_name"] == "Bob Auditee"), None)
+        self.assertIsNotNone(bob_profile)
+        self.assertEqual(bob_profile["total_cases"], 1)
+        self.assertEqual(bob_profile["tampered_count"], 1)
+        self.assertEqual(bob_profile["average_score"], 20.0)
+
+    def test_get_case_risk_chart_html(self):
+        from .selectors import get_case_risk_chart_html
+        
+        # Test empty
+        html_empty = get_case_risk_chart_html({"Authentic": 0, "Suspicious": 0, "High Risk / Tampered": 0})
+        self.assertEqual(html_empty, "")
+        
+        # Test with values
+        html = get_case_risk_chart_html({"Authentic": 5, "Suspicious": 2, "High Risk / Tampered": 1})
+        self.assertIn("<div", html)
+        self.assertIn("plotly", html.lower())
+

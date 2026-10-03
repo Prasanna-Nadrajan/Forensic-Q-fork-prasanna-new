@@ -88,28 +88,6 @@ def get_verification_case(case_id: str | uuid.UUID) -> VerificationCase:
     return get_object_or_404(VerificationCase, id=case_id)
 
 
-def get_global_verification_stats() -> dict[str, Any]:
-    """
-    Calculates high-level metrics across all cases and verified documents for the dashboard.
-    """
-    doc_stats = VerifiedDocument.objects.aggregate(
-        total_docs=Count("id"),
-        suspicious_docs=Count("id", filter=Q(risk_level=VerifiedDocument.RiskLevel.SUSPICIOUS)),
-        tampered_docs=Count(
-            "id", filter=Q(risk_level=VerifiedDocument.RiskLevel.HIGH_RISK_TAMPERED)
-        ),
-        avg_score=Avg("authenticity_score"),
-    )
-    total_cases = VerificationCase.objects.count()
-
-    return {
-        "total_cases": total_cases,
-        "total_docs": doc_stats["total_docs"] or 0,
-        "suspicious_docs": doc_stats["suspicious_docs"] or 0,
-        "tampered_docs": doc_stats["tampered_docs"] or 0,
-        "avg_score": round(doc_stats["avg_score"] or 100.0, 1),
-    }
-
 
 def get_case_summary_metrics(case_id: str | uuid.UUID) -> dict[str, Any]:
     """
