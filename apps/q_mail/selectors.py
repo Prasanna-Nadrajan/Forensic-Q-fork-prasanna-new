@@ -7,7 +7,7 @@ import uuid
 from typing import Any
 
 from django.core.paginator import Paginator
-from django.db.models import Count, Max, Min, Q, QuerySet, Sum
+from django.db.models import Count, Max, Min, Q, QuerySet
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 
@@ -394,27 +394,40 @@ def get_top_counterparties(mailbox_id: str | uuid.UUID, limit: int = 10) -> list
     ]
 
 
-def get_global_mailbox_stats() -> dict[str, Any]:
+def get_all_custodian_profiles() -> list[dict[str, Any]]:
     """
-    Computes global aggregation metrics across all mailbox investigations.
+    Aggregates mailbox investigations into a single list of unique custodian profiles.
     """
-    investigations = list_mailbox_investigations()
-    total_mailboxes = investigations.count()
-    completed_count = investigations.filter(
-        status=MailboxInvestigation.IngestionStatus.COMPLETED
-    ).count()
-    processing_count = investigations.filter(
-        status=MailboxInvestigation.IngestionStatus.PROCESSING
-    ).count()
-    total_messages = investigations.aggregate(total=Sum("processed_messages_count"))["total"] or 0
+    investigations = MailboxInvestigation.objects.prefetch_related("messages").all()
+    profiles_dict = {}
 
-    return {
-        "investigations": investigations,
-        "total_mailboxes": total_mailboxes,
-        "completed_count": completed_count,
-        "processing_count": processing_count,
-        "total_messages": total_messages,
-    }
+    for inv in investigations:
+        key = (inv.auditee_name, inv.auditee_department, inv.auditee_email)
+        if key not in profiles_dict:
+            profiles_dict[key] = {
+                "custodian_name": inv.auditee_name,
+                "custodian_department": inv.auditee_department,
+                "custodian_email": inv.auditee_email,
+                "cases": [],
+                "total_cases": 0,
+                "total_emails": 0,
+                "total_attachments": 0,
+                "flagged_emails": 0,
+                "average_score": 0.0,  # Placeholder if needed
+            }
+
+        prof = profiles_dict[key]
+        if not any(c["ref"] == inv.audit_ref for c in prof["cases"]):
+            prof["cases"].append({"id": inv.id, "ref": inv.audit_ref})
+        prof["total_cases"] += 1
+        prof["total_emails"] += inv.processed_messages_count
+        prof["total_attachments"] += inv.attachment_count
+
+        # Count flagged messages in python to avoid N+1 if prefetched
+        flagged_count = sum(1 for m in inv.messages.all() if m.is_flagged)
+        prof["flagged_emails"] += flagged_count
+
+    return list(profiles_dict.values())
 
 
 def get_attachment_by_id(attachment_id: str | uuid.UUID) -> EmailAttachment:

@@ -292,10 +292,10 @@ class QMailCheckpointsAndSelectorsTests(TestCase):
             )
             self.assertIn("data", page_res)
 
-        from .selectors import get_global_mailbox_stats
+        from .selectors import get_all_custodian_profiles
 
-        landing_metrics = get_global_mailbox_stats()
-        self.assertGreaterEqual(landing_metrics["total_mailboxes"], 1)
+        profiles = get_all_custodian_profiles()
+        self.assertGreaterEqual(len(profiles), 1)
 
         # Excel export view
         client = Client()

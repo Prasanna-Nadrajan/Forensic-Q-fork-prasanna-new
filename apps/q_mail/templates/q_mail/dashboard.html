@@ -15,160 +15,111 @@
         </button>
     </c-page_header>
 
-    <!-- Top Summary Metrics Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <c-stat_card 
-            title="Total Mailboxes" 
-            value="{{ total_mailboxes }}" 
-            subtitle="Ingested PST Evidence Cases" 
-            icon="fa-solid fa-folder-tree" 
-            variant="slate" />
-            
-        <c-stat_card 
-            title="Active Ingestions" 
-            value="{{ processing_count }}" 
-            subtitle="Background Streaming Tasks" 
-            icon="fa-solid fa-gears" 
-            variant="amber" />
-            
-        <c-stat_card 
-            title="Completed Audits" 
-            value="{{ completed_count }}" 
-            subtitle="Extracted & Searchable" 
-            icon="fa-solid fa-circle-check" 
-            variant="emerald" />
-            
-        <c-stat_card 
-            title="Total Emails Processed" 
-            value="{{ total_messages }}" 
-            subtitle="Across All Forensic Cases" 
-            icon="fa-solid fa-envelopes-bulk" 
-            variant="sky" />
-    </div>
-
-    <!-- Audited Mailboxes Directory -->
-    <div x-data="{
+        <!-- Target Custodians / Auditees Directory -->
+    <div class="mb-8" x-data="{
         searchQuery: '',
-        matches(ref, name, email, dept) {
+        matches(name, dept, email) {
             if (!this.searchQuery) return true;
             const q = this.searchQuery.toLowerCase().trim();
-            return (ref + ' ' + name + ' ' + email + ' ' + dept).toLowerCase().includes(q);
+            return (name + ' ' + dept + ' ' + email).toLowerCase().includes(q);
         }
     }">
-    <c-card title="Audited Mailboxes Directory" subtitle="Select an audited mailbox to access the Tabulator evidence grid and network analysis." icon="fa-solid fa-folder-tree" icon_color="text-purple-400">
-        
-        <c-slot name="actions">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-id-card-clip text-purple-400"></i>
+                    <span>Target Custodians Directory</span>
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Click any target custodian to explore all their linked mailbox cases, extracted emails, and network analysis.
+                </p>
+            </div>
+
             <div class="flex items-center gap-3">
-                <div class="relative w-48 sm:w-64">
+                <div class="relative w-full sm:w-64">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                    <input type="text" x-model="searchQuery" placeholder="Search mailboxes directory..."
+                    <input type="text" x-model="searchQuery" placeholder="Search custodians directory..."
                         class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-purple-500">
                     <button type="button" x-show="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
                         <i class="fa-solid fa-xmark text-xs"></i>
                     </button>
                 </div>
-                <span class="text-xs font-mono text-slate-400 dark:text-zinc-500 whitespace-nowrap">{{ investigations.count }} Mailbox(es) Configured</span>
+                <span class="text-xs font-mono text-slate-400 font-semibold whitespace-nowrap">{{ custodian_profiles|length }} Custodian(s) Configured</span>
             </div>
-        </c-slot>
+        </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="border-b border-slate-200 dark:border-zinc-800 text-[11px] font-mono uppercase tracking-wider text-slate-400 dark:text-zinc-500">
-                        <th class="py-3 px-4">Audit Ref</th>
-                        <th class="py-3 px-4">Auditee / Custodian</th>
-                        <th class="py-3 px-4">Department & Role</th>
-                        <th class="py-3 px-4">PST Evidence File</th>
-                        <th class="py-3 px-4">Status & Progress</th>
-                        <th class="py-3 px-4 text-right">Messages</th>
-                        <th class="py-3 px-4 text-center">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-zinc-800/60 text-xs">
-                    {% for inv in investigations %}
-                    <tr x-show="matches('{{ inv.audit_ref|escapejs }}', '{{ inv.auditee_name|escapejs }}', '{{ inv.auditee_email|escapejs }}', '{{ inv.auditee_department|escapejs }}')"
-                        class="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors group">
-                        <td class="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white">
-                            {{ inv.audit_ref }}
-                        </td>
-                        <td class="py-3.5 px-4">
-                            <div class="font-semibold text-slate-800 dark:text-zinc-200">{{ inv.auditee_name }}</div>
-                            <div class="text-[11px] font-mono text-slate-400 dark:text-zinc-500">{{ inv.auditee_email }}</div>
-                        </td>
-                        <td class="py-3.5 px-4 text-slate-600 dark:text-zinc-400">
-                            <div>{{ inv.auditee_department|default:"General" }}</div>
-                            <div class="text-[11px] text-slate-400 dark:text-zinc-500">{{ inv.auditee_designation|default:"Staff" }}</div>
-                        </td>
-                        <td class="py-3.5 px-4">
-                            <div class="font-mono text-xs text-slate-700 dark:text-zinc-300 truncate max-w-[180px]">{{ inv.pst_file_name }}</div>
-                            <div class="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">{{ inv.formatted_size }}</div>
-                        </td>
-                        <td class="py-3.5 px-4">
-                            {% if inv.status == 'COMPLETED' %}
-                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
-                                <i class="fa-solid fa-check text-[9px]"></i> Ready
-                            </span>
-                            {% elif inv.status == 'PROCESSING' or inv.status == 'UPLOADING' %}
-                            <div class="w-36">
-                                <div class="flex items-center justify-between text-[10px] font-mono text-amber-500 mb-1">
-                                    <span class="flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin"></i> {{ inv.status }}</span>
-                                    <span>{{ inv.progress_percent|floatformat:0 }}%</span>
+        {% if custodian_profiles %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {% for p in custodian_profiles %}
+                <div x-show="matches('{{ p.custodian_name|escapejs }}', '{{ p.custodian_department|escapejs }}', '{{ p.custodian_email|escapejs }}')"
+                     class="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 p-5 shadow-sm hover:border-purple-500/50 dark:hover:border-purple-500/40 transition-all flex flex-col justify-between">
+                    <div>
+                        <!-- Custodian Header -->
+                        <div class="flex items-start justify-between gap-3 mb-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 font-bold shrink-0 text-base">
+                                    <i class="fa-solid fa-user-tie"></i>
                                 </div>
-                                <div class="w-full h-1.5 bg-slate-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                    <div class="h-full bg-amber-500 rounded-full transition-all duration-300" style="width: {{ inv.progress_percent }}%;"></div>
+                                <div class="truncate">
+                                    <h4 class="font-bold text-slate-900 dark:text-white text-sm truncate">
+                                        {{ p.custodian_name }}
+                                    </h4>
+                                    <div class="text-[11px] text-slate-400 font-mono truncate">
+                                        {{ p.custodian_department|default:"General Auditee" }}{% if p.custodian_email %} &bull; {{ p.custodian_email }}{% endif %}
+                                    </div>
                                 </div>
                             </div>
-                            {% elif inv.status == 'STALLED' %}
-                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
-                                <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Stalled
-                            </span>
-                            {% elif inv.status == 'CANCELLED' %}
-                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-300 dark:border-zinc-700">
-                                <i class="fa-solid fa-ban text-[9px]"></i> Cancelled
-                            </span>
-                            {% elif inv.status == 'FAILED' %}
-                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50">
-                                <i class="fa-solid fa-circle-xmark text-[9px]"></i> Failed
-                            </span>
-                            {% else %}
-                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
-                                {{ inv.status }}
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-800 dark:text-zinc-200">
-                            {{ inv.processed_messages_count }}
-                        </td>
-                        <td class="py-3.5 px-4 text-center">
-                            <a href="{% url 'q_mail:detail' inv.id %}" 
-                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-purple-600 dark:bg-zinc-800 dark:hover:bg-purple-600 text-slate-700 dark:text-zinc-300 hover:text-white dark:hover:text-white font-semibold transition-all">
-                                <span>Open Workspace</span>
-                                <i class="fa-solid fa-arrow-right text-[10px]"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="py-12 text-center text-slate-400 dark:text-zinc-500">
-                            <i class="fa-solid fa-inbox text-3xl text-purple-400 mb-2 block"></i>
-                            <p class="font-semibold">No PST mailboxes ingested yet.</p>
-                            <p class="text-xs mt-1">Click "Import PST Mailbox" to register an audit case and upload a .pst file.</p>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    <tr x-cloak x-show="searchQuery && !Array.from($el.parentElement.querySelectorAll('tr[x-show*=\'matches\']')).some(el => el.style.display !== 'none')">
-                        <td colspan="7" class="py-10 text-center text-slate-400 bg-slate-50/50 dark:bg-zinc-800/20">
-                            <i class="fa-solid fa-magnifying-glass text-xl mb-1 block"></i>
-                            <p class="text-xs font-semibold">No mailbox investigations matching "<span x-text="searchQuery"></span>"</p>
-                            <button type="button" @click="searchQuery = ''" class="mt-1 text-xs text-purple-400 hover:underline font-semibold cursor-pointer">
-                                Clear search filter
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </c-card>
+                        </div>
+
+                        <!-- Aggregate Forensic Stats Grid -->
+                        <div class="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-zinc-800/40 rounded-xl p-3 border border-slate-100 dark:border-zinc-800 text-xs font-mono mb-3">
+                            <div>
+                                <span class="text-[10px] uppercase text-slate-400 block">Emails</span>
+                                <span class="font-bold text-slate-800 dark:text-zinc-200">{{ p.total_emails }} messages</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] uppercase text-slate-400 block">Attachments</span>
+                                <span class="font-bold text-slate-800 dark:text-zinc-200">{{ p.total_attachments }} files</span>
+                            </div>
+                            <div class="pt-1 border-t border-slate-200/50 dark:border-zinc-700/50 col-span-2 flex justify-between">
+                                <span class="text-[10px] uppercase text-slate-400">Suspicious / Flagged</span>
+                                <span class="font-bold {% if p.flagged_emails > 0 %}text-rose-500{% else %}text-emerald-500{% endif %}">
+                                    {{ p.flagged_emails }} hits
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Linked Cases Badges Preview -->
+                        <div class="mb-4">
+                            <span class="text-[10px] uppercase tracking-wider text-slate-400 block mb-1 font-semibold">Linked Cases:</span>
+                            <div class="flex flex-wrap gap-1.5">
+                                {% for c in p.cases %}
+                                <a href="{% url 'q_mail:detail' c.id %}" class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200/50 dark:border-zinc-700 hover:border-purple-400 transition-colors">
+                                    {{ c.ref }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <a href="{% url 'q_mail:detail' p.cases.0.id %}" 
+                       class="mt-2 block w-full py-2 px-4 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl text-center shadow-lg shadow-purple-600/20 transition-all cursor-pointer">
+                        Open Analysis <i class="fa-solid fa-arrow-right ml-1"></i>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="bg-slate-50 dark:bg-zinc-800/40 rounded-2xl border border-dashed border-slate-300 dark:border-zinc-700 p-12 text-center">
+                <i class="fa-solid fa-id-card-clip text-4xl text-slate-300 dark:text-zinc-600 mb-4 block"></i>
+                <h3 class="text-sm font-bold text-slate-700 dark:text-zinc-300 mb-1">No Custodians Found</h3>
+                <p class="text-xs text-slate-500 dark:text-zinc-400 mb-4">Import a PST mailbox to automatically profile the custodian.</p>
+                <button onclick="openUploadModal()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-200 dark:bg-zinc-700 hover:bg-slate-300 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 text-xs font-bold transition-all cursor-pointer">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    Import PST Mailbox
+                </button>
+            </div>
+        {% endif %}
     </div>
 
     <!-- Chunked 50GB PST Upload Modal -->

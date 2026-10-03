@@ -13,9 +13,9 @@ from django.views.decorators.http import require_GET, require_POST
 from loguru import logger
 
 from .selectors import (
+    get_all_custodian_profiles,
     get_attachment_by_id,
     get_email_detail,
-    get_global_mailbox_stats,
     get_investigation_summary_metrics,
     get_mailbox_progress_state,
     get_paginated_investigation_emails,
@@ -32,14 +32,14 @@ from .services import (
 @require_GET
 def dashboard_view(request: HttpRequest) -> HttpResponse:
     """
-    Main Q-Mail Dashboard: Lists all audit mailbox investigations and upload portal.
+    Main Q-Mail Dashboard: Lists all custodian profiles and upload portal.
     """
     recover_stalled_investigations()
-    stats = get_global_mailbox_stats()
+    profiles = get_all_custodian_profiles()
     return render(
         request,
         "q_mail/dashboard.html",
-        stats,
+        {"custodian_profiles": profiles},
     )
 
 
