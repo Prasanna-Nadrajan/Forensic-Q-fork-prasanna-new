@@ -355,7 +355,7 @@ class QMailCheckpointsAndSelectorsTests(TestCase):
         # Attachment
         mock_msg.get_number_of_attachments.return_value = 1
         att = MagicMock()
-        att.get_name.return_value = "statement.pdf"
+        att.get_long_filename.return_value = "statement.pdf"
         att.get_size.return_value = 24
         att.read_buffer.side_effect = [b"ATTACHMENT_BINARY_PAYLOAD", None]
         mock_msg.get_attachment.return_value = att

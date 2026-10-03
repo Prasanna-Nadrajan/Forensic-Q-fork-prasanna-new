@@ -257,7 +257,50 @@ class PSTStreamParser:
         Saves physical attachment file to evidence directory and computes SHA-256 hash.
         """
         try:
-            filename = att.get_name() or f"attachment_{email_hash}"
+            # Libpff attachments use get_long_filename(), not get_name()
+            filename = ""
+            if hasattr(att, "get_long_filename"):
+                filename = att.get_long_filename()
+
+            # Fallback to MAPI properties (0x3707, 0x3704, or 0x3001) if get_long_filename is None
+            is_embedded_msg = False
+            if hasattr(att, "get_number_of_record_sets"):
+                try:
+                    display_name = ""
+                    for r in range(att.get_number_of_record_sets()):
+                        rs = att.get_record_set(r)
+                        for e in range(rs.get_number_of_entries()):
+                            entry = rs.get_entry(e)
+                            if entry.entry_type == 0x3705:  # PR_ATTACH_METHOD
+                                data = entry.get_data()
+                                if data and len(data) >= 4:
+                                    method = int.from_bytes(data[:4], "little")
+                                    if method == 5:  # ATTACH_EMBEDDED_MSG
+                                        is_embedded_msg = True
+                            elif entry.entry_type in (0x3707, 0x3704, 0x3001):
+                                data = entry.get_data()
+                                if data:
+                                    decoded = data.decode("utf-16le", errors="ignore").replace(
+                                        "\x00", ""
+                                    )
+                                    if decoded:
+                                        if entry.entry_type in (0x3707, 0x3704):
+                                            filename = decoded
+                                        elif entry.entry_type == 0x3001:
+                                            display_name = decoded
+                    if not filename and display_name:
+                        filename = display_name
+                except Exception as ex:
+                    logger.debug("Failed extracting filename from MAPI: %s", ex)
+
+            filename = filename or f"attachment_{email_hash}"
+            if is_embedded_msg and not filename.lower().endswith(".msg"):
+                # Clean invalid chars in case display name has them
+                import re
+
+                filename = re.sub(r'[\\/*?:"<>|]', "", filename)
+                filename = f"{filename}.msg"
+
             file_size = att.get_size() or 0
             file_extension = Path(filename).suffix.lower()
 
@@ -273,9 +316,13 @@ class PSTStreamParser:
                 hasher = hashlib.sha256()
                 with open(dest_file, "wb") as f:
                     read_offset = 0
+                    if hasattr(att, "seek_offset"):
+                        att.seek_offset(0, 0)
+
                     while read_offset < file_size:
                         chunk_size = min(65536, file_size - read_offset)
-                        data = att.read_buffer(chunk_size, read_offset)
+                        # read_buffer accepts exactly 1 argument in libpff
+                        data = att.read_buffer(chunk_size)
                         if not data:
                             break
                         f.write(data)
@@ -296,7 +343,7 @@ class PSTStreamParser:
                 storage_path=storage_path,
             )
         except Exception as e:
-            logger.warning("Failed saving attachment for email %s: %s", email_hash, e)
+            logger.exception("Failed saving attachment for email %s: %s", email_hash, e)
             return None
 
     @staticmethod
