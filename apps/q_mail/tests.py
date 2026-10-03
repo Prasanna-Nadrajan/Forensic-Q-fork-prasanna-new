@@ -393,6 +393,98 @@ class QMailCheckpointsAndSelectorsTests(TestCase):
             self.assertEqual(len(messages[0].attachments), 1)
             self.assertEqual(messages[0].attachments[0].filename, "statement.pdf")
 
+    @patch("apps.q_mail.backend.pst_parser.pypff")
+    def test_pst_parser_embedded_msg(self, mock_pypff):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import MagicMock
+
+        from apps.q_mail.backend.pst_parser import PSTStreamParser
+
+        mock_instance = MagicMock()
+        mock_pypff.file.return_value = mock_instance
+        root_folder = MagicMock()
+        root_folder.get_number_of_sub_folders.return_value = 0
+        root_folder.get_number_of_sub_messages.return_value = 1
+
+        mock_msg = MagicMock()
+        mock_msg.get_number_of_attachments.return_value = 1
+
+        att = MagicMock()
+        att.get_long_filename.return_value = None
+        att.get_number_of_record_sets.return_value = 2
+        att.get_size.return_value = 24
+        att.read_buffer.side_effect = [b"MAPI_DATA", None]
+
+        rs1 = MagicMock()
+        rs1.get_number_of_entries.return_value = 1
+        entry1 = MagicMock()
+        entry1.entry_type = 0x3001
+        entry1.get_data.return_value = "Embedded Test".encode("utf-16le")
+        rs1.get_entry.return_value = entry1
+
+        rs2 = MagicMock()
+        rs2.get_number_of_entries.return_value = 1
+        entry2 = MagicMock()
+        entry2.entry_type = 0x3705
+        entry2.get_data.return_value = (5).to_bytes(4, "little")
+        rs2.get_entry.return_value = entry2
+
+        att.get_record_set.side_effect = [rs1, rs2]
+        mock_msg.get_attachment.return_value = att
+
+        root_folder.get_sub_message.return_value = mock_msg
+        mock_instance.get_root_folder.return_value = root_folder
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pst_file = Path(tmp_dir) / "evidence.pst"
+            pst_file.write_bytes(b"DUMMY")
+            parser = PSTStreamParser(
+                pst_file, attachments_dir=Path(tmp_dir), check_cancellation_callback=lambda: False
+            )
+            messages = list(parser.parse_messages())
+            self.assertEqual(len(messages), 1)
+            self.assertEqual(len(messages[0].attachments), 1)
+            self.assertEqual(messages[0].attachments[0].filename, "Embedded Test.msg")
+
+    @patch("apps.q_mail.backend.pst_parser.pypff")
+    def test_pst_parser_embedded_msg_exception(self, mock_pypff):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import MagicMock
+
+        from apps.q_mail.backend.pst_parser import PSTStreamParser
+
+        mock_instance = MagicMock()
+        mock_pypff.file.return_value = mock_instance
+        root_folder = MagicMock()
+        root_folder.get_number_of_sub_folders.return_value = 0
+        root_folder.get_number_of_sub_messages.return_value = 1
+
+        mock_msg = MagicMock()
+        mock_msg.get_number_of_attachments.return_value = 1
+
+        att = MagicMock()
+        att.get_long_filename.return_value = None
+        att.get_number_of_record_sets.side_effect = Exception("Mocked Exception")
+        att.get_size.return_value = 24
+        att.read_buffer.side_effect = [b"MAPI_DATA", None]
+
+        mock_msg.get_attachment.return_value = att
+        root_folder.get_sub_message.return_value = mock_msg
+        mock_instance.get_root_folder.return_value = root_folder
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pst_file = Path(tmp_dir) / "evidence.pst"
+            pst_file.write_bytes(b"DUMMY")
+            parser = PSTStreamParser(
+                pst_file, attachments_dir=Path(tmp_dir), check_cancellation_callback=lambda: False
+            )
+            messages = list(parser.parse_messages())
+            self.assertEqual(len(messages), 1)
+            self.assertEqual(len(messages[0].attachments), 1)
+            self.assertTrue(messages[0].attachments[0].filename.startswith("attachment_"))
+
     def test_execute_pst_ingestion_and_selectors(self):
         from datetime import UTC, datetime
         from unittest.mock import MagicMock, patch
