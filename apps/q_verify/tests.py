@@ -436,11 +436,11 @@ class QVerifyUnitTests(TestCase):
         self.assertIn("METADATA_STRIPPED", stripped_codes)
 
     def test_get_all_custodian_profiles(self):
+        from .models import VerificationCase
         from .selectors import get_all_custodian_profiles
-        from .models import VerificationCase, VerifiedDocument
 
         # Create cases with different custodians
-        case1 = VerificationCase.objects.create(
+        VerificationCase.objects.create(
             case_ref="CUST-1",
             case_title="Test Custodian 1",
             custodian_name="Alice Auditee",
@@ -451,7 +451,7 @@ class QVerifyUnitTests(TestCase):
             tampered_count=0,
             average_authenticity_score=75.0,
         )
-        case2 = VerificationCase.objects.create(
+        VerificationCase.objects.create(
             case_ref="CUST-2",
             case_title="Test Custodian 2",
             custodian_name="Alice Auditee",  # Same custodian
@@ -459,7 +459,7 @@ class QVerifyUnitTests(TestCase):
             authentic_count=1,
             average_authenticity_score=100.0,
         )
-        case3 = VerificationCase.objects.create(
+        VerificationCase.objects.create(
             case_ref="CUST-3",
             case_title="Test Custodian 3",
             custodian_name="Bob Auditee",
@@ -493,13 +493,16 @@ class QVerifyUnitTests(TestCase):
 
     def test_get_case_risk_chart_html(self):
         from .selectors import get_case_risk_chart_html
-        
+
         # Test empty
-        html_empty = get_case_risk_chart_html({"Authentic": 0, "Suspicious": 0, "High Risk / Tampered": 0})
+        html_empty = get_case_risk_chart_html(
+            {"Authentic": 0, "Suspicious": 0, "High Risk / Tampered": 0}
+        )
         self.assertEqual(html_empty, "")
-        
+
         # Test with values
-        html = get_case_risk_chart_html({"Authentic": 5, "Suspicious": 2, "High Risk / Tampered": 1})
+        html = get_case_risk_chart_html(
+            {"Authentic": 5, "Suspicious": 2, "High Risk / Tampered": 1}
+        )
         self.assertIn("<div", html)
         self.assertIn("plotly", html.lower())
-

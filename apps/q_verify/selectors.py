@@ -7,7 +7,7 @@ import uuid
 from typing import Any
 
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, Q, QuerySet
+from django.db.models import Count, Q, QuerySet
 from django.shortcuts import get_object_or_404
 
 from .models import VerificationCase, VerifiedDocument
@@ -86,7 +86,6 @@ def get_verification_case(case_id: str | uuid.UUID) -> VerificationCase:
     Retrieves a single verification case.
     """
     return get_object_or_404(VerificationCase, id=case_id)
-
 
 
 def get_case_summary_metrics(case_id: str | uuid.UUID) -> dict[str, Any]:
