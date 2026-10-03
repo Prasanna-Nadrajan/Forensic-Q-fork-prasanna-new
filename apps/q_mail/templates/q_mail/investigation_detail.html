@@ -381,13 +381,6 @@
                     variant="emerald" />
             </div>
 
-            <!-- Analytics & Communication Graph Section -->
-            {% if chart_html %}
-            <div>
-                <c-chart title="Top Communication Counterparties" subtitle="Direct message frequency matrix for auditee network identification." icon="fa-solid fa-chart-bar" figure_html="{{ chart_html|safe }}" />
-            </div>
-            {% endif %}
-
             <!-- Quick Filter Toolbar for Standard Ledger -->
             <div class="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-3 flex-1">

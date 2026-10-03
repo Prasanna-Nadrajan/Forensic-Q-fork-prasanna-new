@@ -20,10 +20,10 @@ DEFAULT_MODULE_SPECS = {
         "num": "02",
         "category": "TRANSACTION",
         "name": "Trail",
-        "tag": "BUILDING",
+        "tag": "LIVE",
         "accent": "gold",
         "tagline": "End-to-End Money Trail Mapper",
-        "href": "/demo/sandbox/",
+        "href": "/trail/",
         "order": 2,
     },
     "q_mail": {

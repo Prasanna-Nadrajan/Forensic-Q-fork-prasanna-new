@@ -292,13 +292,10 @@ class QMailCheckpointsAndSelectorsTests(TestCase):
             )
             self.assertIn("data", page_res)
 
-        from .selectors import get_counterparty_chart_html, get_global_mailbox_stats
+        from .selectors import get_global_mailbox_stats
 
         landing_metrics = get_global_mailbox_stats()
         self.assertGreaterEqual(landing_metrics["total_mailboxes"], 1)
-
-        chart_html = get_counterparty_chart_html(self.inv.id)
-        self.assertIsInstance(chart_html, str)
 
         # Excel export view
         client = Client()
@@ -481,7 +478,7 @@ class QMailCheckpointsAndSelectorsTests(TestCase):
         session["portal_authenticated"] = True
         session.save()
 
-        # Test investigation detail view with Plotly counterparty chart
+        # Test investigation detail view
         res_detail = self.client.get(reverse("q_mail:detail", args=[inv.id]))
         self.assertEqual(res_detail.status_code, 200)
 

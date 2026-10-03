@@ -422,33 +422,3 @@ def get_attachment_by_id(attachment_id: str | uuid.UUID) -> EmailAttachment:
     Fetches an evidence attachment by its ID.
     """
     return get_object_or_404(EmailAttachment, id=attachment_id)
-
-
-def get_counterparty_chart_html(mailbox_id: str | uuid.UUID, limit: int = 8) -> str:
-    """
-    Generates an HTML snippet for the top counterparties Plotly horizontal bar chart.
-    """
-    import plotly.express as px
-
-    top_participants = get_top_counterparties(mailbox_id, limit=limit)
-    if not top_participants:
-        return ""
-
-    fig = px.bar(
-        x=[p["count"] for p in top_participants],
-        y=[p["display_name"] for p in top_participants],
-        orientation="h",
-        labels={"x": "Total Messages Exchanged", "y": "Counterparty"},
-        color_discrete_sequence=["#a855f7"],  # Purple-500
-    )
-    fig.update_layout(
-        template="plotly_dark",
-        margin={"l": 20, "r": 20, "t": 20, "b": 20},
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font={"family": "Inter, sans-serif", "color": "#a1a1aa"},
-        xaxis={"gridcolor": "#27272a", "linecolor": "#27272a"},
-        yaxis={"gridcolor": "#27272a", "linecolor": "#27272a", "autorange": "reversed"},
-        height=280,
-    )
-    return fig.to_html(full_html=False, include_plotlyjs=False)

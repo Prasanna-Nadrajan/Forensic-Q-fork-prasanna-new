@@ -1,0 +1,461 @@
+<c-base title="Q-Trail | Multi-Bank Money Trail & Network Matching Engine">
+
+    <!-- Page Header -->
+    <c-page_header title="Q-Trail"
+        subtitle="Multi-bank money trail mapping and network reconciliation engine detecting direct transfers and 1-hop pass-through conduits."
+        icon="fa-solid fa-route" icon_color="text-amber-400" back_url="/">
+
+        <c-slot name="actions">
+            <div class="flex items-center gap-2.5">
+                <a href="{% url 'q_trail:dashboard' %}?compare_all=1"
+                    class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition-all transform hover:-translate-y-0.5 cursor-pointer">
+                    <i class="fa-solid fa-arrows-split-up-and-left text-xs"></i>
+                    <span>Compare All Profiles (N-to-N)</span>
+                </a>
+            </div>
+        </c-slot>
+    </c-page_header>
+
+    <!-- Profile Selection & Parameter Controls Card -->
+    <div class="bg-white dark:bg-zinc-900 rounded-xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm mb-6"
+        x-data="{
+             selectAll: false,
+             toggleAll() {
+                 const checkboxes = document.querySelectorAll('.profile-checkbox');
+                 checkboxes.forEach(cb => cb.checked = !this.selectAll);
+                 this.selectAll = !this.selectAll;
+             }
+         }">
+
+        <form method="POST" action="{% url 'q_trail:dashboard' %}" class="space-y-4">
+            {% csrf_token %}
+
+            <div
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-zinc-800 pb-3">
+                <div>
+                    <h3 class="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-users-viewfinder text-amber-500"></i>
+                        <span>Select Investigation Profiles for Money Trail Analysis</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                        Choose 2 or more auditees to compare pairwise transfers and detect 1-hop pass-through conduits.
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="toggleAll()"
+                        class="px-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer">
+                        <i class="fa-solid fa-check-double mr-1 text-amber-500"></i>
+                        <span x-text="selectAll ? 'Deselect All' : 'Select All'"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Profile Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {% for prof in available_profiles %}
+                <label class="relative flex flex-col p-3 rounded-xl border transition-all cursor-pointer select-none
+                              {% if prof.id in selected_profile_ids %}
+                                  border-amber-500/60 bg-amber-500/5 dark:bg-amber-500/10 shadow-sm
+                              {% else %}
+                                  border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-slate-50/50 dark:bg-zinc-950/40
+                              {% endif %}">
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" name="profile_ids" value="{{ prof.id }}"
+                                class="profile-checkbox rounded border-slate-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
+                                {% if prof.id in selected_profile_ids %}checked{% endif %}>
+                            <span class="font-bold text-xs text-slate-900 dark:text-white truncate"
+                                title="{{ prof.name }}">
+                                {{ prof.name }}
+                            </span>
+                        </div>
+                        {% if prof.has_data %}
+                        <span
+                            class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                            {{ prof.transactions_count }} txns
+                        </span>
+                        {% else %}
+                        <span
+                            class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                            No bank
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="text-[11px] text-slate-500 dark:text-zinc-400 space-y-0.5 mt-auto">
+                        <div class="truncate"><i class="fa-regular fa-building text-[10px] mr-1 text-slate-400"></i>{{ prof.department }}</div>
+                        <div class="truncate">
+                            <i class="fa-solid fa-landmark text-[10px] mr-1 text-amber-500/70"></i>
+                            {% if prof.banks %}
+                            {{ prof.banks|join:", " }}
+                            {% else %}
+                            <span class="italic text-slate-400">No bank linked</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </label>
+                {% empty %}
+                <div class="col-span-full py-4 text-center text-xs text-slate-400 dark:text-zinc-500">
+                    No auditee profiles found. Please import bank statements into Q-Bank first.
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Parameters & Run Bar -->
+            <div
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <label for="time_window_days"
+                            class="text-xs font-semibold text-slate-700 dark:text-zinc-300 whitespace-nowrap">
+                            <i class="fa-regular fa-clock text-amber-500 mr-1"></i>Max Conduit Time Delta:
+                        </label>
+                        <select id="time_window_days" name="time_window_days"
+                            class="rounded-lg border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold py-1.5 px-3 text-slate-800 dark:text-zinc-200 focus:ring-amber-500 focus:border-amber-500">
+                            <option value="1" {% if time_window_days == 1 %}selected{% endif %}>1 Day (Rapid Layering)</option>
+                            <option value="3" {% if time_window_days == 3 %}selected{% endif %}>3 Days (Default Standard)</option>
+                            <option value="7" {% if time_window_days == 7 %}selected{% endif %}>7 Days (Weekly Window)</option>
+                            <option value="14" {% if time_window_days == 14 %}selected{% endif %}>14 Days (Extended Trail)</option>
+                            <option value="30" {% if time_window_days == 30 %}selected{% endif %}>30 Days (Full Month)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="save_dossier" name="save_dossier"
+                            class="rounded border-slate-300 text-amber-600 focus:ring-amber-500 h-3.5 w-3.5 cursor-pointer">
+                        <label for="save_dossier" class="text-xs text-slate-600 dark:text-zinc-400 cursor-pointer">
+                            Persist as Case Dossier
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button type="submit"
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition-all transform hover:-translate-y-0.5 cursor-pointer">
+                        <i class="fa-solid fa-play text-xs"></i>
+                        <span>Execute Money Trail Reconciliation</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Circular Loop Alert Banner (If Any Detected) -->
+    {% if circular_trails %}
+    <div class="mb-6 p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 flex items-start gap-3">
+        <div class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-arrows-spin text-base animate-spin" style="animation-duration: 4s;"></i>
+        </div>
+        <div class="text-xs">
+            <h4 class="font-bold text-sm text-rose-200">Suspicious Circular Round-Tripping Detected ({{ circular_trails|length }} Loops)</h4>
+            <p class="text-rose-300/80 mt-0.5">
+                Funds were identified leaving originating accounts and cycling back to the same entity or through
+                reciprocating conduits.
+            </p>
+            <div class="mt-2 space-y-1">
+                {% for loop in circular_trails %}
+                <div class="font-mono text-[11px] bg-rose-950/40 px-2 py-1 rounded border border-rose-500/20">
+                    <i class="fa-solid fa-circle-exclamation mr-1 text-rose-400"></i>{{ loop.description }} (Initial:
+                    ₹{{ loop.initial_amount|floatformat:2 }}, Return: ₹{{ loop.return_amount|floatformat:2 }})
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Top KPI Summary Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <c-stat_card title="Direct Volume" value="₹{{ metrics.total_direct_volume_formatted }}"
+            subtitle="{{ metrics.total_direct_transfers_count }} Direct Transfers"
+            icon="fa-solid fa-arrow-right-arrow-left" variant="emerald" />
+
+        <c-stat_card title="Direct Transfers" value="{{ metrics.total_direct_transfers_count }}"
+            subtitle="Exact UTR & Fuzzy Matches" icon="fa-solid fa-link" variant="teal" />
+
+        <c-stat_card title="1-Hop Pass-Throughs" value="{{ metrics.total_intermediate_hops_count }}"
+            subtitle="A → Conduit X → B" icon="fa-solid fa-network-wired" variant="amber" />
+
+        <c-stat_card title="Intermediaries" value="{{ metrics.unique_intermediaries_count }}"
+            subtitle="Suspected Conduit Entities" icon="fa-solid fa-user-secret" variant="rose" />
+
+        <c-stat_card title="Capital Retained" value="₹{{ metrics.total_retained_formatted }}"
+            subtitle="Conduit Fees & Margins" icon="fa-solid fa-sack-dollar" variant="slate" />
+    </div>
+
+    <!-- Visual Fund Flow Sankey Diagram Container -->
+    <div class="mb-8">
+        <c-chart title="Multi-Hop Fund Flow Sankey Architecture"
+            subtitle="Interactive graph tracing direct 1-to-1 flows and 1-hop conduits (Person X) between analyzed profiles"
+            icon="fa-solid fa-diagram-project" badge="Plotly Dark Engine" :figure_html="sankey_figure_html" />
+    </div>
+
+    <!-- Cross-Profile Pairwise Flow Matrix (N-to-N Reconciliation Grid) -->
+    <div
+        class="bg-white dark:bg-zinc-900 rounded-xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm mb-8 overflow-hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+                <h3 class="font-bold text-base text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                    <i class="fa-solid fa-table-cells text-amber-500"></i>
+                    <span>Cross-Profile Pairwise Flow Matrix (N-to-N Reconciliation)</span>
+                </h3>
+                <p class="text-xs text-slate-400 dark:text-zinc-500 mt-0.5">
+                    Fund movements mapped between all selected auditees (Direct Transfers + 1-Hop Conduit Passes).
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span
+                    class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-1 rounded-full font-mono">
+                    {{ profile_names|length }} × {{ profile_names|length }} Matrix
+                </span>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400">
+                        <th class="p-3 bg-slate-50 dark:bg-zinc-950/60 font-semibold rounded-tl-lg min-w-[160px]">
+                            Originator (From ↓) \ Recipient (To →)
+                        </th>
+                        {% for col_name in profile_names %}
+                        <th class="p-3 bg-slate-50 dark:bg-zinc-950/60 font-semibold text-center truncate min-w-[140px] max-w-[180px]"
+                            title="{{ col_name }}">
+                            {{ col_name }}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-zinc-800/60 font-mono">
+                    {% for row in pairwise_matrix %}
+                    <tr class="hover:bg-slate-50/50 dark:hover:bg-zinc-800/20 transition">
+                        <td class="p-3 font-sans font-bold text-slate-900 dark:text-white bg-slate-50/30 dark:bg-zinc-950/30 truncate max-w-[180px]"
+                            title="{{ row.source_name }}">
+                            {{ row.source_name }}
+                        </td>
+                        {% for cell in row.targets %}
+                        <td class="p-3 text-center">
+                            {% if cell.is_self %}
+                            <span class="text-slate-300 dark:text-zinc-700 select-none">—</span>
+                            {% elif cell.has_flow %}
+                            <div class="inline-flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 cursor-default"
+                                title="Direct: ₹{{ cell.direct_formatted }} ({{ cell.direct_count }} txns) | Conduit: ₹{{ cell.intermediate_formatted }} ({{ cell.intermediate_count }} hops via {{ cell.intermediaries|join:', ' }})">
+                                <span class="font-bold text-xs">₹{{ cell.total_formatted }}</span>
+                                <span class="text-[10px] text-emerald-500/90 font-sans">
+                                    {% if cell.direct_count > 0 %}{{ cell.direct_count }} direct{% endif %}
+                                    {% if cell.direct_count > 0 and cell.intermediate_count > 0 %} + {% endif %}
+                                    {% if cell.intermediate_count > 0 %}{{ cell.intermediate_count }} conduit{% endif %}
+                                </span>
+                            </div>
+                            {% else %}
+                            <span class="text-slate-400 dark:text-zinc-600 text-[11px]">₹0.00</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="100%" class="p-4 text-center text-slate-400 dark:text-zinc-500">
+                            Select 2 or more profiles to generate the cross-profile comparison matrix.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Match Tables: Direct Transfers and 1-Hop Intermediate Passes -->
+    <div class="space-y-8 mb-10" x-data="{ activeTab: 'direct' }">
+        <!-- Tab Bar -->
+        <div class="flex items-center gap-2 border-b border-slate-200 dark:border-zinc-800 pb-2">
+            <button @click="activeTab = 'direct'"
+                :class="activeTab === 'direct' ? 'bg-amber-500/10 text-amber-500 border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border-transparent'"
+                class="px-3.5 py-1.5 rounded-lg border text-xs font-bold transition flex items-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-arrows-split-up-and-left text-xs"></i>
+                <span>Direct Transfers (Rule 1)</span>
+                <span
+                    class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                    {{ direct_records|length }}
+                </span>
+            </button>
+
+            <button @click="activeTab = 'intermediate'"
+                :class="activeTab === 'intermediate' ? 'bg-amber-500/10 text-amber-500 border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border-transparent'"
+                class="px-3.5 py-1.5 rounded-lg border text-xs font-bold transition flex items-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-network-wired text-xs"></i>
+                <span>1-Hop Conduit Passes (Rule 2)</span>
+                <span
+                    class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
+                    {{ intermediate_records|length }}
+                </span>
+            </button>
+        </div>
+
+        <!-- 1. Direct Transfers Table -->
+        <div x-show="activeTab === 'direct'" x-cloak>
+            <div
+                class="bg-white dark:bg-zinc-900 rounded-xl p-4 sm:p-5 border border-slate-200 dark:border-zinc-800 shadow-sm w-full overflow-hidden">
+                <div class="flex items-center justify-between mb-3.5">
+                    <div>
+                        <h3
+                            class="font-bold text-base text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-emerald-500"></i>
+                            <span>Direct 1-to-1 Transaction Matches</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 dark:text-zinc-500 mt-0.5">
+                            Reconciled on standard UTR sequences (Tier 1) or fuzzy Date + Amount + Narration equivalence
+                            (Tier 2).
+                        </p>
+                    </div>
+                    <span
+                        class="text-xs bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 px-2.5 py-1 rounded-full font-mono">
+                        {{ direct_records|length }} Verified
+                    </span>
+                </div>
+
+                <div id="table-direct-transfers" class="w-full"></div>
+            </div>
+        </div>
+
+        <!-- 2. Intermediate Conduit Passes Table -->
+        <div x-show="activeTab === 'intermediate'" x-cloak>
+            <div
+                class="bg-white dark:bg-zinc-900 rounded-xl p-4 sm:p-5 border border-slate-200 dark:border-zinc-800 shadow-sm w-full overflow-hidden">
+                <div class="flex items-center justify-between mb-3.5">
+                    <div>
+                        <h3
+                            class="font-bold text-base text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                            <i class="fa-solid fa-user-secret text-amber-500"></i>
+                            <span>1-Hop Suspected Intermediary Conduits (Candidate X)</span>
+                        </h3>
+                        <p class="text-xs text-slate-400 dark:text-zinc-500 mt-0.5">
+                            Matches where funds flowed from Person A to Intermediary X, and subsequently to Person B
+                            within {{ time_window_days }} days.
+                        </p>
+                    </div>
+                    <span
+                        class="text-xs bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 px-2.5 py-1 rounded-full font-mono">
+                        {{ intermediate_records|length }} Hops
+                    </span>
+                </div>
+
+                <div id="table-intermediate-transfers" class="w-full"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client-side Tabulator Initialization -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Direct Transfers Table
+            const directData = {{ direct_records_json|safe }};
+        const directColumns = [
+            {
+                title: "Method", field: "Match_Method", width: 140, formatter: function (cell) {
+                    const val = cell.getValue();
+                    if (val === "UTR_EXACT") {
+                        return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">UTR EXACT</span>';
+                    }
+                    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">FUZZY FALLBACK</span>';
+                }
+            },
+            {
+                title: "Direction", field: "Direction", width: 110, formatter: function (cell) {
+                    return '<span class="font-mono text-xs font-semibold text-slate-300">' + cell.getValue() + '</span>';
+                }
+            },
+            { title: "Originator (A)", field: "Sender_Person", width: 150 },
+            { title: "Recipient (B)", field: "Recipient_Person", width: 150 },
+            {
+                title: "Amount", field: "Amount_Formatted", width: 130, hozAlign: "right", formatter: function (cell) {
+                    return '<span class="font-mono font-bold text-emerald-400">' + cell.getValue() + '</span>';
+                }
+            },
+            { title: "Transfer Date", field: "Transfer_Date", width: 120 },
+            {
+                title: "UTR / Reference", field: "UTR", width: 180, formatter: function (cell) {
+                    return '<span class="font-mono text-xs text-sky-400">' + (cell.getValue() || 'N/A') + '</span>';
+                }
+            },
+            { title: "Sender Narration", field: "Sender_Narration", minWidth: 220, tooltip: true },
+            { title: "Recipient Narration", field: "Recipient_Narration", minWidth: 220, tooltip: true },
+        ];
+
+        new Tabulator("#table-direct-transfers", {
+            data: directData,
+            columns: directColumns,
+            layout: "fitColumns",
+            pagination: "local",
+            paginationSize: 10,
+            paginationSizeSelector: [5, 10, 25, 50],
+            movableColumns: true,
+            placeholder: "No direct 1-to-1 transfers identified between the selected profiles.",
+        });
+
+        // Intermediate Transfers Table
+        const intermediateData = {{ intermediate_records_json|safe }};
+        const intermediateColumns = [
+            {
+                title: "Conduit Intermediary (X)", field: "Intermediary_Entity", width: 190, formatter: function (cell) {
+                    return '<span class="font-bold text-amber-400 flex items-center gap-1.5"><i class="fa-solid fa-user-tag text-xs"></i>' + cell.getValue() + '</span>';
+                }
+            },
+            { title: "Originator (A)", field: "Sender_Person", width: 140 },
+            { title: "Beneficiary (B)", field: "Recipient_Person", width: 140 },
+            { title: "Outflow Date", field: "Outflow_Date", width: 110 },
+            { title: "Inflow Date", field: "Inflow_Date", width: 110 },
+            {
+                title: "Delta", field: "Time_Delta_Days", width: 90, hozAlign: "center", formatter: function (cell) {
+                    return '<span class="font-mono text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">' + cell.getValue() + ' d</span>';
+                }
+            },
+            {
+                title: "Outflow (A→X)", field: "Outflow_Formatted", width: 130, hozAlign: "right", formatter: function (cell) {
+                    return '<span class="font-mono font-semibold text-slate-300">' + cell.getValue() + '</span>';
+                }
+            },
+            {
+                title: "Inflow (X→B)", field: "Inflow_Formatted", width: 130, hozAlign: "right", formatter: function (cell) {
+                    return '<span class="font-mono font-semibold text-emerald-400">' + cell.getValue() + '</span>';
+                }
+            },
+            {
+                title: "Retained Margin", field: "Retention_Formatted", width: 130, hozAlign: "right", formatter: function (cell) {
+                    return '<span class="font-mono text-xs text-rose-400">' + cell.getValue() + '</span>';
+                }
+            },
+            {
+                title: "Retention %", field: "Retention_Pct_Str", width: 100, hozAlign: "center", formatter: function (cell) {
+                    const row = cell.getRow().getData();
+                    const pct = parseFloat(row.Retention_Pct || 0);
+                    const color = pct > 0 ? 'text-amber-400' : 'text-slate-500';
+                    return '<span class="font-mono text-xs ' + color + '">' + cell.getValue() + '</span>';
+                }
+            },
+            {
+                title: "Outflow UTR", field: "Outflow_UTR", width: 150, formatter: function (cell) {
+                    return '<span class="font-mono text-[11px] text-zinc-400">' + cell.getValue() + '</span>';
+                }
+            },
+            {
+                title: "Inflow UTR", field: "Inflow_UTR", width: 150, formatter: function (cell) {
+                    return '<span class="font-mono text-[11px] text-zinc-400">' + cell.getValue() + '</span>';
+                }
+            },
+        ];
+
+        new Tabulator("#table-intermediate-transfers", {
+            data: intermediateData,
+            columns: intermediateColumns,
+            layout: "fitColumns",
+            pagination: "local",
+            paginationSize: 10,
+            paginationSizeSelector: [5, 10, 25, 50],
+            movableColumns: true,
+            placeholder: "No 1-hop conduit transactions detected between the selected profiles within the configured time delta.",
+        });
+        });
+    </script>
+</c-base>

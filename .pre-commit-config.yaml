@@ -2,17 +2,27 @@
 # See https://pre-commit.com for more information
 
 repos:
-  - repo: https://github.com/adamchainz/django-upgrade
-    rev: 1.22.2
-    hooks:
-      - id: django-upgrade
-        args: [--target-version, "5.0"]
-
   - repo: local
     hooks:
+      - id: ruff-check
+        name: Ruff Linter (Auto-Fix)
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+        exclude: migrations/
+
+      - id: ruff-format
+        name: Ruff Formatter
+        entry: uv run ruff format
+        language: system
+        types: [python]
+        exclude: migrations/
+
       - id: forensiq-validator
         name: ForensiQ Quality, Django & Doc Validator
         entry: uv run python scripts/validate_project.py
         language: system
         pass_filenames: false
         always_run: true
+
+

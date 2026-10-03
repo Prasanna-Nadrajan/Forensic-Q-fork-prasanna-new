@@ -19,6 +19,7 @@ urlpatterns = [
     path("chat/", include("q_chat.urls")),
     path("ledger/", include("q_ledger.urls")),
     path("voice/", include("q_voice.urls")),
+    path("trail/", include("q_trail.urls")),
 ]
 
 if settings.DEBUG:
