@@ -258,6 +258,7 @@ def get_checkpoint_tables(
     if filtered_df is None or filtered_df.empty:
         empty = {"columns": [], "rows": [], "count": 0}
         return {
+            "checkpoint_prpo": empty,
             "checkpoint_material": empty,
             "checkpoint_ersa": empty,
             "checkpoint_openpo": empty,
@@ -268,6 +269,13 @@ def get_checkpoint_tables(
         }
 
     df2_safe = df2.copy() if df2 is not None else filtered_df.copy()
+
+    # 0. PR/PO List
+    try:
+        cp_prpo = prepare_table_dict(filtered_df.copy())
+    except Exception as exc:
+        logger.debug("PRPO table error: {}", exc)
+        cp_prpo = {"error": str(exc), "columns": [], "rows": [], "count": 0}
 
     # 1. Material
     try:
@@ -329,6 +337,7 @@ def get_checkpoint_tables(
         cp_receipt1year = {"error": str(exc), "columns": [], "rows": [], "count": 0}
 
     return {
+        "checkpoint_prpo": cp_prpo,
         "checkpoint_material": cp_material,
         "checkpoint_ersa": cp_ersa,
         "checkpoint_openpo": cp_openpo,

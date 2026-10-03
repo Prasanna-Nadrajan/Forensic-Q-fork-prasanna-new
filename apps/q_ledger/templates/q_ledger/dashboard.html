@@ -288,7 +288,7 @@
     <!-- ============================================================ -->
     <!-- 7 FORENSIC ANOMALY CHECKPOINTS (Interactive Tabs) -->
     <!-- ============================================================ -->
-    <div x-data="{ activeTab: 'material' }" class="mb-12">
+    <div x-data="{ activeTab: 'prpo' }" class="mb-12">
         
         <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div>
@@ -296,13 +296,21 @@
                     <i class="fa-solid fa-microscope text-amber-500"></i>
                     <span>Forensic Audit Checkpoints</span>
                 </h3>
-                <p class="text-xs text-theme-muted mt-0.5">7 specialized forensic detection algorithms running across the ERP dataset.</p>
+                <p class="text-xs text-theme-muted mt-0.5">8 specialized forensic detection algorithms running across the ERP dataset.</p>
             </div>
         </div>
 
         <!-- Tab Navigation Navigation Pills -->
         <div class="flex items-center space-x-2 overflow-x-auto pb-3 mb-4 scrollbar-thin">
             
+            <button type="button" @click="activeTab = 'prpo'"
+                :class="activeTab === 'prpo' ? 'bg-amber-500 text-zinc-950 font-bold' : 'bg-theme-surface text-theme-muted hover:text-theme-text border border-theme-border'"
+                class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center space-x-2 shadow-sm">
+                <i class="fa-solid fa-file-invoice text-xs"></i>
+                <span>PR/PO List</span>
+                <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10">{{ checkpoint_prpo.count|default:"0" }}</span>
+            </button>
+
             <button type="button" @click="activeTab = 'material'"
                 :class="activeTab === 'material' ? 'bg-amber-500 text-zinc-950 font-bold' : 'bg-theme-surface text-theme-muted hover:text-theme-text border border-theme-border'"
                 class="px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition cursor-pointer flex items-center space-x-2 shadow-sm">
@@ -364,6 +372,19 @@
         <!-- Checkpoint Content Panels -->
         <div class="bg-theme-surface border border-theme-border rounded-2xl p-5 shadow-sm">
             
+            <!-- Tab 0: PR/PO List -->
+            <div x-show="activeTab === 'prpo'" class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-sm font-bold text-theme-text">Purchase Requisition & Order List</h4>
+                        <p class="text-xs text-theme-muted">Raw filtered PR/PO data for the selected vendor.</p>
+                    </div>
+                    <span class="text-xs font-mono text-amber-500">{{ checkpoint_prpo.count|default:"0" }} Rows</span>
+                </div>
+                
+                {% include "q_ledger/includes/table_view.html" with table_id="table-prpo" table_data=checkpoint_prpo %}
+            </div>
+
             <!-- Tab 1: Material List -->
             <div x-show="activeTab === 'material'" class="space-y-4">
                 <div class="flex items-center justify-between">
