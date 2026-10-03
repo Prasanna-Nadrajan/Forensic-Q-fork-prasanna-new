@@ -14,7 +14,6 @@ from loguru import logger
 
 from .selectors import (
     get_attachment_by_id,
-    get_counterparty_chart_html,
     get_email_detail,
     get_global_mailbox_stats,
     get_investigation_summary_metrics,
@@ -357,16 +356,12 @@ def investigation_detail_view(request: HttpRequest, mailbox_id: str) -> HttpResp
     summary = get_investigation_summary_metrics(mailbox_id)
     inv = summary["investigation"]
 
-    # Plotly Top Counterparties Bar Chart
-    chart_html = get_counterparty_chart_html(mailbox_id, limit=8)
-
     return render(
         request,
         "q_mail/investigation_detail.html",
         {
             "investigation": inv,
             "summary": summary,
-            "chart_html": chart_html,
         },
     )
 
