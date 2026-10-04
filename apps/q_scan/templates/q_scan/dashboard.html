@@ -29,237 +29,137 @@
         </div>
     </c-page_header>
 
-    <!-- Top KPI Summary Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <c-stat_card 
-            title="Audited Endpoints" 
-            value="{{ metrics.total_devices }}" 
-            subtitle="Scanned Host Machines" 
-            icon="fa-solid fa-desktop" 
-            variant="slate" />
-            
-        <c-stat_card 
-            title="Total Keyword Hits" 
-            value="{{ metrics.total_hits }}" 
-            subtitle="Matched Files & Snippets" 
-            icon="fa-solid fa-magnifying-glass-chart" 
-            variant="teal" />
-            
-        <c-stat_card 
-            title="High-Risk Hits" 
-            value="{{ metrics.high_risk_hits }}" 
-            subtitle="Passwords, Keys, Credentials" 
-            icon="fa-solid fa-triangle-exclamation" 
-            variant="rose" />
-            
-        <c-stat_card 
-            title="Reviewed Findings" 
-            value="{{ metrics.reviewed_hits }}" 
-            subtitle="Investigator Verified" 
-            icon="fa-solid fa-clipboard-check" 
-            variant="emerald" />
-    </div>
 
-    <!-- Pre-Compiled Standalone Auditor Binary Direct Download Banner -->
-    <div class="mb-8 p-5 rounded-2xl bg-gradient-to-r from-teal-950/50 via-slate-900/70 to-zinc-900/90 border border-teal-700/50 shadow-lg backdrop-blur-md">
-        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
-            <div class="flex items-center gap-3.5">
-                <div class="w-12 h-12 rounded-xl bg-teal-500/15 border border-teal-500/40 flex items-center justify-center text-teal-400 shrink-0 shadow-inner">
-                    <i class="fa-solid fa-download text-xl"></i>
-                </div>
-                <div>
-                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                        <span>Pre-Compiled Endpoint Scanner (Ready to Run)</span>
-                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">Standalone .EXE Ready</span>
-                    </h3>
-                    <p class="text-xs text-slate-300 mt-0.5">
-                        Download <code class="text-teal-300 font-mono text-[11px] font-bold">q_scan.exe</code> directly onto the auditee's PC or a USB drive. Double-click to run — zero installation, zero Python dependencies.
-                    </p>
-                </div>
-            </div>
 
-            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
-                <a href="{% url 'q_scan:download_tool' 'q_scan.exe' %}" 
-                   class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-zinc-950 text-xs font-bold shadow-md shadow-teal-500/20 transition-all transform hover:-translate-y-0.5">
-                    <i class="fa-solid fa-download text-sm"></i>
-                    <span>Download q_scan.exe (7.4 MB)</span>
-                </a>
-                <a href="{% url 'q_scan:download_tool' 'q_scan_package.zip' %}" 
-                   class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors">
-                    <i class="fa-solid fa-file-zipper text-amber-400"></i>
-                    <span>ZIP Package (.exe + config)</span>
-                </a>
-                <button onclick="openToolModal()" 
-                        class="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 text-xs border border-zinc-700 transition-colors cursor-pointer">
-                    <i class="fa-solid fa-circle-question text-teal-400"></i>
-                    <span>How it works</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Scanned Endpoints Case List -->
+    <!-- Target Custodians / Auditees Directory -->
     <div class="mb-8" x-data="{
         searchQuery: '',
-        matches(host, title, cust, drive) {
+        matches(name, dept, email) {
             if (!this.searchQuery) return true;
             const q = this.searchQuery.toLowerCase().trim();
-            return (host + ' ' + title + ' ' + cust + ' ' + drive).toLowerCase().includes(q);
+            return (name + ' ' + dept + ' ' + email).toLowerCase().includes(q);
         }
     }">
-        <c-card title="Audited Endpoints Directory" subtitle="Originating host machines and triage scan reports." icon="fa-solid fa-network-wired" icon_color="text-teal-400">
-            <c-slot name="actions">
-                <div class="flex items-center gap-3">
-                    <div class="relative w-48 sm:w-64">
-                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                        <input type="text" x-model="searchQuery" placeholder="Search endpoints directory..."
-                            class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-teal-500">
-                        <button type="button" x-show="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
-                            <i class="fa-solid fa-xmark text-xs"></i>
-                        </button>
-                    </div>
-                    <span class="text-xs font-mono text-slate-400 dark:text-zinc-500 whitespace-nowrap">{{ devices.count }} Endpoint(s) Configured</span>
-                </div>
-            </c-slot>
-
-            {% if devices %}
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="border-b border-slate-200 dark:border-zinc-800 text-[11px] font-mono uppercase tracking-wider text-slate-400 dark:text-zinc-500">
-                                <th class="py-3 px-4">Host Name</th>
-                                <th class="py-3 px-4">Campaign Title & Custodian</th>
-                                <th class="py-3 px-4">Drive Target</th>
-                                <th class="py-3 px-4 text-center">Keyword Hits</th>
-                                <th class="py-3 px-4 text-center">Data Scanned</th>
-                                <th class="py-3 px-4">Scan Date</th>
-                                <th class="py-3 px-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 dark:divide-zinc-800/60 text-xs">
-                            {% for dev in devices %}
-                            <tr x-show="matches('{{ dev.hostname|escapejs }}', '{{ dev.scan_title|escapejs }}', '{{ dev.custodian_name|escapejs }}', '{{ dev.drive_letter|escapejs }}')"
-                                class="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-colors">
-                                <td class="py-3 px-4">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fa-solid fa-desktop text-teal-400"></i>
-                                        <span class="font-bold text-slate-800 dark:text-zinc-100">{{ dev.hostname }}</span>
-                                    </div>
-                                </td>
-                                <td class="py-3 px-4">
-                                    <div class="font-medium text-slate-700 dark:text-zinc-300">{{ dev.scan_title|default:"Endpoint Scan" }}</div>
-                                    <div class="text-[11px] text-slate-400 font-mono">{{ dev.custodian_name|default:"Unassigned" }}</div>
-                                </td>
-                                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-zinc-400">
-                                    {{ dev.drive_letter|default:"C:\\" }}
-                                </td>
-                                <td class="py-3 px-4 text-center">
-                                    <span class="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold {% if dev.total_matches_found > 0 %}bg-teal-500/10 text-teal-400 border border-teal-500/20{% else %}bg-slate-500/10 text-slate-400{% endif %}">
-                                        {{ dev.total_matches_found }}
-                                    </span>
-                                </td>
-                                <td class="py-3 px-4 text-center font-mono text-[11px] text-slate-400">
-                                    {{ dev.total_bytes_scanned|filesizeformat }}
-                                </td>
-                                <td class="py-3 px-4 font-mono text-[11px] text-slate-400">
-                                    {{ dev.created_at|date:"Y-m-d H:i" }}
-                                </td>
-                                <td class="py-3 px-4 text-right">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <a href="{% url 'q_scan:device_detail' dev.id %}" 
-                                           class="px-2.5 py-1 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 text-xs font-semibold transition-colors">
-                                            View Hits
-                                        </a>
-                                        <form method="POST" action="{% url 'q_scan:delete_device' dev.id %}" onsubmit="return confirm('Are you sure you want to delete this scan case and all its hits?');" class="inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="p-1 rounded text-slate-400 hover:text-rose-400 transition-colors">
-                                                <i class="fa-solid fa-trash-can"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                            <tr x-cloak x-show="searchQuery && !Array.from($el.parentElement.querySelectorAll('tr[x-show*=\'matches\']')).some(el => el.style.display !== 'none')">
-                                <td colspan="7" class="py-10 text-center text-slate-400 bg-slate-50/50 dark:bg-zinc-800/20">
-                                    <i class="fa-solid fa-magnifying-glass text-xl mb-1 block"></i>
-                                    <p class="text-xs font-semibold">No endpoints matching "<span x-text="searchQuery"></span>"</p>
-                                    <button type="button" @click="searchQuery = ''" class="mt-1 text-xs text-teal-400 hover:underline font-semibold cursor-pointer">
-                                        Clear search filter
-                                    </button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="text-center py-10">
-                    <i class="fa-solid fa-hard-drive text-4xl text-slate-600 dark:text-zinc-600 mb-3 block"></i>
-                    <p class="text-sm font-semibold text-slate-300">No Audited Endpoints Found</p>
-                    <p class="text-xs text-slate-500 mt-1">Run <code class="text-teal-400 font-mono">q_scan.exe</code> on a workstation and upload the generated <code class="text-teal-400 font-mono">scan_results.csv</code>.</p>
-                    <div class="mt-4 flex items-center justify-center gap-3">
-                        <a href="{% url 'q_scan:download_tool' 'q_scan.exe' %}" class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md">
-                            <i class="fa-solid fa-download mr-1.5"></i> Download q_scan.exe
-                        </a>
-                        <button onclick="openUploadModal()" class="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 cursor-pointer">
-                            <i class="fa-solid fa-file-arrow-up mr-1.5"></i> Upload CSV Report
-                        </button>
-                    </div>
-                </div>
-            {% endif %}
-        </c-card>
-    </div>
-
-    <!-- Interactive Tabulator Forensic Evidence Grid -->
-    <c-card title="Master Evidence Keyword Hits" subtitle="Correlated findings across all endpoints with surrounding text excerpts." icon="fa-solid fa-table-list" icon_color="text-teal-400">
-        <c-slot name="actions">
-            <div class="flex items-center gap-2">
-                <a href="{% url 'q_scan:export_csv' %}" 
-                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors">
-                    <i class="fa-solid fa-file-export text-teal-400"></i>
-                    <span>Export CSV</span>
-                </a>
-                <button id="tabulator-download-json" 
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer">
-                    <i class="fa-solid fa-code text-amber-400"></i>
-                    <span>Export JSON</span>
-                </button>
-            </div>
-        </c-slot>
-
-        <!-- Filter Controls -->
-        <div class="mb-4 flex flex-wrap items-center gap-3">
-            <div class="relative flex-1 min-w-[240px]">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                <input type="text" id="grid-search" placeholder="Search paths, keywords, snippets, filenames..." 
-                       class="w-full pl-8 pr-4 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800/80 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-teal-500">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-id-card-clip text-teal-400"></i>
+                    <span>Target Custodians Directory</span>
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                    Click any target custodian to explore all their linked scanned endpoint devices, files, and keyword hits.
+                </p>
             </div>
 
-            <select id="filter-match-type" class="px-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800/80 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-teal-500">
-                <option value="">All Match Types</option>
-                <option value="FILENAME">File Name Match</option>
-                <option value="CONTENT_TEXT">Text / Code Match</option>
-                <option value="CONTENT_DOCX">Word (.docx) Match</option>
-                <option value="CONTENT_XLSX">Excel (.xlsx) Match</option>
-                <option value="CONTENT_PPTX">PowerPoint (.pptx) Match</option>
-                <option value="CONTENT_ZIP_ENTRY">Zip Entry Match</option>
-                <option value="CONTENT_ZIP_OFFICE">Zip Nested Document Match</option>
-            </select>
-
-            <select id="filter-risk" class="px-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800/80 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-teal-500">
-                <option value="">All Risk Levels</option>
-                <option value="high">High Risk (Score &ge; 70)</option>
-                <option value="medium">Medium Risk (40 - 69)</option>
-                <option value="low">Low Risk (&lt; 40)</option>
-            </select>
-
-            <button id="clear-filters-btn" class="px-3 py-1.5 text-xs rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors cursor-pointer">
-                Reset
-            </button>
+            <div class="flex items-center gap-3">
+                <div class="relative w-full sm:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" x-model="searchQuery" placeholder="Search custodians directory..."
+                        class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-teal-500">
+                    <button type="button" x-show="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                </div>
+                <span class="text-xs font-mono text-slate-400 font-semibold whitespace-nowrap">{{ custodian_profiles|length }} Custodian(s) Configured</span>
+            </div>
         </div>
 
-        <div id="evidence-table" class="min-h-[420px] rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800"></div>
-    </c-card>
+        {% if custodian_profiles %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {% for p in custodian_profiles %}
+                <div x-show="matches('{{ p.custodian_name|escapejs }}', '{{ p.custodian_department|escapejs }}', '{{ p.custodian_email|escapejs }}')"
+                     class="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 p-5 shadow-sm hover:border-teal-500/50 dark:hover:border-teal-500/40 transition-all flex flex-col justify-between">
+                    <div>
+                        <!-- Custodian Header -->
+                        <div class="flex items-start justify-between gap-3 mb-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 font-bold shrink-0 text-base">
+                                    <i class="fa-solid fa-user-shield"></i>
+                                </div>
+                                <div class="truncate">
+                                    <h4 class="font-bold text-slate-900 dark:text-white text-sm truncate">
+                                        {{ p.custodian_name }}
+                                    </h4>
+                                    <div class="text-[11px] text-slate-400 font-mono truncate">
+                                        {{ p.custodian_department|default:"General Auditee" }}{% if p.custodian_email %} &bull; {{ p.custodian_email }}{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Aggregate Forensic Stats Grid -->
+                        <div class="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-zinc-800/40 rounded-xl p-3 border border-slate-100 dark:border-zinc-800 text-xs font-mono mb-3">
+                            <div>
+                                <span class="text-[10px] uppercase text-slate-400 block">Endpoints</span>
+                                <span class="font-bold text-slate-800 dark:text-zinc-200">{{ p.total_devices }} devices</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] uppercase text-slate-400 block">Data Scanned</span>
+                                <span class="font-bold text-teal-400">{{ p.total_bytes_scanned|filesizeformat }}</span>
+                            </div>
+                            <div class="pt-1 border-t border-slate-200/50 dark:border-zinc-700/50">
+                                <span class="text-[10px] uppercase text-slate-400 block">Total Files</span>
+                                <span class="font-bold text-slate-800 dark:text-zinc-300">{{ p.total_files_scanned }} files</span>
+                            </div>
+                            <div class="pt-1 border-t border-slate-200/50 dark:border-zinc-700/50">
+                                <span class="text-[10px] uppercase text-slate-400 block">Keyword Hits</span>
+                                <span class="font-bold text-rose-500">{{ p.total_matches_found }} hits</span>
+                            </div>
+                        </div>
+
+                        <!-- Linked Devices Badges Preview -->
+                        <div class="mb-4">
+                            <span class="text-[10px] uppercase tracking-wider text-slate-400 block mb-1 font-semibold">Linked Endpoints:</span>
+                            <div class="flex flex-wrap gap-1.5">
+                                {% for d in p.devices %}
+                                    <a href="{% url 'q_scan:device_detail' d.id %}" class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 truncate max-w-[180px] hover:border-teal-400 transition-colors" title="{{ d.scan_title }} ({{ d.hostname }})">
+                                        {{ d.hostname }}
+                                    </a>
+                                {% empty %}
+                                    <span class="text-[11px] text-slate-400 italic">No devices scanned yet</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                        {% if p.devices %}
+                        <a href="{% url 'q_scan:device_detail' p.devices.0.id %}"
+                           class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md shadow-teal-600/20 transition-all cursor-pointer">
+                            <span>Open Analysis</span>
+                            <i class="fa-solid fa-arrow-right text-[11px]"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                <div x-cloak x-show="searchQuery && !Array.from($el.parentElement.querySelectorAll('[x-show*=\'matches\']')).some(el => el.style.display !== 'none')"
+                     class="col-span-full py-10 text-center bg-slate-50 dark:bg-zinc-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800">
+                    <i class="fa-solid fa-magnifying-glass text-2xl text-slate-400 mb-2 block"></i>
+                    <p class="text-xs font-semibold text-slate-600 dark:text-zinc-300">No custodians found matching "<span x-text="searchQuery"></span>"</p>
+                    <button type="button" @click="searchQuery = ''" class="mt-2 text-xs text-teal-500 hover:underline font-semibold cursor-pointer">
+                        Clear search filter
+                    </button>
+                </div>
+            </div>
+        {% else %}
+            <div class="p-12 text-center bg-white dark:bg-zinc-900 rounded-2xl border border-dashed border-slate-300 dark:border-zinc-800">
+                <div class="w-16 h-16 rounded-2xl bg-teal-500/10 text-teal-400 mx-auto flex items-center justify-center text-2xl mb-4">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <h4 class="text-base font-bold text-slate-900 dark:text-white mb-1">No Custodian Profiles Yet</h4>
+                <p class="text-xs text-slate-400 max-w-md mx-auto mb-6">Import a Q-Scan endpoint scan result CSV to start building custodian profiles for endpoint forensic analysis.</p>
+                <div class="flex items-center justify-center gap-3">
+                    <button onclick="openUploadModal()" class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-lg shadow-teal-600/20 cursor-pointer">
+                        <i class="fa-solid fa-file-arrow-up mr-1.5"></i> Import Scan Findings
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+
 
     <!-- Upload Evidence CSV Modal -->
     <div id="upload-modal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -323,331 +223,14 @@
         </div>
     </div>
 
-    <!-- Auditor Tools & Instructions Modal -->
-    <div id="tool-modal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button onclick="closeToolModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-lg">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-
-            <div class="flex items-center gap-3 mb-4">
-                <div class="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
-                    <i class="fa-solid fa-circle-check text-lg"></i>
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-white">How to Run Q-Scan on Target Machine</h3>
-                    <p class="text-xs text-zinc-400">Pre-compiled Windows executable — no setup or installation required.</p>
-                </div>
-            </div>
-
-            <div class="space-y-3 text-xs text-zinc-300">
-                <div class="p-3.5 rounded-xl bg-zinc-800/60 border border-zinc-700/60 flex items-start gap-3">
-                    <span class="w-6 h-6 rounded-full bg-teal-500/20 text-teal-300 font-mono font-bold flex items-center justify-center shrink-0">1</span>
-                    <div>
-                        <h4 class="font-bold text-white mb-0.5">Download Executable onto Auditee PC</h4>
-                        <p class="text-zinc-400">Download <code class="text-teal-300 font-mono">q_scan.exe</code> directly onto the auditee's workstation or onto a USB drive.</p>
-                    </div>
-                </div>
-
-                <div class="p-3.5 rounded-xl bg-zinc-800/60 border border-zinc-700/60 flex items-start gap-3">
-                    <span class="w-6 h-6 rounded-full bg-teal-500/20 text-teal-300 font-mono font-bold flex items-center justify-center shrink-0">2</span>
-                    <div>
-                        <h4 class="font-bold text-white mb-0.5">Double-Click to Start Scanning</h4>
-                        <p class="text-zinc-400">Double-click <code class="text-teal-300 font-mono">q_scan.exe</code>. It scans <code class="text-teal-300 font-mono">C:\</code> (or paths configured in <code class="text-teal-300 font-mono">config.json</code>) and streams matches live into <code class="text-teal-300 font-mono">scan_results.csv</code>.</p>
-                    </div>
-                </div>
-
-                <div class="p-3.5 rounded-xl bg-zinc-800/60 border border-zinc-700/60 flex items-start gap-3">
-                    <span class="w-6 h-6 rounded-full bg-teal-500/20 text-teal-300 font-mono font-bold flex items-center justify-center shrink-0">3</span>
-                    <div>
-                        <h4 class="font-bold text-white mb-0.5">Upload Evidence CSV to ForensiQ</h4>
-                        <p class="text-zinc-400">Click <strong>Import Scan Results CSV</strong> on this page and upload the resulting <code class="text-teal-300 font-mono">scan_results.csv</code> file to view the full investigation dashboard.</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-5 pt-3 border-t border-zinc-800 flex items-center justify-between">
-                <a href="{% url 'q_scan:download_tool' 'q_scan.exe' %}" 
-                   class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md">
-                    <i class="fa-solid fa-download"></i>
-                    <span>Download q_scan.exe (7.4 MB)</span>
-                </a>
-                <button type="button" onclick="closeToolModal()" class="px-4 py-2 text-xs rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold cursor-pointer">
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tabulator Initialization Script -->
+    <!-- Script -->
     <script>
-        let table = null;
-        let debounceTimer = null;
-
-        function applyFilters() {
-            if (table) table.setData();
-        }
-
-        function resetFilters() {
-            const searchInput = document.getElementById("grid-search");
-            const matchTypeSelect = document.getElementById("filter-match-type");
-            const riskSelect = document.getElementById("filter-risk");
-            if (searchInput) searchInput.value = "";
-            if (matchTypeSelect) matchTypeSelect.value = "";
-            if (riskSelect) riskSelect.value = "";
-            applyFilters();
-        }
-
-        function copyPath(event, text, label) {
-            if (event) {
-                event.stopPropagation();
-                event.preventDefault();
-            }
-            if (!text) return;
-
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text).then(() => {
-                    showToast(`Copied ${label}: ${text}`);
-                }).catch(() => {
-                    fallbackCopy(text, label);
-                });
-            } else {
-                fallbackCopy(text, label);
-            }
-        }
-
-        function fallbackCopy(text, label) {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "fixed";
-            textArea.style.left = "-999999px";
-            textArea.style.top = "-999999px";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                showToast(`Copied ${label}: ${text}`);
-            } catch (err) {
-                console.error('Fallback copy failed', err);
-            }
-            document.body.removeChild(textArea);
-        }
-
-        function showToast(message) {
-            let container = document.getElementById("toast-container");
-            if (!container) {
-                container = document.createElement("div");
-                container.id = "toast-container";
-                container.className = "fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-lg pointer-events-none";
-                document.body.appendChild(container);
-            }
-
-            const toast = document.createElement("div");
-            toast.className = "flex items-center gap-2.5 px-4 py-3 rounded-xl bg-zinc-900/95 border border-teal-500/40 text-white shadow-2xl shadow-teal-500/10 text-xs font-mono transform translate-y-2 opacity-0 transition-all duration-300 pointer-events-auto backdrop-blur-md";
-            
-            const icon = document.createElement("i");
-            icon.className = "fa-solid fa-circle-check text-emerald-400 text-sm shrink-0";
-            
-            const textEl = document.createElement("div");
-            textEl.className = "truncate flex-1 font-sans text-xs text-zinc-200";
-            textEl.textContent = message;
-
-            toast.appendChild(icon);
-            toast.appendChild(textEl);
-            container.appendChild(toast);
-
-            requestAnimationFrame(() => {
-                toast.classList.remove("translate-y-2", "opacity-0");
-            });
-
-            setTimeout(() => {
-                toast.classList.add("opacity-0", "translate-y-2");
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            table = new Tabulator("#evidence-table", {
-                ajaxURL: "{% url 'q_scan:hits_api' %}",
-                ajaxConfig: "GET",
-                ajaxParams: function () {
-                    return {
-                        search: document.getElementById("grid-search")?.value || "",
-                        match_type: document.getElementById("filter-match-type")?.value || "",
-                        risk_level: document.getElementById("filter-risk")?.value || "",
-                    };
-                },
-                pagination: true,
-                paginationMode: "remote",
-                paginationSize: 25,
-                paginationSizeSelector: [25, 50, 100, 250],
-                sortMode: "remote",
-                layout: "fitColumns",
-                responsiveLayout: "collapse",
-                placeholder: "No forensic evidence hits found matching current filters",
-                initialSort: [{ column: "risk_score", dir: "desc" }],
-                columns: [
-                    {
-                        title: "Risk",
-                        field: "risk_score",
-                        width: 80,
-                        headerSort: true,
-                        formatter: function (cell) {
-                            const val = cell.getValue();
-                            let badgeClass = "bg-slate-500/10 text-slate-400 border-slate-500/20";
-                            if (val >= 70) badgeClass = "bg-rose-500/10 text-rose-400 border-rose-500/30";
-                            else if (val >= 40) badgeClass = "bg-amber-500/10 text-amber-400 border-amber-500/30";
-                            return `<span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold border ${badgeClass}">${val}</span>`;
-                        }
-                    },
-                    {
-                        title: "Host",
-                        field: "hostname",
-                        width: 130,
-                        headerSort: true,
-                        formatter: function (cell) {
-                            return `<span class="font-bold text-slate-800 dark:text-zinc-200">${cell.getValue()}</span>`;
-                        }
-                    },
-                    {
-                        title: "Keyword",
-                        field: "matched_keyword",
-                        width: 130,
-                        headerSort: true,
-                        formatter: function (cell) {
-                            return `<span class="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-teal-500/15 text-teal-400 border border-teal-500/30">${cell.getValue()}</span>`;
-                        }
-                    },
-                    {
-                        title: "Match Type",
-                        field: "match_type_label",
-                        width: 135,
-                        headerSort: false,
-                        formatter: function (cell) {
-                            return `<span class="text-[11px] font-mono text-slate-400">${cell.getValue()}</span>`;
-                        }
-                    },
-                    {
-                        title: "Filename & Location",
-                        field: "filename",
-                        minWidth: 230,
-                        headerSort: true,
-                        formatter: function (cell) {
-                            const data = cell.getRow().getData();
-                            const folder = data.folder_path || "";
-                            const fullPath = data.file_path || "";
-                            return `
-                                <div class="py-0.5">
-                                    <div class="font-mono text-xs text-slate-800 dark:text-zinc-200 font-semibold truncate" title="${fullPath.replace(/"/g, '&quot;')}">
-                                        ${cell.getValue()}
-                                    </div>
-                                    <div class="font-mono text-[10px] text-slate-400 dark:text-zinc-500 truncate flex items-center gap-1 mt-0.5" title="${folder.replace(/"/g, '&quot;')}">
-                                        <i class="fa-solid fa-folder text-amber-400/80 text-[9px] shrink-0"></i>
-                                        <span class="truncate">${folder || '-'}</span>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    },
-                    {
-                        title: "Copy Path",
-                        field: "folder_path",
-                        width: 140,
-                        hozAlign: "center",
-                        headerSort: false,
-                        formatter: function (cell) {
-                            const data = cell.getRow().getData();
-                            const safeFolder = encodeURIComponent(data.folder_path || "");
-                            const safeFile = encodeURIComponent(data.file_path || "");
-                            return `
-                                <div class="flex items-center justify-center gap-1.5">
-                                    <button onclick="copyPath(event, decodeURIComponent('${safeFolder}'), 'Folder Path')" 
-                                            class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 hover:text-teal-300 text-[10px] font-semibold border border-teal-500/25 transition-all cursor-pointer shadow-sm" 
-                                            title="Copy Folder Path: ${data.folder_path?.replace(/"/g, '&quot;')}">
-                                        <i class="fa-solid fa-folder text-[10px] text-amber-400"></i>
-                                        <span>Folder</span>
-                                    </button>
-                                    <button onclick="copyPath(event, decodeURIComponent('${safeFile}'), 'File Path')" 
-                                            class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-semibold border border-zinc-700 transition-all cursor-pointer" 
-                                            title="Copy Full File Path: ${data.file_path?.replace(/"/g, '&quot;')}">
-                                        <i class="fa-regular fa-copy text-[10px]"></i>
-                                        <span>File</span>
-                                    </button>
-                                </div>
-                            `;
-                        }
-                    },
-                    {
-                        title: "Size",
-                        field: "file_size_display",
-                        width: 90,
-                        headerSort: true
-                    },
-                    {
-                        title: "Context Snippet",
-                        field: "snippet",
-                        headerSort: false,
-                        formatter: function (cell) {
-                            const snippet = cell.getValue();
-                            if (!snippet || snippet === "-") return `<span class="text-slate-500 font-mono text-[11px]">-</span>`;
-                            return `<span class="text-[11px] font-mono text-slate-600 dark:text-zinc-400 truncate block" title="${snippet.replace(/"/g, '&quot;')}">${snippet}</span>`;
-                        }
-                    },
-                    {
-                        title: "Modified Date",
-                        field: "file_modified_at",
-                        width: 130,
-                        headerSort: true,
-                        formatter: function (cell) {
-                            return `<span class="text-[11px] font-mono text-slate-400">${cell.getValue()}</span>`;
-                        }
-                    }
-                ]
-            });
-
-
-            // Global search filter
-            document.getElementById("grid-search")?.addEventListener("input", function () {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(applyFilters, 300);
-            });
-
-            // Match type filter
-            document.getElementById("filter-match-type")?.addEventListener("change", function () {
-                applyFilters();
-            });
-
-            // Risk level filter
-            document.getElementById("filter-risk")?.addEventListener("change", function () {
-                applyFilters();
-            });
-
-            // Reset filters
-            document.getElementById("clear-filters-btn")?.addEventListener("click", function () {
-                resetFilters();
-            });
-
-            // JSON download
-            document.getElementById("tabulator-download-json")?.addEventListener("click", function () {
-                table.download("json", "forensiq_q_scan_evidence.json");
-            });
-        });
-
         function openUploadModal() {
             document.getElementById('upload-modal').classList.remove('hidden');
         }
 
         function closeUploadModal() {
             document.getElementById('upload-modal').classList.add('hidden');
-        }
-
-        function openToolModal() {
-            document.getElementById('tool-modal').classList.remove('hidden');
-        }
-
-        function closeToolModal() {
-            document.getElementById('tool-modal').classList.add('hidden');
         }
     </script>
 

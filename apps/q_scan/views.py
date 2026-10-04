@@ -14,7 +14,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from .selectors import (
-    get_all_scanned_devices,
+    get_all_custodian_profiles,
     get_evidence_hits_query,
     get_paginated_evidence_hits,
     get_scan_dashboard_metrics,
@@ -34,11 +34,11 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     and high-performance remote-paginated evidence grid.
     """
     metrics = get_scan_dashboard_metrics()
-    devices = get_all_scanned_devices()
+    custodian_profiles = get_all_custodian_profiles()
 
     context = {
         "metrics": metrics,
-        "devices": devices,
+        "custodian_profiles": custodian_profiles,
     }
     return render(request, "q_scan/dashboard.html", context)
 
