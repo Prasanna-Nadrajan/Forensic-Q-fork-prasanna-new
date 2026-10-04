@@ -147,8 +147,12 @@ def get_paginated_verified_documents(
         keywords = extract_keywords_from_string(search)
         if keywords:
             matched_ids = []
-            for doc_id, fname, author, soft, prod, hsh in qs.values_list("id", "filename", "meta_author", "meta_software", "meta_producer", "sha256_hash"):
-                text_to_check = f"{fname or ''} {author or ''} {soft or ''} {prod or ''} {hsh or ''}"
+            for doc_id, fname, author, soft, prod, hsh in qs.values_list(
+                "id", "filename", "meta_author", "meta_software", "meta_producer", "sha256_hash"
+            ):
+                text_to_check = (
+                    f"{fname or ''} {author or ''} {soft or ''} {prod or ''} {hsh or ''}"
+                )
                 is_matched, _, _ = score_text_against_keywords(
                     text_to_check, keywords, threshold=threshold
                 )

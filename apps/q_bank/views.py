@@ -260,7 +260,9 @@ def fuzzy_search_api_view(request: HttpRequest) -> JsonResponse:
     Live fuzzy sequence search endpoint for rapid narration text matching.
     Supports keywords via text parameter and/or uploaded keyword files (.xlsx, .txt, .csv).
     """
-    account_id = (request.POST.get("account_id") or request.GET.get("account_id", "")).strip() or None
+    account_id = (
+        request.POST.get("account_id") or request.GET.get("account_id", "")
+    ).strip() or None
     person_id = (request.POST.get("person_id") or request.GET.get("person_id", "")).strip() or None
     try:
         raw_thresh = request.POST.get("threshold") or request.GET.get("threshold", "80")
@@ -332,7 +334,12 @@ def parse_keywords_api_view(request: HttpRequest) -> JsonResponse:
         or request.FILES.get("keywords_file")
         or request.FILES.get("file_upload")
     )
-    if not uploaded_file and "text" not in request.POST and "keywords" not in request.POST and "keywords" not in request.GET:
+    if (
+        not uploaded_file
+        and "text" not in request.POST
+        and "keywords" not in request.POST
+        and "keywords" not in request.GET
+    ):
         return JsonResponse(
             {"status": "error", "message": "No file or keywords provided."},
             status=400,

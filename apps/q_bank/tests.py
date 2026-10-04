@@ -606,6 +606,7 @@ class QBankServicesAndSelectorsTests(TestCase):
 
         # 2. Test parse_keywords_api with Excel file
         import openpyxl
+
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Keywords"
@@ -617,8 +618,9 @@ class QBankServicesAndSelectorsTests(TestCase):
         wb.save(bio)
         bio.seek(0)
         excel_file = SimpleUploadedFile(
-            "test_terms.xlsx", bio.getvalue(),
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "test_terms.xlsx",
+            bio.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         res_xl = self.client.post(parse_url, {"file": excel_file})
         self.assertEqual(res_xl.status_code, 200)
@@ -630,7 +632,9 @@ class QBankServicesAndSelectorsTests(TestCase):
 
         # 3. Test fuzzy_search_api with uploaded file
         fuzzy_url = reverse("q_bank:fuzzy_search_api")
-        txt_search_file = SimpleUploadedFile("search.txt", b"sarla\ntrust", content_type="text/plain")
+        txt_search_file = SimpleUploadedFile(
+            "search.txt", b"sarla\ntrust", content_type="text/plain"
+        )
         res_fuzzy_file = self.client.post(
             fuzzy_url,
             {"account_id": str(self.account.id), "file": txt_search_file, "threshold": 50},
@@ -641,4 +645,3 @@ class QBankServicesAndSelectorsTests(TestCase):
         self.assertGreaterEqual(fuzzy_data["total_matches"], 1)
         self.assertIn("matched_keyword", fuzzy_data["matches"][0])
         self.assertTrue(fuzzy_data["matches"][0]["matched_keyword"])
-

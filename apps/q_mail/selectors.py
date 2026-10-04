@@ -182,8 +182,12 @@ def get_investigation_emails(
         keywords = extract_keywords_from_string(search)
         if keywords:
             matched_ids = []
-            for msg_id, subj, sname, semail, body in qs.values_list("id", "subject", "sender_name", "sender_email", "body_plain"):
-                text_to_check = f"{subj or ''} {sname or ''} {semail or ''} {body[:500] if body else ''}"
+            for msg_id, subj, sname, semail, body in qs.values_list(
+                "id", "subject", "sender_name", "sender_email", "body_plain"
+            ):
+                text_to_check = (
+                    f"{subj or ''} {sname or ''} {semail or ''} {body[:500] if body else ''}"
+                )
                 is_matched, _, _ = score_text_against_keywords(
                     text_to_check, keywords, threshold=threshold
                 )
@@ -236,8 +240,12 @@ def get_paginated_investigation_emails(
         keywords = extract_keywords_from_string(search)
         if keywords:
             matched_ids = []
-            for msg_id, subj, sname, semail, body in qs.values_list("id", "subject", "sender_name", "sender_email", "body_plain"):
-                text_to_check = f"{subj or ''} {sname or ''} {semail or ''} {body[:500] if body else ''}"
+            for msg_id, subj, sname, semail, body in qs.values_list(
+                "id", "subject", "sender_name", "sender_email", "body_plain"
+            ):
+                text_to_check = (
+                    f"{subj or ''} {sname or ''} {semail or ''} {body[:500] if body else ''}"
+                )
                 is_matched, _, _ = score_text_against_keywords(
                     text_to_check, keywords, threshold=threshold
                 )

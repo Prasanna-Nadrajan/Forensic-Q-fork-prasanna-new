@@ -172,9 +172,16 @@ def get_paginated_bank_transactions(
         if keywords:
             matched_ids = []
             for t_id, party, narr, ref, holder, bname in qs.values_list(
-                "id", "party_name", "narration", "txn_ref", "account__account_holder", "account__bank_name"
+                "id",
+                "party_name",
+                "narration",
+                "txn_ref",
+                "account__account_holder",
+                "account__bank_name",
             ):
-                text_to_check = f"{party or ''} {narr or ''} {ref or ''} {holder or ''} {bname or ''}"
+                text_to_check = (
+                    f"{party or ''} {narr or ''} {ref or ''} {holder or ''} {bname or ''}"
+                )
                 is_matched, _, _ = score_text_against_keywords(
                     text_to_check, keywords, threshold=threshold
                 )
@@ -656,4 +663,3 @@ def fuzzy_search_transactions(
 
     matches.sort(key=lambda x: x["fuzzy_score"], reverse=True)
     return matches
-

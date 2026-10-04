@@ -7,10 +7,11 @@ import uuid
 from typing import Any
 
 from django.core.paginator import Paginator
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, QuerySet
+
+from core.fuzzy import extract_keywords_from_string, score_text_against_keywords
 
 from .models import FileEvidenceHit, ScannedDevice
-from core.fuzzy import extract_keywords_from_string, score_text_against_keywords
 
 
 def format_file_size(size_bytes: int) -> str:
@@ -108,7 +109,9 @@ def get_evidence_hits_query(
         keywords = extract_keywords_from_string(search_query)
         if keywords:
             matched_ids = []
-            for hit_id, fn, fp, kw, snip, host in qs.values_list("id", "filename", "file_path", "matched_keyword", "snippet", "device__hostname"):
+            for hit_id, fn, fp, kw, snip, host in qs.values_list(
+                "id", "filename", "file_path", "matched_keyword", "snippet", "device__hostname"
+            ):
                 text_to_check = f"{fn or ''} {fp or ''} {kw or ''} {snip or ''} {host or ''}"
                 is_matched, _, _ = score_text_against_keywords(
                     text_to_check, keywords, threshold=threshold
@@ -163,7 +166,9 @@ def get_paginated_evidence_hits(
         keywords = extract_keywords_from_string(search)
         if keywords:
             matched_ids = []
-            for hit_id, fn, fp, kw, snip, host in qs.values_list("id", "filename", "file_path", "matched_keyword", "snippet", "device__hostname"):
+            for hit_id, fn, fp, kw, snip, host in qs.values_list(
+                "id", "filename", "file_path", "matched_keyword", "snippet", "device__hostname"
+            ):
                 text_to_check = f"{fn or ''} {fp or ''} {kw or ''} {snip or ''} {host or ''}"
                 is_matched, _, _ = score_text_against_keywords(
                     text_to_check, keywords, threshold=threshold
