@@ -129,20 +129,37 @@ def build_chronological_beats(
         ret_date = _clean_str(c_trail.get("return_date", ""))
         desc = c_trail.get("description", "")
         if ret_amt > 0 and ret_date and ret_date != "-":
-            raw_events.append(
-                {
-                    "date": ret_date,
-                    "kind": "return",
-                    "from": cpty,
-                    "to": orig,
-                    "amount": ret_amt,
-                    "retained": 0.0,
-                    "utr": "",
-                    "via": cpty,
-                    "cap": f"Circuit closes: ₹{ret_amt:,.2f} returned to originator '{orig}'. {desc}",
-                    "title": f"Loop Return: {cpty} → {orig}",
-                }
-            )
+            # Check if an existing event in raw_events already covers this return leg
+            already_exists = False
+            for ev in raw_events:
+                if (
+                    _clean_str(ev.get("from")).lower() == _clean_str(cpty).lower()
+                    and _clean_str(ev.get("to")).lower() == _clean_str(orig).lower()
+                    and abs(float(ev.get("amount", 0.0)) - ret_amt) < 1.0
+                ):
+                    ev["kind"] = "return"
+                    ev["cap"] = (
+                        f"Circuit closes: ₹{ret_amt:,.2f} returned to originator '{orig}'. {desc}"
+                    )
+                    ev["title"] = f"Loop Return: {cpty} → {orig}"
+                    already_exists = True
+                    break
+
+            if not already_exists:
+                raw_events.append(
+                    {
+                        "date": ret_date,
+                        "kind": "return",
+                        "from": cpty,
+                        "to": orig,
+                        "amount": ret_amt,
+                        "retained": 0.0,
+                        "utr": "",
+                        "via": cpty,
+                        "cap": f"Circuit closes: ₹{ret_amt:,.2f} returned to originator '{orig}'. {desc}",
+                        "title": f"Loop Return: {cpty} → {orig}",
+                    }
+                )
 
     # Sort chronologically by date
     def _parse_date_key(item: dict[str, Any]) -> str:
@@ -224,6 +241,13 @@ def build_conduit_deck(
     for loop in circular_trails:
         loop_entities.add(_clean_str(loop.get("originator")).lower())
         loop_entities.add(_clean_str(loop.get("counterparty")).lower())
+        for node in loop.get("cycle_nodes", []):
+            loop_entities.add(_clean_str(node).lower())
+        for conduit in loop.get("conduits", []):
+            clean_c = _clean_str(conduit).lower()
+            loop_entities.add(clean_c)
+            slug = re.sub(r"[^a-zA-Z0-9]+", "_", clean_c).strip("_")
+            loop_entities.add(slug)
 
     for raw_name, data in grouped_intermediaries.items():
         name = _clean_str(raw_name)

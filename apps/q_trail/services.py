@@ -275,6 +275,8 @@ def analyze_profiles_money_trail(
     grouped_intermediaries = group_intermediate_transfers_by_intermediary(combined_intermediate)
 
     # 5. Detect Circular Round-Tripping Loops & Multi-Hop Network Chains
+    from apps.q_trail.backend.llm_narrative import generate_loop_forensic_narrative
+
     circular_trails: list[dict[str, Any]] = []
     flow_edges: dict[str, set[str]] = {p["name"]: set() for p in profile_metadata}
 
@@ -295,18 +297,53 @@ def analyze_profiles_money_trail(
             ]
             if not return_match.empty:
                 for _, ret_row in return_match.iterrows():
-                    circular_trails.append(
-                        {
-                            "type": "Direct_Round_Trip",
-                            "originator": sender,
-                            "counterparty": recipient,
-                            "initial_amount": amt,
-                            "initial_date": date,
-                            "return_amount": float(ret_row["Amount"]),
-                            "return_date": str(ret_row["Transfer_Date"]),
-                            "description": f"Direct circular flow between '{sender}' and '{recipient}'",
-                        }
-                    )
+                    ret_amt = float(ret_row["Amount"])
+                    ret_date = str(ret_row["Transfer_Date"])
+                    loop_dict = {
+                        "type": "Direct_Round_Trip",
+                        "originator": sender,
+                        "counterparty": recipient,
+                        "initial_amount": amt,
+                        "initial_date": date,
+                        "return_amount": ret_amt,
+                        "return_date": ret_date,
+                        "retained_amount": 0.0,
+                        "conduits": [],
+                        "cycle_nodes": [sender, recipient, sender],
+                        "hops": [
+                            {
+                                "hop_number": 1,
+                                "sender": sender,
+                                "recipient": recipient,
+                                "outflow_amount": amt,
+                                "inflow_amount": amt,
+                                "retained_amount": 0.0,
+                                "conduits": [],
+                                "conduits_str": "Direct Banking",
+                                "earliest_date": date,
+                                "latest_date": date,
+                                "has_intermediaries": False,
+                                "has_direct": True,
+                            },
+                            {
+                                "hop_number": 2,
+                                "sender": recipient,
+                                "recipient": sender,
+                                "outflow_amount": ret_amt,
+                                "inflow_amount": ret_amt,
+                                "retained_amount": 0.0,
+                                "conduits": [],
+                                "conduits_str": "Direct Banking",
+                                "earliest_date": ret_date,
+                                "latest_date": ret_date,
+                                "has_intermediaries": False,
+                                "has_direct": True,
+                            },
+                        ],
+                        "description": f"Direct circular flow between '{sender}' and '{recipient}'",
+                    }
+                    loop_dict["forensic_narrative"] = generate_loop_forensic_narrative(loop_dict)
+                    circular_trails.append(loop_dict)
 
     # Pattern B: Intermediate Round-Trip (A -> X -> B, where B is also A or funds route back)
     if not combined_intermediate.empty:
@@ -318,22 +355,166 @@ def analyze_profiles_money_trail(
                 flow_edges[sender].add(recipient)
 
             if sender.lower() == recipient.lower():
-                circular_trails.append(
-                    {
-                        "type": "Conduit_Self_Loop",
-                        "originator": sender,
-                        "counterparty": intermediary,
-                        "initial_amount": float(row["Outflow_Amount"]),
-                        "initial_date": str(row["Outflow_Date"]),
-                        "return_amount": float(row["Inflow_Amount"]),
-                        "return_date": str(row["Inflow_Date"]),
-                        "description": f"Self-loop: '{sender}' received ₹{row['Inflow_Amount']} back via conduit '{intermediary}'",
-                    }
-                )
+                out_amt = float(row["Outflow_Amount"])
+                in_amt = float(row["Inflow_Amount"])
+                ret_amt = float(row.get("Retention_Amount", 0.0))
+                out_date = str(row["Outflow_Date"])
+                in_date = str(row["Inflow_Date"])
+                loop_dict = {
+                    "type": "Conduit_Self_Loop",
+                    "originator": sender,
+                    "counterparty": intermediary,
+                    "initial_amount": out_amt,
+                    "initial_date": out_date,
+                    "return_amount": in_amt,
+                    "return_date": in_date,
+                    "retained_amount": ret_amt,
+                    "conduits": [intermediary],
+                    "cycle_nodes": [sender, intermediary, sender],
+                    "hops": [
+                        {
+                            "hop_number": 1,
+                            "sender": sender,
+                            "recipient": intermediary,
+                            "outflow_amount": out_amt,
+                            "inflow_amount": out_amt,
+                            "retained_amount": 0.0,
+                            "conduits": [intermediary],
+                            "conduits_str": intermediary,
+                            "earliest_date": out_date,
+                            "latest_date": out_date,
+                            "has_intermediaries": True,
+                            "has_direct": False,
+                        },
+                        {
+                            "hop_number": 2,
+                            "sender": intermediary,
+                            "recipient": sender,
+                            "outflow_amount": in_amt,
+                            "inflow_amount": in_amt,
+                            "retained_amount": ret_amt,
+                            "conduits": [intermediary],
+                            "conduits_str": intermediary,
+                            "earliest_date": in_date,
+                            "latest_date": in_date,
+                            "has_intermediaries": True,
+                            "has_direct": False,
+                        },
+                    ],
+                    "description": f"Self-loop: '{sender}' received ₹{in_amt:,.2f} back via conduit '{intermediary}'",
+                }
+                loop_dict["forensic_narrative"] = generate_loop_forensic_narrative(loop_dict)
+                circular_trails.append(loop_dict)
 
     # Pattern C: Multi-Hop Network Cycles (A -> B -> C -> A)
     visited_cycles: set[tuple[str, ...]] = set()
     node_list = [p["name"] for p in profile_metadata]
+
+    def _calculate_cycle_metrics(cycle_nodes: list[str]) -> dict[str, Any]:
+        """
+        Calculates leg-by-leg inflow, outflow, conduit retentions, and dates
+        for a multi-hop circular loop: cycle_nodes = [N_0, N_1, ..., N_k, N_0].
+        """
+        hops: list[dict[str, Any]] = []
+        all_conduits: list[str] = []
+        total_retained = 0.0
+
+        for i in range(len(cycle_nodes) - 1):
+            s_node = cycle_nodes[i]
+            r_node = cycle_nodes[i + 1]
+
+            # Direct transfers s_node -> r_node
+            d_sub = (
+                combined_direct[
+                    (combined_direct["Sender_Person"] == s_node)
+                    & (combined_direct["Recipient_Person"] == r_node)
+                ]
+                if not combined_direct.empty
+                else pd.DataFrame()
+            )
+            d_amt = float(d_sub["Amount"].sum()) if not d_sub.empty else 0.0
+            d_dates = (
+                [str(d) for d in d_sub["Transfer_Date"].dropna() if str(d).strip()]
+                if not d_sub.empty
+                else []
+            )
+
+            # Intermediate conduit transfers s_node -> intermediary -> r_node
+            i_sub = (
+                combined_intermediate[
+                    (combined_intermediate["Sender_Person"] == s_node)
+                    & (combined_intermediate["Recipient_Person"] == r_node)
+                ]
+                if not combined_intermediate.empty
+                else pd.DataFrame()
+            )
+            i_outflow = float(i_sub["Outflow_Amount"].sum()) if not i_sub.empty else 0.0
+            i_inflow = float(i_sub["Inflow_Amount"].sum()) if not i_sub.empty else 0.0
+            i_retained = float(i_sub["Retention_Amount"].sum()) if not i_sub.empty else 0.0
+            i_conduits = (
+                [str(c) for c in i_sub["Intermediary_Entity"].dropna().unique() if str(c).strip()]
+                if not i_sub.empty
+                else []
+            )
+            i_out_dates = (
+                [str(d) for d in i_sub["Outflow_Date"].dropna() if str(d).strip()]
+                if not i_sub.empty
+                else []
+            )
+            i_in_dates = (
+                [str(d) for d in i_sub["Inflow_Date"].dropna() if str(d).strip()]
+                if not i_sub.empty
+                else []
+            )
+
+            hop_outflow = d_amt + i_outflow
+            hop_inflow = d_amt + i_inflow
+            total_retained += i_retained
+
+            for c in i_conduits:
+                if c not in all_conduits:
+                    all_conduits.append(c)
+
+            leg_dates = sorted(d_dates + i_out_dates + i_in_dates)
+            earliest_date = leg_dates[0] if leg_dates else "-"
+            latest_date = leg_dates[-1] if leg_dates else "-"
+
+            hops.append(
+                {
+                    "hop_number": i + 1,
+                    "sender": s_node,
+                    "recipient": r_node,
+                    "outflow_amount": hop_outflow,
+                    "inflow_amount": hop_inflow,
+                    "retained_amount": i_retained,
+                    "conduits": i_conduits,
+                    "conduits_str": ", ".join(i_conduits) if i_conduits else "Direct Banking",
+                    "earliest_date": earliest_date,
+                    "latest_date": latest_date,
+                    "has_intermediaries": bool(i_conduits),
+                    "has_direct": d_amt > 0,
+                }
+            )
+
+        # Initial leg is hop 1 (leaving start_node)
+        initial_leg = hops[0] if hops else {}
+        initial_amount = initial_leg.get("outflow_amount", 0.0)
+        initial_date = initial_leg.get("earliest_date", "-")
+
+        # Closing leg is the last hop (returning to start_node)
+        closing_leg = hops[-1] if hops else {}
+        return_amount = closing_leg.get("inflow_amount", 0.0)
+        return_date = closing_leg.get("latest_date", "-")
+
+        return {
+            "initial_amount": initial_amount,
+            "initial_date": initial_date,
+            "return_amount": return_amount,
+            "return_date": return_date,
+            "total_retained": total_retained,
+            "all_conduits": all_conduits,
+            "hops": hops,
+        }
 
     def _find_cycles(start_node: str, curr_node: str, path: list[str]) -> None:
         for nbr in flow_edges.get(curr_node, set()):
@@ -341,19 +522,26 @@ def analyze_profiles_money_trail(
                 canonical = tuple(sorted(path))
                 if canonical not in visited_cycles:
                     visited_cycles.add(canonical)
-                    cycle_desc = " → ".join(path + [start_node])
-                    circular_trails.append(
-                        {
-                            "type": "Network_Loop_Chain",
-                            "originator": start_node,
-                            "counterparty": path[-1],
-                            "initial_amount": 0.0,
-                            "initial_date": "-",
-                            "return_amount": 0.0,
-                            "return_date": "-",
-                            "description": f"Multi-hop closed loop: {cycle_desc}",
-                        }
-                    )
+                    cycle_nodes = path + [start_node]
+                    cycle_desc = " → ".join(cycle_nodes)
+                    metrics = _calculate_cycle_metrics(cycle_nodes)
+
+                    loop_dict = {
+                        "type": "Network_Loop_Chain",
+                        "originator": start_node,
+                        "counterparty": path[-1],
+                        "initial_amount": metrics["initial_amount"],
+                        "initial_date": metrics["initial_date"],
+                        "return_amount": metrics["return_amount"],
+                        "return_date": metrics["return_date"],
+                        "retained_amount": metrics["total_retained"],
+                        "conduits": metrics["all_conduits"],
+                        "cycle_nodes": cycle_nodes,
+                        "hops": metrics["hops"],
+                        "description": f"Multi-hop closed loop: {cycle_desc}",
+                    }
+                    loop_dict["forensic_narrative"] = generate_loop_forensic_narrative(loop_dict)
+                    circular_trails.append(loop_dict)
             elif nbr not in path and len(path) < 5:
                 _find_cycles(start_node, nbr, path + [nbr])
 

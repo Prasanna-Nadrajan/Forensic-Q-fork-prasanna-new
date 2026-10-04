@@ -859,3 +859,95 @@ class QTrailExtendedCoverageTests(TestCase):
         )
         self.assertEqual(res["status"], "success")
         self.assertTrue(len(res["circular_trails"]) >= 1)
+
+    def test_multi_hop_closed_loop_metrics_and_conduits(self):
+        """
+        Verify that multi-hop closed loops (A -> B -> C -> A) accurately compute
+        initial outflow, return inflow, conduit retention amounts, and leg details.
+        """
+        now = timezone.now()
+        p_a = AuditedPerson.objects.create(full_name="Arun Kumar (Auditee)")
+        acc_a = BankAccount.objects.create(
+            person=p_a,
+            account_number="ACC-ARUN-001",
+            bank_name="HDFC",
+        )
+        p_b = AuditedPerson.objects.create(full_name="Rajesh M (Auditee)")
+        acc_b = BankAccount.objects.create(
+            person=p_b,
+            account_number="ACC-RAJESH-002",
+            bank_name="ICICI",
+        )
+        p_c = AuditedPerson.objects.create(full_name="E2E Auditee Target")
+        acc_c = BankAccount.objects.create(
+            person=p_c,
+            account_number="ACC-TARGET-003",
+            bank_name="SBI",
+        )
+
+        # Hop 1: Arun -> Rajesh via conduit SHARMA ENTERPRISES (350k out, 335k in, 15k ret)
+        BankTransaction.objects.create(
+            account=acc_a,
+            txn_date=now - timezone.timedelta(days=2),
+            narration="NEFT DR-HDFCN88990011-SHARMA ENTERPRISES-XXXX9988",
+            debit_amount=Decimal("350000.00"),
+        )
+        BankTransaction.objects.create(
+            account=acc_b,
+            txn_date=now - timezone.timedelta(days=1),
+            narration="INF/NEFT/041234567890/SHARMA ENTERPRISES/ICIC0001234",
+            credit_amount=Decimal("335000.00"),
+        )
+
+        # Hop 2: Rajesh -> Target via conduit brokerx@okaxis (600k out, 580k in, 20k ret)
+        BankTransaction.objects.create(
+            account=acc_b,
+            txn_date=now - timezone.timedelta(days=1),
+            narration="UPI-BROKER SERVICES-brokerx@okaxis-AXIS0000001-412345678905-PAYMENT",
+            debit_amount=Decimal("600000.00"),
+        )
+        BankTransaction.objects.create(
+            account=acc_c,
+            txn_date=now,
+            narration="BIL/IN/UPI/412345678906/Broker Services/brokerx@okaxis/SBIN0000123",
+            credit_amount=Decimal("580000.00"),
+        )
+
+        # Hop 3 (Closing leg): Target -> Arun direct transfer (550k, UTR 990088112233)
+        BankTransaction.objects.create(
+            account=acc_c,
+            txn_date=now,
+            narration="UPI-990088112233-ARUN KUMAR-arun@okhdfc-RETURN",
+            debit_amount=Decimal("550000.00"),
+        )
+        BankTransaction.objects.create(
+            account=acc_a,
+            txn_date=now,
+            narration="BIL/IN/UPI/990088112233/E2E AUDITEE TARGET/target@oksbi/RETURN",
+            credit_amount=Decimal("550000.00"),
+        )
+
+        res = analyze_profiles_money_trail(
+            [str(p_a.id), str(p_b.id), str(p_c.id)],
+            time_window_days=3,
+        )
+        self.assertEqual(res["status"], "success")
+        loops = [
+            loop_item
+            for loop_item in res["circular_trails"]
+            if loop_item["type"] == "Network_Loop_Chain"
+        ]
+        self.assertTrue(len(loops) >= 1)
+
+        loop = loops[0]
+        self.assertGreater(loop["initial_amount"], 0.0)
+        self.assertGreater(loop["return_amount"], 0.0)
+        self.assertNotEqual(loop["initial_date"], "-")
+        self.assertNotEqual(loop["return_date"], "-")
+        self.assertEqual(loop["initial_amount"], 350000.0)
+        self.assertEqual(loop["return_amount"], 550000.0)
+        self.assertEqual(loop["retained_amount"], 35000.0)
+        self.assertIn("SHARMA ENTERPRISES", loop["conduits"])
+        self.assertIn("brokerx@okaxis", loop["conduits"])
+        self.assertEqual(len(loop["hops"]), 3)
+        self.assertTrue(bool(loop.get("forensic_narrative")))
