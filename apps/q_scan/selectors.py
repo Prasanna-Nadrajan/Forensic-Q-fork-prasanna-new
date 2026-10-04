@@ -7,7 +7,7 @@ import uuid
 from typing import Any
 
 from django.core.paginator import Paginator
-from django.db.models import Count, QuerySet
+from django.db.models import Count, Q, QuerySet
 
 from core.fuzzy import extract_keywords_from_string, score_text_against_keywords
 
@@ -108,17 +108,50 @@ def get_evidence_hits_query(
     if search_query:
         keywords = extract_keywords_from_string(search_query)
         if keywords:
-            matched_ids = []
-            for hit_id, fn, fp, kw, snip, host in qs.values_list(
-                "id", "filename", "file_path", "matched_keyword", "snippet", "device__hostname"
-            ):
-                text_to_check = f"{fn or ''} {fp or ''} {kw or ''} {snip or ''} {host or ''}"
-                is_matched, _, _ = score_text_against_keywords(
-                    text_to_check, keywords, threshold=threshold
-                )
-                if is_matched:
-                    matched_ids.append(hit_id)
-            qs = qs.filter(id__in=matched_ids)
+            if threshold >= 100:
+                q_kw = Q()
+                for kw in keywords:
+                    q_kw |= (
+                        Q(filename__icontains=kw)
+                        | Q(file_path__icontains=kw)
+                        | Q(matched_keyword__icontains=kw)
+                        | Q(snippet__icontains=kw)
+                        | Q(device__hostname__icontains=kw)
+                    )
+                qs = qs.filter(q_kw)
+            else:
+                q_exact = Q()
+                for kw in keywords:
+                    q_exact |= (
+                        Q(filename__icontains=kw)
+                        | Q(file_path__icontains=kw)
+                        | Q(matched_keyword__icontains=kw)
+                        | Q(snippet__icontains=kw)
+                        | Q(device__hostname__icontains=kw)
+                    )
+                matched_ids = list(qs.filter(q_exact).values_list("id", flat=True)[:500])
+                if len(matched_ids) < 500:
+                    matched_set = set(matched_ids)
+                    candidates = qs.exclude(id__in=matched_set).values_list(
+                        "id",
+                        "filename",
+                        "file_path",
+                        "matched_keyword",
+                        "snippet",
+                        "device__hostname",
+                    )[:1000]
+                    for hit_id, fn, fp, kw, snip, host in candidates:
+                        text_to_check = (
+                            f"{fn or ''} {fp or ''} {kw or ''} {snip or ''} {host or ''}"
+                        )
+                        is_matched, _, _ = score_text_against_keywords(
+                            text_to_check, keywords, threshold=threshold
+                        )
+                        if is_matched:
+                            matched_ids.append(hit_id)
+                            if len(matched_ids) >= 500:
+                                break
+                qs = qs.filter(id__in=matched_ids)
         else:
             qs = qs.none()
 
@@ -165,17 +198,50 @@ def get_paginated_evidence_hits(
     if search:
         keywords = extract_keywords_from_string(search)
         if keywords:
-            matched_ids = []
-            for hit_id, fn, fp, kw, snip, host in qs.values_list(
-                "id", "filename", "file_path", "matched_keyword", "snippet", "device__hostname"
-            ):
-                text_to_check = f"{fn or ''} {fp or ''} {kw or ''} {snip or ''} {host or ''}"
-                is_matched, _, _ = score_text_against_keywords(
-                    text_to_check, keywords, threshold=threshold
-                )
-                if is_matched:
-                    matched_ids.append(hit_id)
-            qs = qs.filter(id__in=matched_ids)
+            if threshold >= 100:
+                q_kw = Q()
+                for kw in keywords:
+                    q_kw |= (
+                        Q(filename__icontains=kw)
+                        | Q(file_path__icontains=kw)
+                        | Q(matched_keyword__icontains=kw)
+                        | Q(snippet__icontains=kw)
+                        | Q(device__hostname__icontains=kw)
+                    )
+                qs = qs.filter(q_kw)
+            else:
+                q_exact = Q()
+                for kw in keywords:
+                    q_exact |= (
+                        Q(filename__icontains=kw)
+                        | Q(file_path__icontains=kw)
+                        | Q(matched_keyword__icontains=kw)
+                        | Q(snippet__icontains=kw)
+                        | Q(device__hostname__icontains=kw)
+                    )
+                matched_ids = list(qs.filter(q_exact).values_list("id", flat=True)[:500])
+                if len(matched_ids) < 500:
+                    matched_set = set(matched_ids)
+                    candidates = qs.exclude(id__in=matched_set).values_list(
+                        "id",
+                        "filename",
+                        "file_path",
+                        "matched_keyword",
+                        "snippet",
+                        "device__hostname",
+                    )[:1000]
+                    for hit_id, fn, fp, kw, snip, host in candidates:
+                        text_to_check = (
+                            f"{fn or ''} {fp or ''} {kw or ''} {snip or ''} {host or ''}"
+                        )
+                        is_matched, _, _ = score_text_against_keywords(
+                            text_to_check, keywords, threshold=threshold
+                        )
+                        if is_matched:
+                            matched_ids.append(hit_id)
+                            if len(matched_ids) >= 500:
+                                break
+                qs = qs.filter(id__in=matched_ids)
         else:
             qs = qs.none()
 

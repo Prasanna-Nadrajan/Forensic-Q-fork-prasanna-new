@@ -218,15 +218,31 @@ def get_paginated_chat_messages(
     if search:
         keywords = extract_keywords_from_string(search)
         if keywords:
-            matched_ids = []
-            for msg_id, mtext, sname in qs.values_list("id", "message_text", "sender_name"):
-                text_to_check = f"{mtext or ''} {sname or ''}"
-                is_matched, _, _ = score_text_against_keywords(
-                    text_to_check, keywords, threshold=threshold
-                )
-                if is_matched:
-                    matched_ids.append(msg_id)
-            qs = qs.filter(id__in=matched_ids)
+            if threshold >= 100:
+                q_kw = Q()
+                for kw in keywords:
+                    q_kw |= Q(message_text__icontains=kw) | Q(sender_name__icontains=kw)
+                qs = qs.filter(q_kw)
+            else:
+                q_exact = Q()
+                for kw in keywords:
+                    q_exact |= Q(message_text__icontains=kw) | Q(sender_name__icontains=kw)
+                matched_ids = list(qs.filter(q_exact).values_list("id", flat=True)[:500])
+                if len(matched_ids) < 500:
+                    matched_set = set(matched_ids)
+                    candidates = qs.exclude(id__in=matched_set).values_list(
+                        "id", "message_text", "sender_name"
+                    )[:1000]
+                    for msg_id, mtext, sname in candidates:
+                        text_to_check = f"{mtext or ''} {sname or ''}"
+                        is_matched, _, _ = score_text_against_keywords(
+                            text_to_check, keywords, threshold=threshold
+                        )
+                        if is_matched:
+                            matched_ids.append(msg_id)
+                            if len(matched_ids) >= 500:
+                                break
+                qs = qs.filter(id__in=matched_ids)
         else:
             qs = qs.none()
 

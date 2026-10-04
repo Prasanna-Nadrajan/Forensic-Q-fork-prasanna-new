@@ -1008,9 +1008,13 @@
 
                     const formData = new FormData();
                     formData.append('file', file);
+                    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
                     fetch("{% url 'q_bank:parse_keywords_api' %}", {
                         method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
                         body: formData
                     })
                     .then(res => res.json())
@@ -1063,10 +1067,14 @@
                         formData.append('keywords', this.fuzzyKeywords);
                         formData.append('threshold', this.fuzzyThreshold);
                         formData.append('person_id', '{{ person.id }}');
+                        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
                         {% if selected_account_id %}formData.append('account_id', '{{ selected_account_id }}');{% endif %}
 
                         fetch("{% url 'q_bank:fuzzy_search_api' %}", {
                             method: 'POST',
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            },
                             body: formData
                         })
                         .then(res => res.json())

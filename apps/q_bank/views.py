@@ -322,7 +322,6 @@ def fuzzy_search_api_view(request: HttpRequest) -> JsonResponse:
     )
 
 
-@csrf_exempt
 @require_http_methods(["GET", "POST"])
 def parse_keywords_api_view(request: HttpRequest) -> JsonResponse:
     """

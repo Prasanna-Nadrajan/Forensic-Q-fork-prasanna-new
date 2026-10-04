@@ -170,24 +170,50 @@ def get_paginated_bank_transactions(
     if search:
         keywords = extract_keywords_from_string(search)
         if keywords:
-            matched_ids = []
-            for t_id, party, narr, ref, holder, bname in qs.values_list(
-                "id",
-                "party_name",
-                "narration",
-                "txn_ref",
-                "account__account_holder",
-                "account__bank_name",
-            ):
-                text_to_check = (
-                    f"{party or ''} {narr or ''} {ref or ''} {holder or ''} {bname or ''}"
-                )
-                is_matched, _, _ = score_text_against_keywords(
-                    text_to_check, keywords, threshold=threshold
-                )
-                if is_matched:
-                    matched_ids.append(t_id)
-            qs = qs.filter(id__in=matched_ids)
+            if threshold >= 100:
+                q_kw = Q()
+                for kw in keywords:
+                    q_kw |= (
+                        Q(party_name__icontains=kw)
+                        | Q(narration__icontains=kw)
+                        | Q(txn_ref__icontains=kw)
+                        | Q(account__account_holder__icontains=kw)
+                        | Q(account__bank_name__icontains=kw)
+                    )
+                qs = qs.filter(q_kw)
+            else:
+                q_exact = Q()
+                for kw in keywords:
+                    q_exact |= (
+                        Q(party_name__icontains=kw)
+                        | Q(narration__icontains=kw)
+                        | Q(txn_ref__icontains=kw)
+                        | Q(account__account_holder__icontains=kw)
+                        | Q(account__bank_name__icontains=kw)
+                    )
+                matched_ids = list(qs.filter(q_exact).values_list("id", flat=True)[:500])
+                if len(matched_ids) < 500:
+                    matched_set = set(matched_ids)
+                    candidates = qs.exclude(id__in=matched_set).values_list(
+                        "id",
+                        "party_name",
+                        "narration",
+                        "txn_ref",
+                        "account__account_holder",
+                        "account__bank_name",
+                    )[:1000]
+                    for t_id, party, narr, ref, holder, bname in candidates:
+                        text_to_check = (
+                            f"{party or ''} {narr or ''} {ref or ''} {holder or ''} {bname or ''}"
+                        )
+                        is_matched, _, _ = score_text_against_keywords(
+                            text_to_check, keywords, threshold=threshold
+                        )
+                        if is_matched:
+                            matched_ids.append(t_id)
+                            if len(matched_ids) >= 500:
+                                break
+                qs = qs.filter(id__in=matched_ids)
         else:
             qs = qs.none()
 

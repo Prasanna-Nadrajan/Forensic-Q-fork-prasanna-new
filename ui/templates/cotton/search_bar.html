@@ -3,7 +3,7 @@
     name="q"
     value=""
     placeholder="Search..."
-    threshold="75"
+    threshold="100"
     threshold_name="threshold"
     threshold_id=""
     min_threshold="50"
@@ -15,7 +15,7 @@
     slider_class=""
 />
 
-<div class="flex items-center gap-2 {{ class }}" x-data="{ thresh: {{ threshold|default:75 }} }">
+<div class="flex items-center gap-2 {{ class }}" x-data="{ thresh: {{ threshold|default:100 }} }">
     <!-- Search Input -->
     <div class="relative flex-1 min-w-[180px] sm:min-w-[240px]">
         <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
@@ -44,7 +44,7 @@
             @change="thresh = $event.target.value; $dispatch('threshold-change', { value: thresh }); if ('{{ threshold_id }}') { const el = document.getElementById('{{ threshold_id }}'); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); }"
             class="w-16 sm:w-20 accent-sky-500 cursor-pointer h-1.5" 
             title="Fuzzy Match Threshold">
-        <span class="font-mono text-[11px] text-sky-500 dark:text-sky-400 font-bold w-7" x-text="thresh + '%'">{{ threshold|default:75 }}%</span>
+        <span class="font-mono text-[11px] text-sky-500 dark:text-sky-400 font-bold w-7" x-text="thresh + '%'">{{ threshold|default:100 }}%</span>
     </div>
     {% endif %}
 </div>

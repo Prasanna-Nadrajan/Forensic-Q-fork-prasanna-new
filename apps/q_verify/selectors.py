@@ -146,19 +146,50 @@ def get_paginated_verified_documents(
     if search:
         keywords = extract_keywords_from_string(search)
         if keywords:
-            matched_ids = []
-            for doc_id, fname, author, soft, prod, hsh in qs.values_list(
-                "id", "filename", "meta_author", "meta_software", "meta_producer", "sha256_hash"
-            ):
-                text_to_check = (
-                    f"{fname or ''} {author or ''} {soft or ''} {prod or ''} {hsh or ''}"
-                )
-                is_matched, _, _ = score_text_against_keywords(
-                    text_to_check, keywords, threshold=threshold
-                )
-                if is_matched:
-                    matched_ids.append(doc_id)
-            qs = qs.filter(id__in=matched_ids)
+            if threshold >= 100:
+                q_kw = Q()
+                for kw in keywords:
+                    q_kw |= (
+                        Q(filename__icontains=kw)
+                        | Q(meta_author__icontains=kw)
+                        | Q(meta_software__icontains=kw)
+                        | Q(meta_producer__icontains=kw)
+                        | Q(sha256_hash__icontains=kw)
+                    )
+                qs = qs.filter(q_kw)
+            else:
+                q_exact = Q()
+                for kw in keywords:
+                    q_exact |= (
+                        Q(filename__icontains=kw)
+                        | Q(meta_author__icontains=kw)
+                        | Q(meta_software__icontains=kw)
+                        | Q(meta_producer__icontains=kw)
+                        | Q(sha256_hash__icontains=kw)
+                    )
+                matched_ids = list(qs.filter(q_exact).values_list("id", flat=True)[:500])
+                if len(matched_ids) < 500:
+                    matched_set = set(matched_ids)
+                    candidates = qs.exclude(id__in=matched_set).values_list(
+                        "id",
+                        "filename",
+                        "meta_author",
+                        "meta_software",
+                        "meta_producer",
+                        "sha256_hash",
+                    )[:1000]
+                    for doc_id, fname, author, soft, prod, hsh in candidates:
+                        text_to_check = (
+                            f"{fname or ''} {author or ''} {soft or ''} {prod or ''} {hsh or ''}"
+                        )
+                        is_matched, _, _ = score_text_against_keywords(
+                            text_to_check, keywords, threshold=threshold
+                        )
+                        if is_matched:
+                            matched_ids.append(doc_id)
+                            if len(matched_ids) >= 500:
+                                break
+                qs = qs.filter(id__in=matched_ids)
         else:
             qs = qs.none()
 
