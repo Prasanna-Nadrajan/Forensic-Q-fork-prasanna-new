@@ -196,9 +196,9 @@ class DiscrepancyAnalyzer:
             flag = AnomalyFlag(
                 code="METADATA_STRIPPED",
                 title="Stripped / Sanitized Metadata",
-                severity="LOW",
+                severity="MEDIUM",
                 description="Document contains zero embedded author, creation timestamp, or application properties.",
-                penalty=15,
+                penalty=25,
             )
             anomalies.append(flag)
             score -= flag.penalty
