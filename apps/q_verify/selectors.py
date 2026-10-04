@@ -10,6 +10,8 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q, QuerySet
 from django.shortcuts import get_object_or_404
 
+from core.fuzzy import extract_keywords_from_string, score_text_against_keywords
+
 from .models import VerificationCase, VerifiedDocument
 
 
@@ -128,6 +130,7 @@ def get_paginated_verified_documents(
     page: int = 1,
     page_size: int = 25,
     search: str = "",
+    threshold: int = 75,
     risk_level: str = "",
     mime_type: str = "",
     sort_field: str = "authenticity_score",
@@ -141,13 +144,19 @@ def get_paginated_verified_documents(
         qs = qs.filter(case_id=case_id)
 
     if search:
-        qs = qs.filter(
-            Q(filename__icontains=search)
-            | Q(meta_author__icontains=search)
-            | Q(meta_software__icontains=search)
-            | Q(meta_producer__icontains=search)
-            | Q(sha256_hash__icontains=search)
-        )
+        keywords = extract_keywords_from_string(search)
+        if keywords:
+            matched_ids = []
+            for doc_id, fname, author, soft, prod, hsh in qs.values_list("id", "filename", "meta_author", "meta_software", "meta_producer", "sha256_hash"):
+                text_to_check = f"{fname or ''} {author or ''} {soft or ''} {prod or ''} {hsh or ''}"
+                is_matched, _, _ = score_text_against_keywords(
+                    text_to_check, keywords, threshold=threshold
+                )
+                if is_matched:
+                    matched_ids.append(doc_id)
+            qs = qs.filter(id__in=matched_ids)
+        else:
+            qs = qs.none()
 
     if risk_level:
         qs = qs.filter(risk_level=risk_level)

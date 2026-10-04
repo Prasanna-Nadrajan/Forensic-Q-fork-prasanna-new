@@ -202,6 +202,10 @@ def messages_api_view(request: HttpRequest, mailbox_id: str) -> JsonResponse:
         page_size = 25
 
     search = request.GET.get("search", "").strip()
+    try:
+        threshold = int(request.GET.get("threshold", 75))
+    except (ValueError, TypeError):
+        threshold = 75
     folder = request.GET.get("folder", "").strip()
     sender = request.GET.get("sender", "").strip()
     checkpoint = request.GET.get("checkpoint", "all").strip()
@@ -231,6 +235,7 @@ def messages_api_view(request: HttpRequest, mailbox_id: str) -> JsonResponse:
         page=page,
         page_size=page_size,
         search=search,
+        threshold=threshold,
         folder=folder,
         sender=sender,
         has_attachments=has_attachments,

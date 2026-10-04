@@ -64,6 +64,10 @@ def evidence_hits_api_view(request: HttpRequest) -> JsonResponse:
         page_size = 25
 
     search = request.GET.get("search") or request.GET.get("q") or ""
+    try:
+        threshold = int(request.GET.get("threshold", 75))
+    except (ValueError, TypeError):
+        threshold = 75
     keyword = request.GET.get("keyword", "").strip()
     match_type = request.GET.get("match_type", "").strip()
     risk_level = request.GET.get("risk_level", "").strip()
@@ -82,6 +86,7 @@ def evidence_hits_api_view(request: HttpRequest) -> JsonResponse:
         page=page,
         page_size=page_size,
         search=search,
+        threshold=threshold,
         keyword=keyword,
         match_type=match_type,
         risk_level=risk_level,

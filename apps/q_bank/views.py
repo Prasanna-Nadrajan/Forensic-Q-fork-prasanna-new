@@ -224,6 +224,10 @@ def transactions_api_view(request: HttpRequest) -> JsonResponse:
     account_id = request.GET.get("account_id", "").strip() or None
     person_id = request.GET.get("person_id", "").strip() or None
     search = request.GET.get("search") or request.GET.get("q") or ""
+    try:
+        threshold = int(request.GET.get("threshold", 75))
+    except (ValueError, TypeError):
+        threshold = 75
     filter_type = request.GET.get("filter_type", "all").strip()
     party_name = request.GET.get("party_name", "").strip()
 
@@ -241,6 +245,7 @@ def transactions_api_view(request: HttpRequest) -> JsonResponse:
         page=page,
         page_size=page_size,
         search=search,
+        threshold=threshold,
         filter_type=filter_type,
         party_name=party_name,
         sort_field=sort_field,

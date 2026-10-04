@@ -11,6 +11,8 @@ from django.db.models import Count, Max, Min, Q, QuerySet
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 
+from core.fuzzy import extract_keywords_from_string, score_text_against_keywords
+
 from .backend.checkpoints import (
     DEFAULT_KEYWORDS,
     check_currency,
@@ -159,6 +161,7 @@ def get_investigation_emails(
     mailbox_id: str | uuid.UUID,
     *,
     search: str = "",
+    threshold: int = 75,
     folder: str = "",
     sender: str = "",
     has_attachments: bool | None = None,
@@ -176,12 +179,19 @@ def get_investigation_emails(
     )
 
     if search:
-        qs = qs.filter(
-            Q(subject__icontains=search)
-            | Q(sender_email__icontains=search)
-            | Q(sender_name__icontains=search)
-            | Q(body_plain__icontains=search)
-        )
+        keywords = extract_keywords_from_string(search)
+        if keywords:
+            matched_ids = []
+            for msg_id, subj, sname, semail, body in qs.values_list("id", "subject", "sender_name", "sender_email", "body_plain"):
+                text_to_check = f"{subj or ''} {sname or ''} {semail or ''} {body[:500] if body else ''}"
+                is_matched, _, _ = score_text_against_keywords(
+                    text_to_check, keywords, threshold=threshold
+                )
+                if is_matched:
+                    matched_ids.append(msg_id)
+            qs = qs.filter(id__in=matched_ids)
+        else:
+            qs = qs.none()
 
     if folder:
         qs = qs.filter(folder_path=folder)
@@ -204,6 +214,7 @@ def get_paginated_investigation_emails(
     page: int = 1,
     page_size: int = 25,
     search: str = "",
+    threshold: int = 75,
     folder: str = "",
     sender: str = "",
     has_attachments: bool | None = None,
@@ -222,12 +233,19 @@ def get_paginated_investigation_emails(
     qs = EmailMessage.objects.filter(mailbox_id=mailbox_id).prefetch_related("attachments")
 
     if search:
-        qs = qs.filter(
-            Q(subject__icontains=search)
-            | Q(sender_email__icontains=search)
-            | Q(sender_name__icontains=search)
-            | Q(body_plain__icontains=search)
-        )
+        keywords = extract_keywords_from_string(search)
+        if keywords:
+            matched_ids = []
+            for msg_id, subj, sname, semail, body in qs.values_list("id", "subject", "sender_name", "sender_email", "body_plain"):
+                text_to_check = f"{subj or ''} {sname or ''} {semail or ''} {body[:500] if body else ''}"
+                is_matched, _, _ = score_text_against_keywords(
+                    text_to_check, keywords, threshold=threshold
+                )
+                if is_matched:
+                    matched_ids.append(msg_id)
+            qs = qs.filter(id__in=matched_ids)
+        else:
+            qs = qs.none()
 
     if folder:
         qs = qs.filter(folder_path=folder)

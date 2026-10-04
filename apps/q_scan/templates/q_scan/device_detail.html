@@ -51,11 +51,12 @@
     <!-- Evidence Hits Table -->
     <c-card title="Evidence Findings for {{ device.hostname }}" subtitle="Granular list of matched keywords, file paths, and context snippets." icon="fa-solid fa-file-shield" icon_color="text-teal-400">
         <div class="mb-4 flex flex-wrap items-center gap-3">
-            <div class="relative flex-1 min-w-[240px]">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                <input type="text" id="device-search" placeholder="Search filenames, keywords, snippets..." 
-                       class="w-full pl-8 pr-4 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800/80 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-teal-500">
-            </div>
+            <c-search_bar 
+                id="device-search" 
+                threshold_id="device-search-threshold" 
+                placeholder="Search filenames, keywords, snippets..." 
+                threshold="75" />
+
 
             <button id="device-clear-filter" class="px-3 py-1.5 text-xs rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors cursor-pointer">
                 Reset Filter
@@ -75,7 +76,12 @@
 
         function resetFilters() {
             const searchInput = document.getElementById("device-search");
+            const thresholdInput = document.getElementById("device-search-threshold");
             if (searchInput) searchInput.value = "";
+            if (thresholdInput) {
+                thresholdInput.value = 75;
+                thresholdInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
             applyFilters();
         }
 
@@ -156,6 +162,7 @@
                     return {
                         device_id: "{{ device.id }}",
                         search: document.getElementById("device-search")?.value || "",
+                        threshold: document.getElementById("device-search-threshold")?.value || 75,
                     };
                 },
                 pagination: true,
@@ -278,10 +285,13 @@
             });
 
 
-            document.getElementById("device-search")?.addEventListener("input", function () {
+            const triggerSearch = function () {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(applyFilters, 300);
-            });
+            };
+            document.getElementById("device-search")?.addEventListener("input", triggerSearch);
+            document.getElementById("device-search-threshold")?.addEventListener("input", triggerSearch);
+            document.getElementById("device-search-threshold")?.addEventListener("change", triggerSearch);
 
             document.getElementById("device-clear-filter")?.addEventListener("click", function () {
                 resetFilters();

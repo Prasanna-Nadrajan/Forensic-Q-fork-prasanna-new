@@ -210,6 +210,10 @@ def documents_grid_api_view(request: HttpRequest, case_id: str) -> JsonResponse:
     page = int(request.GET.get("page", 1))
     page_size = int(request.GET.get("size", 25))
     search = request.GET.get("search", "").strip()
+    try:
+        threshold = int(request.GET.get("threshold", 75))
+    except (ValueError, TypeError):
+        threshold = 75
     risk_level = request.GET.get("risk_level", "").strip()
     mime_type = request.GET.get("mime_type", "").strip()
 
@@ -226,6 +230,7 @@ def documents_grid_api_view(request: HttpRequest, case_id: str) -> JsonResponse:
         page=page,
         page_size=page_size,
         search=search,
+        threshold=threshold,
         risk_level=risk_level,
         mime_type=mime_type,
         sort_field=sort_field,

@@ -410,11 +410,12 @@
             <!-- Quick Filter Toolbar for Standard Ledger -->
             <div class="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-3 flex-1">
-                    <div class="relative flex-1 min-w-[220px]">
-                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                        <input type="text" id="search-input" placeholder="Search subjects, senders, message body..." 
-                               class="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-purple-500 transition">
-                    </div>
+                    <c-search_bar 
+                        id="search-input" 
+                        threshold_id="search-threshold" 
+                        placeholder="Search subjects, senders, message body..." 
+                        threshold="75" />
+
 
                     {% if summary.folders %}
                     <select id="folder-select"
@@ -526,6 +527,7 @@
                     end_date: document.getElementById('filter-end-date')?.value || '',
                     custom_keyword: document.getElementById('filter-custom-keyword')?.value || '',
                     search: document.getElementById('search-input')?.value || '',
+                    threshold: document.getElementById('search-threshold')?.value || 75,
                 });
                 btn.href = `{% url 'q_mail:export_checkpoint_excel' investigation.id %}?${params.toString()}`;
             }
@@ -541,6 +543,7 @@
         function resetFilters() {
             currentCheckpoint = 'all';
             const search = document.getElementById('search-input');
+            const thresh = document.getElementById('search-threshold');
             const folder = document.getElementById('folder-select');
             const participant = document.getElementById('filter-participant');
             const startDate = document.getElementById('filter-start-date');
@@ -549,6 +552,10 @@
             const badge = document.getElementById('active-filter-badge');
 
             if (search) search.value = '';
+            if (thresh) {
+                thresh.value = 75;
+                thresh.dispatchEvent(new Event('input', { bubbles: true }));
+            }
             if (folder) folder.value = '';
             if (participant) participant.value = '';
             if (startDate) startDate.value = '';
@@ -561,12 +568,19 @@
 
         document.addEventListener("DOMContentLoaded", function() {
             // Live Search inputs with 300ms Debounce
-            const debouncedInputs = ['search-input', 'filter-participant', 'filter-custom-keyword'];
+            const debouncedInputs = ['search-input', 'search-threshold', 'filter-participant', 'filter-custom-keyword'];
             debouncedInputs.forEach(id => {
-                document.getElementById(id)?.addEventListener('input', function() {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(applyFilters, 300);
-                });
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', function() {
+                        clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(applyFilters, 300);
+                    });
+                    el.addEventListener('change', function() {
+                        clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(applyFilters, 300);
+                    });
+                }
             });
 
             // Date inputs
@@ -584,6 +598,7 @@
                     return {
                         checkpoint: currentCheckpoint,
                         search: document.getElementById('search-input')?.value || '',
+                        threshold: document.getElementById('search-threshold')?.value || 75,
                         folder: document.getElementById('folder-select')?.value || '',
                         participant_name: document.getElementById('filter-participant')?.value || '',
                         start_date: document.getElementById('filter-start-date')?.value || '',

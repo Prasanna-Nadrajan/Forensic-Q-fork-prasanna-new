@@ -61,11 +61,11 @@
 
             <!-- Global Search & Controls for Tabulator -->
             <div class="flex items-center gap-2 w-full md:w-auto">
-                <div class="relative flex-1 md:w-72">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                    <input type="text" id="overview-search" placeholder="Search transactions, entities, UTR..." 
-                           class="w-full pl-8 pr-4 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500">
-                </div>
+                <c-search_bar 
+                    id="overview-search" 
+                    threshold_id="overview-threshold" 
+                    placeholder="Search transactions, entities, UTR..." 
+                    threshold="75" />
                 <button id="overview-reset" class="px-3 py-1.5 text-xs rounded-xl bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 border border-slate-300 dark:border-zinc-700 transition">
                     Reset
                 </button>
@@ -856,16 +856,25 @@
         // Search Filter
         let searchTimeout;
         const searchInput = document.getElementById('overview-search');
+        const thresholdInput = document.getElementById('overview-threshold');
+
+        function triggerTableSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                table.setData("{% url 'q_bank:transactions_api' %}", {
+                    account_id: "{{ account.id }}",
+                    search: searchInput ? searchInput.value : '',
+                    threshold: thresholdInput ? thresholdInput.value : 75
+                });
+            }, 300);
+        }
+
         if (searchInput) {
-            searchInput.addEventListener('input', function(e) {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    table.setData("{% url 'q_bank:transactions_api' %}", {
-                        account_id: "{{ account.id }}",
-                        search: e.target.value
-                    });
-                }, 300);
-            });
+            searchInput.addEventListener('input', triggerTableSearch);
+        }
+        if (thresholdInput) {
+            thresholdInput.addEventListener('input', triggerTableSearch);
+            thresholdInput.addEventListener('change', triggerTableSearch);
         }
 
         // Reset Filter
@@ -873,6 +882,10 @@
         if (resetBtn) {
             resetBtn.addEventListener('click', function() {
                 if (searchInput) searchInput.value = '';
+                if (thresholdInput) {
+                    thresholdInput.value = 75;
+                    thresholdInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
                 table.setData("{% url 'q_bank:transactions_api' %}", {
                     account_id: "{{ account.id }}"
                 });

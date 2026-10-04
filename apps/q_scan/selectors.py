@@ -10,6 +10,7 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Q, QuerySet
 
 from .models import FileEvidenceHit, ScannedDevice
+from core.fuzzy import extract_keywords_from_string, score_text_against_keywords
 
 
 def format_file_size(size_bytes: int) -> str:
@@ -87,6 +88,7 @@ def get_evidence_hits_query(
     keyword: str | None = None,
     match_type: str | None = None,
     search_query: str | None = None,
+    threshold: int = 75,
 ) -> QuerySet[FileEvidenceHit]:
     """
     Retrieves evidence hits with proactive select_related('device') to eliminate N+1 queries.
@@ -103,14 +105,19 @@ def get_evidence_hits_query(
         qs = qs.filter(match_type=match_type.strip())
 
     if search_query:
-        q_str = search_query.strip()
-        qs = qs.filter(
-            Q(filename__icontains=q_str)
-            | Q(file_path__icontains=q_str)
-            | Q(matched_keyword__icontains=q_str)
-            | Q(snippet__icontains=q_str)
-            | Q(device__hostname__icontains=q_str)
-        )
+        keywords = extract_keywords_from_string(search_query)
+        if keywords:
+            matched_ids = []
+            for hit_id, fn, fp, kw, snip, host in qs.values_list("id", "filename", "file_path", "matched_keyword", "snippet", "device__hostname"):
+                text_to_check = f"{fn or ''} {fp or ''} {kw or ''} {snip or ''} {host or ''}"
+                is_matched, _, _ = score_text_against_keywords(
+                    text_to_check, keywords, threshold=threshold
+                )
+                if is_matched:
+                    matched_ids.append(hit_id)
+            qs = qs.filter(id__in=matched_ids)
+        else:
+            qs = qs.none()
 
     return qs.order_by("-risk_score", "-created_at")
 
@@ -121,6 +128,7 @@ def get_paginated_evidence_hits(
     page: int = 1,
     page_size: int = 25,
     search: str = "",
+    threshold: int = 75,
     keyword: str = "",
     match_type: str = "",
     risk_level: str = "",
@@ -152,14 +160,19 @@ def get_paginated_evidence_hits(
             qs = qs.filter(risk_score__lt=40)
 
     if search:
-        q_str = search.strip()
-        qs = qs.filter(
-            Q(filename__icontains=q_str)
-            | Q(file_path__icontains=q_str)
-            | Q(matched_keyword__icontains=q_str)
-            | Q(snippet__icontains=q_str)
-            | Q(device__hostname__icontains=q_str)
-        )
+        keywords = extract_keywords_from_string(search)
+        if keywords:
+            matched_ids = []
+            for hit_id, fn, fp, kw, snip, host in qs.values_list("id", "filename", "file_path", "matched_keyword", "snippet", "device__hostname"):
+                text_to_check = f"{fn or ''} {fp or ''} {kw or ''} {snip or ''} {host or ''}"
+                is_matched, _, _ = score_text_against_keywords(
+                    text_to_check, keywords, threshold=threshold
+                )
+                if is_matched:
+                    matched_ids.append(hit_id)
+            qs = qs.filter(id__in=matched_ids)
+        else:
+            qs = qs.none()
 
     allowed_sort_fields = {
         "risk_score": "risk_score",

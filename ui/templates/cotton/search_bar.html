@@ -1,0 +1,50 @@
+<c-vars
+    id=""
+    name="q"
+    value=""
+    placeholder="Search..."
+    threshold="75"
+    threshold_name="threshold"
+    threshold_id=""
+    min_threshold="50"
+    max_threshold="100"
+    step="5"
+    show_threshold="true"
+    class=""
+    input_class=""
+    slider_class=""
+/>
+
+<div class="flex items-center gap-2 {{ class }}" x-data="{ thresh: {{ threshold|default:75 }} }">
+    <!-- Search Input -->
+    <div class="relative flex-1 min-w-[180px] sm:min-w-[240px]">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+        <input 
+            type="text" 
+            {% if id %}id="{{ id }}"{% endif %}
+            name="{{ name }}" 
+            value="{{ value }}" 
+            placeholder="{{ placeholder }}" 
+            class="w-full pl-8 pr-4 py-1.5 text-xs rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 placeholder-slate-400 focus:outline-none focus:border-sky-500 transition {{ input_class }}">
+    </div>
+
+    <!-- Small Fuzzy Threshold Slider Widget -->
+    {% if show_threshold != 'false' and show_threshold != False %}
+    <div class="flex items-center gap-2 px-3 py-1 rounded-xl bg-slate-100 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-xs select-none shadow-2xs {{ slider_class }}">
+        <span class="text-[11px] font-medium text-slate-500 dark:text-zinc-400 whitespace-nowrap">Fuzzy:</span>
+        <input 
+            type="range" 
+            {% if threshold_id %}id="{{ threshold_id }}"{% endif %}
+            name="{{ threshold_name }}" 
+            min="{{ min_threshold }}" 
+            max="{{ max_threshold }}" 
+            step="{{ step }}" 
+            :value="thresh" 
+            @input="thresh = $event.target.value; $dispatch('threshold-change', { value: thresh }); if ('{{ threshold_id }}') { const el = document.getElementById('{{ threshold_id }}'); if (el) el.dispatchEvent(new Event('input', { bubbles: true })); }"
+            @change="thresh = $event.target.value; $dispatch('threshold-change', { value: thresh }); if ('{{ threshold_id }}') { const el = document.getElementById('{{ threshold_id }}'); if (el) el.dispatchEvent(new Event('change', { bubbles: true })); }"
+            class="w-16 sm:w-20 accent-sky-500 cursor-pointer h-1.5" 
+            title="Fuzzy Match Threshold">
+        <span class="font-mono text-[11px] text-sky-500 dark:text-sky-400 font-bold w-7" x-text="thresh + '%'">{{ threshold|default:75 }}%</span>
+    </div>
+    {% endif %}
+</div>

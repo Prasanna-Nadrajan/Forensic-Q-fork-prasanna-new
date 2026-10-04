@@ -136,6 +136,7 @@ def get_paginated_bank_transactions(
     page: int = 1,
     page_size: int = 25,
     search: str = "",
+    threshold: int = 75,
     filter_type: str = "all",  # all, cash_deposit, hyundai, high_risk, credit, debit
     party_name: str = "",
     sort_field: str = "txn_date",
@@ -167,14 +168,21 @@ def get_paginated_bank_transactions(
         qs = qs.filter(direction=BankTransaction.Direction.DEBIT)
 
     if search:
-        q_str = search.strip()
-        qs = qs.filter(
-            Q(party_name__icontains=q_str)
-            | Q(narration__icontains=q_str)
-            | Q(txn_ref__icontains=q_str)
-            | Q(account__account_holder__icontains=q_str)
-            | Q(account__bank_name__icontains=q_str)
-        )
+        keywords = extract_keywords_from_string(search)
+        if keywords:
+            matched_ids = []
+            for t_id, party, narr, ref, holder, bname in qs.values_list(
+                "id", "party_name", "narration", "txn_ref", "account__account_holder", "account__bank_name"
+            ):
+                text_to_check = f"{party or ''} {narr or ''} {ref or ''} {holder or ''} {bname or ''}"
+                is_matched, _, _ = score_text_against_keywords(
+                    text_to_check, keywords, threshold=threshold
+                )
+                if is_matched:
+                    matched_ids.append(t_id)
+            qs = qs.filter(id__in=matched_ids)
+        else:
+            qs = qs.none()
 
     allowed_sort_fields = {
         "txn_date": "txn_date",

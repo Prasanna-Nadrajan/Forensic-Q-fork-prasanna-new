@@ -219,13 +219,13 @@ def get_paginated_chat_messages(
         keywords = extract_keywords_from_string(search)
         if keywords:
             matched_ids = []
-            for msg in qs.only("id", "message_text", "sender_name").iterator():
-                text_to_check = f"{msg.message_text or ''} {msg.sender_name or ''}"
+            for msg_id, mtext, sname in qs.values_list("id", "message_text", "sender_name"):
+                text_to_check = f"{mtext or ''} {sname or ''}"
                 is_matched, _, _ = score_text_against_keywords(
                     text_to_check, keywords, threshold=threshold
                 )
                 if is_matched:
-                    matched_ids.append(msg.id)
+                    matched_ids.append(msg_id)
             qs = qs.filter(id__in=matched_ids)
         else:
             qs = qs.none()

@@ -84,11 +84,12 @@
     <!-- Filter Toolbar -->
     <div class="mb-4 p-4 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-3 flex-1">
-            <div class="relative flex-1 min-w-[220px]">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                <input type="text" id="search-input" placeholder="Search filename, author, software, hash..." 
-                       class="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-rose-500 transition">
-            </div>
+            <c-search_bar 
+                id="search-input" 
+                threshold_id="search-threshold" 
+                placeholder="Search filename, author, software, hash..." 
+                threshold="75" />
+
 
             <select id="risk-select"
                     class="px-3 py-1.5 text-xs bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:border-rose-500 transition">
@@ -216,18 +217,26 @@
 
         function resetFilters() {
             const search = document.getElementById('search-input');
+            const thresholdInput = document.getElementById('search-threshold');
             const risk = document.getElementById('risk-select');
             if (search) search.value = '';
+            if (thresholdInput) {
+                thresholdInput.value = 75;
+                thresholdInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
             if (risk) risk.value = '';
             applyFilters();
         }
 
         document.addEventListener("DOMContentLoaded", function() {
             // Live Search
-            document.getElementById('search-input')?.addEventListener('input', function() {
+            const triggerSearch = function() {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(applyFilters, 300);
-            });
+            };
+            document.getElementById('search-input')?.addEventListener('input', triggerSearch);
+            document.getElementById('search-threshold')?.addEventListener('input', triggerSearch);
+            document.getElementById('search-threshold')?.addEventListener('change', triggerSearch);
 
             // Instant Risk Filter
             document.getElementById('risk-select')?.addEventListener('change', function() {
@@ -241,6 +250,7 @@
                 ajaxParams: function() {
                     return {
                         search: document.getElementById('search-input')?.value || '',
+                        threshold: document.getElementById('search-threshold')?.value || 75,
                         risk_level: document.getElementById('risk-select')?.value || '',
                     };
                 },
