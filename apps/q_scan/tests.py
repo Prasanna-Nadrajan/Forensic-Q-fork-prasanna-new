@@ -595,3 +595,70 @@ class QScanDjangoServiceAndViewsTests(TestCase):
         self.assertTrue(scanner.is_directory_excluded(str(root / "custom_skip" / "deep")))
         # Non-excluded normal directory
         self.assertFalse(scanner.is_directory_excluded(str(root / "normal_folder")))
+
+    def test_evidence_hits_fuzzy_and_filtering(self):
+        from .selectors import get_evidence_hits_query, get_paginated_evidence_hits
+
+        dev = ScannedDevice.objects.create(
+            hostname="WS-FUZZY-01",
+            custodian_name="Auditee 1",
+        )
+        hit1 = FileEvidenceHit.objects.create(
+            device=dev,
+            filename="confidential_memo.docx",
+            file_path="C:\\Docs\\confidential_memo.docx",
+            matched_keyword="confidential",
+            match_type="content",
+            snippet="Contains confidential project details",
+            risk_score=85,
+        )
+        hit2 = FileEvidenceHit.objects.create(
+            device=dev,
+            filename="budget_draft.xlsx",
+            file_path="C:\\Docs\\budget_draft.xlsx",
+            matched_keyword="budget",
+            match_type="filename",
+            snippet="Quarterly budget draft",
+            risk_score=50,
+        )
+        hit3 = FileEvidenceHit.objects.create(
+            device=dev,
+            filename="notes.txt",
+            file_path="C:\\Docs\\notes.txt",
+            matched_keyword="notes",
+            match_type="content",
+            snippet="Personal notes",
+            risk_score=20,
+        )
+        self.assertIsNotNone(hit2)
+        self.assertIsNotNone(hit3)
+
+        # 1. Filter by keyword & match_type
+        qs1 = get_evidence_hits_query(keyword="confidential", match_type="content")
+        self.assertIn(hit1, qs1)
+
+        # 2. Exact search_query (threshold >= 100)
+        qs_exact = get_evidence_hits_query(search_query="confidential", threshold=100)
+        self.assertIn(hit1, qs_exact)
+
+        # 3. Fuzzy search_query (threshold < 100)
+        qs_fuzzy = get_evidence_hits_query(search_query="confidentil", threshold=70)
+        self.assertIn(hit1, qs_fuzzy)
+
+        # 4. get_paginated_evidence_hits with risk_level (high, medium, low)
+        page_high = get_paginated_evidence_hits(risk_level="high")
+        self.assertEqual(len(page_high["data"]), 1)
+        self.assertEqual(page_high["data"][0]["filename"], "confidential_memo.docx")
+
+        page_med = get_paginated_evidence_hits(risk_level="medium")
+        self.assertEqual(len(page_med["data"]), 1)
+        self.assertEqual(page_med["data"][0]["filename"], "budget_draft.xlsx")
+
+        page_low = get_paginated_evidence_hits(risk_level="low")
+        self.assertEqual(len(page_low["data"]), 1)
+        self.assertEqual(page_low["data"][0]["filename"], "notes.txt")
+
+        # 5. get_paginated_evidence_hits fuzzy search
+        page_fuzz = get_paginated_evidence_hits(search="budgt", threshold=70)
+        self.assertEqual(len(page_fuzz["data"]), 1)
+        self.assertEqual(page_fuzz["data"][0]["filename"], "budget_draft.xlsx")

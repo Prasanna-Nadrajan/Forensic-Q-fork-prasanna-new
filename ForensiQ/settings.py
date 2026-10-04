@@ -216,5 +216,11 @@ VOICE_MODEL_ENDPOINT = os.environ.get(
 )
 VOICE_API_TIMEOUT = float(os.environ.get("VOICE_API_TIMEOUT", "60.0"))
 
+# Q-Link Forensic LLM Model-Host Endpoint
+LLM_API_ENDPOINT = os.environ.get("LLM_API_ENDPOINT", "http://127.0.0.1:8434/v1/chat/completions")
+LLM_MODEL_NAME = os.environ.get("LLM_MODEL_NAME", "./models/Llama-3.2-1B-Instruct-Q4_K_M.gguf")
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "model-host")
+LLM_API_TIMEOUT = float(os.environ.get("LLM_API_TIMEOUT", "30.0"))
+
 # Test Discovery Runner (eliminates apps. prefix import collisions)
 TEST_RUNNER = "core.runner.ForensicTestRunner"

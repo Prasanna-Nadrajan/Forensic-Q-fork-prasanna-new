@@ -908,3 +908,150 @@ class ProfileKeywordRegistryIntegrationTests(TestCase):
         cfg_data = json.loads(res.content.decode("utf-8"))
         self.assertIn("PROJECT_TITAN_SECRET", cfg_data["keywords"])
         self.assertIn("SWISS_ACCOUNT", cfg_data["keywords"])
+
+
+class CoreFuzzyEngineTests(TestCase):
+    def test_extract_keywords_from_string(self):
+        from core.fuzzy import extract_keywords_from_string
+
+        self.assertEqual(extract_keywords_from_string(""), [])
+        res = extract_keywords_from_string("alpha, beta; gamma\r\nALPHA, delta")
+        self.assertEqual(res, ["alpha", "beta", "gamma", "delta"])
+
+    def test_extract_keywords_from_txt(self):
+        from core.fuzzy import extract_keywords_from_txt
+
+        raw_bytes = b"# Comment line\n// Another comment\napple, banana\n\ncherry"
+        res = extract_keywords_from_txt(raw_bytes)
+        self.assertEqual(res, ["apple", "banana", "cherry"])
+
+        # String input
+        res_str = extract_keywords_from_txt("dog, cat\n# ignore\nfish")
+        self.assertEqual(res_str, ["dog", "cat", "fish"])
+
+        # Latin-1 encoded bytes
+        latin1_bytes = "café, naïve".encode("latin-1")
+        res_latin = extract_keywords_from_txt(latin1_bytes)
+        self.assertIn("café", res_latin)
+
+    def test_extract_keywords_from_xlsx_general_table(self):
+        import io
+
+        import openpyxl
+
+        from core.fuzzy import extract_keywords_from_xlsx
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        # Header with stopword
+        ws.append(["keyword", "notes"])
+        ws.append(["shell_corp", "internal alert"])
+        ws.append(["bribe_fund", "cash"])
+        ws.append([None, None])
+        buf = io.BytesIO()
+        wb.save(buf)
+
+        res = extract_keywords_from_xlsx(buf.getvalue())
+        self.assertIn("shell_corp", res)
+        self.assertIn("bribe_fund", res)
+
+    def test_extract_keywords_from_xlsx_targeted_header(self):
+        import io
+
+        import openpyxl
+
+        from core.fuzzy import extract_keywords_from_xlsx
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["Target Name", "Watchlist Identifier", "Date"])
+        ws.append(["Vikram", "ACC-9988; HAWALA-1", "2026-01-01"])
+        buf = io.BytesIO()
+        wb.save(buf)
+
+        res = extract_keywords_from_xlsx(buf.getvalue())
+        self.assertIn("ACC-9988", res)
+        self.assertIn("HAWALA-1", res)
+
+    def test_extract_keywords_from_xlsx_fallback_no_target_col(self):
+        import io
+
+        import openpyxl
+
+        from core.fuzzy import extract_keywords_from_xlsx
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        # Header without any target column words
+        ws.append(["Category", "Details"])
+        ws.append(["Finance", "hawala_node, shell_account"])
+        buf = io.BytesIO()
+        wb.save(buf)
+
+        res = extract_keywords_from_xlsx(buf.getvalue())
+        self.assertIn("hawala_node", res)
+        self.assertIn("shell_account", res)
+
+    def test_extract_keywords_from_file_and_fallbacks(self):
+        from core.fuzzy import extract_keywords_from_file
+
+        # TXT file obj
+        txt_file = SimpleUploadedFile("watch.csv", b"wire_transfer, kickback")
+        res_txt = extract_keywords_from_file(txt_file, "watch.csv")
+        self.assertIn("wire_transfer", res_txt)
+
+        # Fallback unknown extension
+        unknown_file = SimpleUploadedFile("unknown.dat", b"secret_fund, offshore")
+        res_unknown = extract_keywords_from_file(unknown_file, "unknown.dat")
+        self.assertIn("secret_fund", res_unknown)
+
+    def test_extract_keywords_from_request(self):
+        from core.fuzzy import extract_keywords_from_request
+
+        factory = RequestFactory()
+
+        # 1. From GET query
+        req_get = factory.get("/?keywords=alpha,beta")
+        res_get = extract_keywords_from_request(req_get)
+        self.assertEqual(res_get, ["alpha", "beta"])
+
+        # 2. From POST q
+        req_post = factory.post("/", {"q": "gamma; delta"})
+        res_post = extract_keywords_from_request(req_post)
+        self.assertEqual(res_post, ["gamma", "delta"])
+
+        # 3. From attached file
+        f = SimpleUploadedFile("terms.txt", b"epsilon, zeta")
+        req_file = factory.post("/", {"file": f})
+        res_file = extract_keywords_from_request(req_file)
+        self.assertIn("epsilon", res_file)
+        self.assertIn("zeta", res_file)
+
+    def test_score_text_against_keywords(self):
+        from core.fuzzy import score_text_against_keywords
+
+        # Empty cases
+        self.assertEqual(score_text_against_keywords("", ["abc"]), (False, 0, ""))
+        self.assertEqual(score_text_against_keywords("some text", []), (False, 0, ""))
+
+        # Direct 100% substring match
+        matched, score, kw = score_text_against_keywords(
+            "Payment to Apex Logistics", ["Apex Logistics"]
+        )
+        self.assertTrue(matched)
+        self.assertEqual(score, 100)
+        self.assertEqual(kw, "Apex Logistics")
+
+        # Fuzzy token match
+        matched_fuzz, score_fuzz, kw_fuzz = score_text_against_keywords(
+            "Transfer to Logistix", ["Logistics"], threshold=70
+        )
+        self.assertTrue(matched_fuzz)
+        self.assertGreaterEqual(score_fuzz, 70)
+        self.assertEqual(kw_fuzz, "Logistics")
+
+        # Below threshold match
+        matched_no, _, _ = score_text_against_keywords(
+            "Completely unrelated text", ["Logistics"], threshold=90
+        )
+        self.assertFalse(matched_no)

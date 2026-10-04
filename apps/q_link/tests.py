@@ -5,6 +5,7 @@ event ingestion, graph pathfinding, risk alerts, LLM tool execution, and REST AP
 """
 
 import json
+import uuid
 
 from django.test import Client, TestCase
 from django.utils import timezone
@@ -202,6 +203,29 @@ class QLinkAgentToolCallingTests(TestCase):
         self.assertIn("Arun Kumar", out["response"])
         self.assertGreaterEqual(len(out["tool_calls"]), 2)
 
+    def test_copilot_agent_offline_fallback(self):
+        agent = ForensicCopilotAgent()
+        agent.endpoint = "http://127.0.0.1:9999/unreachable"
+        agent.timeout = 0.5
+        out = agent.analyze_investigative_query("Investigate Arun Kumar")
+        self.assertEqual("agentic_tool_calling", out.get("mode"))
+        self.assertIn("Arun Kumar", out["response"])
+        self.assertGreaterEqual(len(out["tool_calls"]), 3)
+
+    def test_copilot_agent_no_entities(self):
+        # When querying in an empty state with no matches
+        agent = ForensicCopilotAgent()
+        from q_link.models import ForensicEntity
+
+        original_entities = list(ForensicEntity.objects.all())
+        ForensicEntity.objects.all().delete()
+        try:
+            out = agent.analyze_investigative_query("Nonexistent Query")
+            self.assertEqual("deterministic_fallback", out.get("mode"))
+            self.assertIn("No forensic entities currently indexed", out["response"])
+        finally:
+            ForensicEntity.objects.bulk_create(original_entities)
+
 
 class QLinkAPITests(TestCase):
     """Tests Q-Link view endpoints."""
@@ -229,12 +253,21 @@ class QLinkAPITests(TestCase):
         self.assertEqual(data["status"], "success")
         self.assertIn("nodes", data)
 
+        # Query specific entity network
+        resp2 = self.client.get(f"/link/api/network/?entity_id={self.emp.id}&max_hops=1")
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp2.json()["status"], "success")
+
     def test_api_entity_detail(self):
         resp = self.client.get(f"/link/api/entity/{self.emp.id}/")
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data["status"], "success")
         self.assertEqual(data["entity"]["name"], "Investigative Subject")
+
+        # Entity not found
+        resp_404 = self.client.get(f"/link/api/entity/{uuid.uuid4()}/")
+        self.assertEqual(resp_404.status_code, 404)
 
     def test_api_copilot_chat(self):
         resp = self.client.post(
@@ -268,6 +301,49 @@ class QLinkAPITests(TestCase):
         self.assertEqual(ack_resp.json()["status"], "success")
         alert.refresh_from_db()
         self.assertTrue(alert.is_acknowledged)
+
+        # Acknowledge non-existent alert
+        ack_404 = self.client.post(f"/link/api/alert/{uuid.uuid4()}/ack/")
+        self.assertEqual(ack_404.status_code, 404)
+
+    def test_api_copilot_chat_errors(self):
+        # Empty query
+        res_empty = self.client.post(
+            "/link/api/copilot/",
+            data=json.dumps({"query": "  "}),
+            content_type="application/json",
+        )
+        self.assertEqual(res_empty.status_code, 400)
+        self.assertIn("Query cannot be empty", res_empty.json()["message"])
+
+        # Invalid JSON
+        res_bad = self.client.post(
+            "/link/api/copilot/",
+            data=b"not-a-valid-json{",
+            content_type="application/json",
+        )
+        self.assertEqual(res_bad.status_code, 400)
+        self.assertIn("Invalid JSON format", res_bad.json()["message"])
+
+        # 500 Exception path in copilot chat
+        from unittest.mock import patch
+
+        with patch.object(
+            ForensicCopilotAgent,
+            "analyze_investigative_query",
+            side_effect=RuntimeError("AI Crash"),
+        ):
+            res_500 = self.client.post(
+                "/link/api/copilot/",
+                data=json.dumps({"query": "Crash Test"}),
+                content_type="application/json",
+            )
+            self.assertEqual(res_500.status_code, 500)
+
+        # 500 Exception path in sync modules
+        with patch("q_link.views.sync_all_modules", side_effect=RuntimeError("Sync Crash")):
+            res_sync_500 = self.client.post("/link/api/sync/")
+            self.assertEqual(res_sync_500.status_code, 500)
 
 
 class QLinkSyncAllTests(TestCase):
@@ -303,10 +379,66 @@ class QLinkSyncAllTests(TestCase):
             is_circular=False,
         )
 
+        # Create Q-Bank transaction
+        AuditedPerson = apps.get_model("q_bank", "AuditedPerson")
+        BankAccount = apps.get_model("q_bank", "BankAccount")
+        BankTransaction = apps.get_model("q_bank", "BankTransaction")
+        person = AuditedPerson.objects.create(full_name="Target Custodian A")
+        account = BankAccount.objects.create(
+            person=person,
+            account_number="1122334455",
+            bank_name="Global Trust",
+        )
+        BankTransaction.objects.create(
+            account=account,
+            txn_date="2026-03-01T10:00:00Z",
+            narration="TRANSFER TO Apex Logistics",
+            direction=BankTransaction.Direction.DEBIT,
+            debit_amount=Decimal("50000.00"),
+        )
+
+        # Create Q-Mail message
+        MailboxInvestigation = apps.get_model("q_mail", "MailboxInvestigation")
+        EmailMessage = apps.get_model("q_mail", "EmailMessage")
+        inv = MailboxInvestigation.objects.create(
+            audit_ref="AUD-SYNC-01",
+            audit_name="Audit Sync Case",
+            auditee_name="Jane Doe",
+            auditee_email="jane@company.com",
+            pst_file_name="sync.pst",
+        )
+        EmailMessage.objects.create(
+            mailbox=inv,
+            subject="Invoice approval discussion",
+            sender_name="Jane Doe",
+            sender_email="jane@company.com",
+            recipients_to=["vendor@apex.com"],
+            body_plain="Approved the $50000 payout to Apex Logistics",
+        )
+
+        # Create Q-Verify case & document
+        VerificationCase = apps.get_model("q_verify", "VerificationCase")
+        VerifiedDocument = apps.get_model("q_verify", "VerifiedDocument")
+        case = VerificationCase.objects.create(
+            case_ref="VER-SYNC-01",
+            case_title="Vendor Verification Check",
+            custodian_name="Jane Doe",
+            custodian_department="Procurement",
+        )
+        VerifiedDocument.objects.create(
+            case=case,
+            filename="tampered_po.pdf",
+            authenticity_score=40,
+            risk_level="HIGH",
+        )
+
         counts = sync_all_modules()
         self.assertIsInstance(counts, dict)
         self.assertGreaterEqual(counts["q_ledger"], 1)
         self.assertGreaterEqual(counts["q_trail"], 1)
+        self.assertGreaterEqual(counts["q_bank"], 1)
+        self.assertGreaterEqual(counts["q_mail"], 1)
+        self.assertGreaterEqual(counts["q_verify"], 1)
 
 
 class QLinkDeepCoverageTests(TestCase):

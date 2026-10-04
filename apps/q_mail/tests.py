@@ -602,3 +602,63 @@ class QMailCheckpointsAndSelectorsTests(TestCase):
         self.assertEqual(res_dl_404.status_code, 404)
 
         Path(tmp_path).unlink(missing_ok=True)
+
+    def test_investigation_emails_fuzzy_and_filtering(self):
+        from .models import EmailMessage, MailboxInvestigation
+        from .selectors import (
+            get_investigation_emails,
+            get_paginated_investigation_emails,
+        )
+
+        inv = MailboxInvestigation.objects.create(
+            audit_ref="CASE-FUZZY-01",
+            audit_name="Fuzzy Mail Test",
+            auditee_name="Auditee Mail",
+            auditee_email="auditee@mail.com",
+            pst_file_name="test.pst",
+        )
+        msg1 = EmailMessage.objects.create(
+            mailbox=inv,
+            subject="Invoice for offshore consultancy",
+            sender_name="Consultant",
+            sender_email="consultant@offshore.com",
+            body_plain="Please process payment to Swiss account",
+            folder_path="Inbox",
+            has_attachments=True,
+            risk_score=90,
+        )
+        msg2 = EmailMessage.objects.create(
+            mailbox=inv,
+            subject="Weekly project status update",
+            sender_name="Developer",
+            sender_email="dev@company.com",
+            body_plain="Everything on schedule",
+            folder_path="Updates",
+            has_attachments=False,
+            risk_score=10,
+        )
+        self.assertIsNotNone(msg2)
+
+        # 1. Exact match (threshold >= 100)
+        emails_exact = get_investigation_emails(inv.id, search="offshore", threshold=100)
+        self.assertEqual(emails_exact.count(), 1)
+        self.assertEqual(emails_exact.first().id, msg1.id)
+
+        # 2. Fuzzy match (threshold < 100)
+        emails_fuzz = get_investigation_emails(inv.id, search="offshor", threshold=70)
+        self.assertEqual(emails_fuzz.count(), 1)
+        self.assertEqual(emails_fuzz.first().id, msg1.id)
+
+        # 3. Filters: folder, has_attachments, min_risk
+        self.assertEqual(get_investigation_emails(inv.id, folder="Inbox").count(), 1)
+        self.assertEqual(get_investigation_emails(inv.id, has_attachments=False).count(), 1)
+        self.assertEqual(get_investigation_emails(inv.id, min_risk=50).count(), 1)
+
+        # 4. Paginated selector with fuzzy
+        page_exact = get_paginated_investigation_emails(inv.id, search="offshore", threshold=100)
+        self.assertEqual(len(page_exact["data"]), 1)
+        self.assertEqual(page_exact["data"][0]["id"], str(msg1.id))
+
+        page_fuzz = get_paginated_investigation_emails(inv.id, search="offshor", threshold=70)
+        self.assertEqual(len(page_fuzz["data"]), 1)
+        self.assertEqual(page_fuzz["data"][0]["id"], str(msg1.id))

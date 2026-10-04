@@ -10,7 +10,6 @@ Provides an autonomous forensic reasoning copilot equipped with function tools:
 Supports OpenAI-compatible endpoints, Ollama, and resilient local deterministic fallback.
 """
 
-import json
 from typing import Any
 
 import requests
@@ -238,15 +237,18 @@ class ForensicCopilotAgent:
     """
     Forensic Intelligence Agent with Tool-Calling capabilities.
     Coordinates between natural language prompts, dynamic tool calling,
-    and forensic hypothesis generation.
+    and forensic hypothesis generation. Supports local Model-Host (Llama-3.2-1B-Instruct),
+    OpenAI-compatible endpoints, and deterministic fallback.
     """
 
     def __init__(self):
         self.endpoint = getattr(
-            settings, "LLM_API_ENDPOINT", "http://127.0.0.1:11434/v1/chat/completions"
+            settings, "LLM_API_ENDPOINT", "http://127.0.0.1:8434/v1/chat/completions"
         )
-        self.api_key = getattr(settings, "LLM_API_KEY", "ollama")
-        self.model = getattr(settings, "LLM_MODEL_NAME", "llama3.1")
+        self.api_key = getattr(settings, "LLM_API_KEY", "model-host")
+        self.model = getattr(
+            settings, "LLM_MODEL_NAME", "./models/Llama-3.2-1B-Instruct-Q4_K_M.gguf"
+        )
         self.timeout = getattr(settings, "LLM_API_TIMEOUT", 30.0)
 
     def analyze_investigative_query(
@@ -254,92 +256,10 @@ class ForensicCopilotAgent:
     ) -> dict[str, Any]:
         """
         Runs the agentic reasoning loop:
-        1. Analyzes user request.
-        2. Determines required tools.
-        3. Executes tools via ForensicToolRegistry.
-        4. Synthesizes a structured intelligence report with full evidence citations.
-        """
-        # Attempt to run via live LLM endpoint if configured
-        try:
-            return self._run_llm_tool_loop(user_query, active_entity_name)
-        except Exception as err:
-            logger.info(
-                f"LLM API not reachable ({err}). Executing resilient deterministic agentic fallback."
-            )
-            return self._run_deterministic_tool_fallback(user_query, active_entity_name)
-
-    def _run_llm_tool_loop(self, user_query: str, active_entity: str | None) -> dict[str, Any]:
-        """
-        Standard OpenAI/Ollama compatible chat completion with tool_calls.
-        """
-        tools = ForensicToolRegistry.get_tool_definitions()
-        system_prompt = (
-            "You are ForensiQ Copilot, an expert corporate forensic investigator and intelligence analyst. "
-            "Your objective is to connect findings across Q-Bank, Q-Ledger, Q-Mail, Q-Trail, and Q-Verify. "
-            "Always use the provided forensic tools to explore relationships, timelines, and evidence. "
-            "Ensure every finding is supported by concrete citations to source modules and record IDs."
-        )
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": f"Context Active Entity: {active_entity or 'None'}\n\nQuery: {user_query}",
-            },
-        ]
-
-        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "tools": tools,
-            "tool_choice": "auto",
-        }
-
-        resp = requests.post(self.endpoint, json=payload, headers=headers, timeout=self.timeout)  # nosec B113
-        if resp.status_code != 200:
-            raise ConnectionError(f"LLM status: {resp.status_code}")
-
-        data = resp.json()
-        choice = data["choices"][0]["message"]
-        tool_calls = choice.get("tool_calls", [])
-
-        tool_results = []
-        if tool_calls:
-            for tc in tool_calls:
-                fn_name = tc["function"]["name"]
-                fn_args = json.loads(tc["function"]["arguments"])
-                out = ForensicToolRegistry.execute_tool(fn_name, fn_args)
-                tool_results.append({"tool": fn_name, "arguments": fn_args, "output": out})
-                messages.append(choice)
-                messages.append(
-                    {"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(out)}
-                )
-
-            # Second turn to synthesize final narrative
-            second_resp = requests.post(
-                self.endpoint,
-                json={"model": self.model, "messages": messages},
-                headers=headers,
-                timeout=self.timeout,
-            )  # nosec B113
-            final_text = second_resp.json()["choices"][0]["message"]["content"]
-        else:
-            final_text = choice.get("content", "No analysis returned.")
-
-        return {
-            "query": user_query,
-            "response": final_text,
-            "tool_calls": tool_results,
-            "mode": "llm_agent",
-        }
-
-    def _run_deterministic_tool_fallback(
-        self, query: str, active_entity_name: str | None
-    ) -> dict[str, Any]:
-        """
-        Deterministic agentic fallback: inspects query intent, executes relevant tools,
-        and constructs a structured markdown forensic briefing.
+        1. Analyzes user request and resolves target entity.
+        2. Executes investigative tools (network graph, timeline, evidence pointers).
+        3. Attempts neural synthesis via the live LLM endpoint (Model-Host / Llama-3.2).
+        4. Seamlessly falls back to structured deterministic synthesis if LLM is offline or refuses.
         """
         tool_calls = []
 
@@ -350,7 +270,7 @@ class ForensicCopilotAgent:
 
         if not target:
             # Try to extract entity mention from query
-            words = query.split()
+            words = user_query.split()
             for w in words:
                 cand = ForensicToolRegistry._find_entity(w)
                 if cand:
@@ -363,7 +283,7 @@ class ForensicCopilotAgent:
 
         if not target:
             return {
-                "query": query,
+                "query": user_query,
                 "response": "No forensic entities currently indexed in Q-Link. Run cross-module synchronization to ingest data.",
                 "tool_calls": [],
                 "mode": "deterministic_fallback",
@@ -405,8 +325,104 @@ class ForensicCopilotAgent:
             }
         )
 
-        # Synthesize forensic narrative
-        connected_count = net_out.get("connected_nodes_count", 1) - 1
+        # Attempt synthesis with live LLM endpoint (e.g. local Model-Host)
+        llm_response = self._synthesize_with_llm(
+            user_query, target, net_out, timeline_out, evidence_out
+        )
+
+        if llm_response:
+            evidence_items = evidence_out.get("evidence_items", [])
+            citations = []
+            if evidence_items:
+                citations.append("\n\n#### 🔗 Cross-Tool Converged Evidence:")
+                for item in evidence_items[:5]:
+                    citations.append(
+                        f"- **[{item['module'].upper()}]** {item['summary']} ([Inspect Record]({item['url']}))"
+                    )
+            final_narrative = llm_response + "\n".join(citations)
+        else:
+            final_narrative = self._build_deterministic_narrative(
+                target, net_out, timeline_out, evidence_out
+            )
+
+        return {
+            "query": user_query,
+            "response": final_narrative,
+            "tool_calls": tool_calls,
+            "mode": "agentic_tool_calling",
+        }
+
+    def _synthesize_with_llm(
+        self,
+        query: str,
+        target: ForensicEntity,
+        net_out: dict[str, Any],
+        timeline_out: dict[str, Any],
+        evidence_out: dict[str, Any],
+    ) -> str | None:
+        """
+        Calls the LLM endpoint (e.g. Model-Host) to synthesize an investigative intelligence report.
+        """
+        try:
+            connected_count = max(0, net_out.get("connected_nodes_count", 1) - 1)
+            edges_count = net_out.get("connected_edges_count", 0)
+            events = timeline_out.get("timeline", [])
+            evidence_items = evidence_out.get("evidence_items", [])
+
+            ev_snippets = [f"[{ev['module'].upper()}] {ev['summary']}" for ev in evidence_items[:5]]
+            ev_str = "; ".join(ev_snippets) if ev_snippets else "No direct evidence pointers."
+
+            time_snippets = [f"{e['date']} ({e['module']}): {e['title']}" for e in events[:4]]
+            time_str = "; ".join(time_snippets) if time_snippets else "No recorded timeline events."
+
+            prompt = (
+                f"You are ForensiQ Copilot, a senior forensic data intelligence analyst.\n"
+                f"Summarize the following cross-module entity intelligence findings for {target.display_name}:\n\n"
+                f"Target Entity: {target.display_name} ({target.get_entity_type_display()}, Risk Score: {target.risk_rating}/100)\n"
+                f"Network Connections: Connected to {connected_count} unique entities across {edges_count} multi-tool edges.\n"
+                f"Evidence Records: {ev_str}\n"
+                f"Timeline Events: {time_str}\n\n"
+                f"User Inquiry: {query}\n\n"
+                f"Provide a concise, professional investigative summary with key findings and recommendations:"
+            )
+
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "model": self.model,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+
+            resp = requests.post(self.endpoint, json=payload, headers=headers, timeout=self.timeout)  # nosec B113
+            if resp.status_code == 200:
+                content = resp.json()["choices"][0]["message"].get("content", "").strip()
+                refusals = [
+                    "cannot provide legal advice",
+                    "cannot provide information about a private citizen",
+                ]
+                if (
+                    content
+                    and not any(r in content.lower() for r in refusals)
+                    and len(content) > 30
+                ):
+                    return content
+        except Exception as err:
+            logger.debug(f"LLM synthesis unavailable or errored: {err}")
+        return None
+
+    def _build_deterministic_narrative(
+        self,
+        target: ForensicEntity,
+        net_out: dict[str, Any],
+        timeline_out: dict[str, Any],
+        evidence_out: dict[str, Any],
+    ) -> str:
+        """
+        Builds a structured markdown forensic briefing deterministically.
+        """
+        connected_count = max(0, net_out.get("connected_nodes_count", 1) - 1)
         edges_count = net_out.get("connected_edges_count", 0)
         events = timeline_out.get("timeline", [])
         evidence_items = evidence_out.get("evidence_items", [])
@@ -442,9 +458,4 @@ class ForensicCopilotAgent:
             "Recommend immediate deep-dive into intermediary conduit accounts."
         )
 
-        return {
-            "query": query,
-            "response": "\n".join(narrative),
-            "tool_calls": tool_calls,
-            "mode": "agentic_tool_calling",
-        }
+        return "\n".join(narrative)
