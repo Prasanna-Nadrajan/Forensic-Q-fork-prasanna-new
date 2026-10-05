@@ -227,9 +227,10 @@
     </div>
 
     <!-- Top Summary Rankings (Leaderboards) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 {% if top_vendors %}md:grid-cols-3{% else %}md:grid-cols-2{% endif %} gap-6 mb-8">
         
         <!-- Top 5 Vendors -->
+        {% if top_vendors %}
         <div class="p-5 rounded-2xl bg-theme-surface border border-theme-border shadow-sm">
             <div class="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-theme-text mb-4">
                 <i class="fa-solid fa-trophy text-amber-500"></i>
@@ -241,11 +242,10 @@
                     <span class="text-theme-text font-medium truncate max-w-[180px]">{{ v.vendor_id }} - {{ v.vendor_name }}</span>
                     <span class="font-mono font-bold text-amber-500">{{ v.Formatted_Amount }}</span>
                 </div>
-                {% empty %}
-                <p class="text-xs text-theme-muted py-2">Vendor filter active or no records.</p>
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
 
         <!-- Top 5 G/L Accounts -->
         <div class="p-5 rounded-2xl bg-theme-surface border border-theme-border shadow-sm">
