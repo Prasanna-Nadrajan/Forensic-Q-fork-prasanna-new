@@ -31,11 +31,27 @@ Table investigation_profiles {
   risk_level varchar(20) [default: 'MEDIUM', note: 'LOW, MEDIUM, HIGH, CRITICAL']
   notes text [default: '']
   avatar_color varchar(32) [default: 'indigo']
+  keywords json [note: 'Search/surveillance keywords array']
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
 }
-```
 
+Table audits {
+  id uuid [pk, note: 'UUID v4 Primary Key']
+  name varchar(32) [unique, not null, note: 'Auto-generated ID: YYYY-WB-XX']
+  title varchar(255) [default: '', note: 'Audit Title / Objective']
+  description text [default: '', note: 'Investigation scope / allegations']
+  status varchar(20) [default: 'ACTIVE', note: 'ACTIVE, IN_PROGRESS, COMPLETED, ARCHIVED']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table audit_profiles {
+  id int [pk, increment]
+  audit_id uuid [ref: > audits.id, note: 'Foreign Key to Audit']
+  investigationprofile_id uuid [ref: > investigation_profiles.id, note: 'Foreign Key to InvestigationProfile']
+}
+```
 
 ---
 
@@ -64,4 +80,12 @@ class UUIDModel(models.Model):
 class ForensicBaseModel(UUIDModel, TimeStampedModel):
     class Meta:
         abstract = True
+
+
+class Audit(ForensicBaseModel):
+    name = models.CharField(max_length=32, unique=True, db_index=True)
+    title = models.CharField(max_length=255, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=20, default="ACTIVE")
+    profiles = models.ManyToManyField("InvestigationProfile", related_name="audits", blank=True)
 ```

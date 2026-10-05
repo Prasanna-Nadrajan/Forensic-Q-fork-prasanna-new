@@ -1055,3 +1055,204 @@ class CoreFuzzyEngineTests(TestCase):
             "Completely unrelated text", ["Logistics"], threshold=90
         )
         self.assertFalse(matched_no)
+
+
+class CoreAuditTests(TestCase):
+    def setUp(self):
+        from core.models import Audit, InvestigationProfile
+
+        self.Audit = Audit
+        self.InvestigationProfile = InvestigationProfile
+        self.client = Client()
+        session = self.client.session
+        session["portal_authenticated"] = True
+        session.save()
+
+        # Create sample profiles
+        self.profile1 = self.InvestigationProfile.objects.create(
+            full_name="Arun Kumar",
+            employee_id="EMP-1001",
+            department="Procurement",
+            designation="Manager",
+            status="ACTIVE",
+            risk_level="HIGH",
+        )
+        self.profile2 = self.InvestigationProfile.objects.create(
+            full_name="Rajesh Sharma",
+            employee_id="EMP-1002",
+            department="Logistics",
+            designation="Executive",
+            status="ACTIVE",
+            risk_level="MEDIUM",
+        )
+        self.profile3 = self.InvestigationProfile.objects.create(
+            full_name="Priya Patel",
+            employee_id="EMP-1003",
+            department="Finance",
+            designation="Analyst",
+            status="ACTIVE",
+            risk_level="LOW",
+        )
+
+    def test_auto_generate_audit_name_sequence(self):
+        from core.audits import create_audit, generate_next_audit_name
+
+        # First audit in 2026 starts at 2026-WB-01
+        name1 = generate_next_audit_name(year=2026)
+        self.assertEqual(name1, "2026-WB-01")
+
+        audit1 = create_audit(year=2026, title="Audit 1")
+        self.assertEqual(audit1.name, "2026-WB-01")
+
+        # Second audit increments to 2026-WB-02
+        name2 = generate_next_audit_name(year=2026)
+        self.assertEqual(name2, "2026-WB-02")
+
+        audit2 = create_audit(year=2026, title="Audit 2")
+        self.assertEqual(audit2.name, "2026-WB-02")
+
+        # Third audit increments to 2026-WB-03
+        audit3 = create_audit(year=2026, title="Audit 3")
+        self.assertEqual(audit3.name, "2026-WB-03")
+
+    def test_audit_name_generation_across_years(self):
+        from core.audits import create_audit, generate_next_audit_name
+
+        create_audit(year=2025, title="2025 Audit")
+        self.assertEqual(generate_next_audit_name(year=2025), "2025-WB-02")
+        # 2026 starts independently at 01
+        self.assertEqual(generate_next_audit_name(year=2026), "2026-WB-01")
+
+    def test_audit_name_generation_expansion_beyond_99(self):
+        from core.audits import generate_next_audit_name
+
+        self.Audit.objects.create(name="2026-WB-99", title="High Seq Audit")
+        self.assertEqual(generate_next_audit_name(year=2026), "2026-WB-100")
+
+    def test_create_audit_with_mapped_profiles(self):
+        from core.audits import create_audit
+
+        audit = create_audit(
+            title="Procurement Collusion Review",
+            description="Investigating supplier kickbacks and fake invoices.",
+            status="ACTIVE",
+            profile_ids=[str(self.profile1.id), str(self.profile2.id)],
+        )
+
+        self.assertEqual(audit.profiles.count(), 2)
+        self.assertIn(self.profile1, audit.profiles.all())
+        self.assertIn(self.profile2, audit.profiles.all())
+        self.assertNotIn(self.profile3, audit.profiles.all())
+
+        # Check serialization in to_dict
+        d = audit.to_dict()
+        self.assertEqual(d["name"], audit.name)
+        self.assertEqual(d["title"], "Procurement Collusion Review")
+        self.assertEqual(d["status"], "ACTIVE")
+        self.assertEqual(d["profiles_count"], 2)
+        self.assertIn(str(self.profile1.id), d["profile_ids"])
+
+        # Check profile to_dict audits reference
+        p1_dict = self.profile1.to_dict()
+        self.assertEqual(len(p1_dict["audits"]), 1)
+        self.assertEqual(p1_dict["audits"][0]["name"], audit.name)
+
+    def test_map_and_unmap_profiles(self):
+        from core.audits import create_audit, map_profiles_to_audit, unmap_profile_from_audit
+
+        audit = create_audit(title="Logistics Review", profile_ids=[str(self.profile1.id)])
+        self.assertEqual(audit.profiles.count(), 1)
+
+        # Add profile 2
+        map_profiles_to_audit(audit.id, [str(self.profile2.id)], replace=False)
+        audit.refresh_from_db()
+        self.assertEqual(audit.profiles.count(), 2)
+
+        # Replace with only profile 3
+        map_profiles_to_audit(audit.id, [str(self.profile3.id)], replace=True)
+        audit.refresh_from_db()
+        self.assertEqual(audit.profiles.count(), 1)
+        self.assertEqual(audit.profiles.first().id, self.profile3.id)
+
+        # Unmap profile 3
+        unmap_profile_from_audit(audit.id, self.profile3.id)
+        audit.refresh_from_db()
+        self.assertEqual(audit.profiles.count(), 0)
+
+    def test_landing_view_contains_audits(self):
+        from core.audits import create_audit
+
+        create_audit(title="Landing Test Audit", profile_ids=[str(self.profile1.id)])
+
+        response = self.client.get(reverse("landing"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("audits", response.context)
+        self.assertIn("audits_json", response.context)
+        self.assertIn("next_audit_name", response.context)
+        self.assertGreaterEqual(len(response.context["audits"]), 1)
+
+    def test_create_audit_view_json(self):
+        payload = {
+            "title": "API Created Audit",
+            "description": "Via JSON endpoint",
+            "status": "IN_PROGRESS",
+            "profile_ids": [str(self.profile1.id), str(self.profile2.id)],
+        }
+        response = self.client.post(
+            reverse("create_audit"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["audit"]["title"], "API Created Audit")
+        self.assertEqual(data["audit"]["status"], "IN_PROGRESS")
+        self.assertEqual(data["audit"]["profiles_count"], 2)
+        self.assertTrue(data["audit"]["name"].endswith("-01") or "-WB-" in data["audit"]["name"])
+
+    def test_create_audit_view_form_post(self):
+        response = self.client.post(
+            reverse("create_audit"),
+            data={
+                "title": "Form Created Audit",
+                "status": "ACTIVE",
+                "profile_ids": [str(self.profile1.id)],
+                "next": "/",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(self.Audit.objects.filter(title="Form Created Audit").exists())
+
+    def test_map_audit_profiles_view(self):
+        from core.audits import create_audit
+
+        audit = create_audit(title="Mapping View Test")
+        response = self.client.post(
+            reverse("map_audit_profiles", kwargs={"audit_id": audit.id}),
+            data=json.dumps({"profile_ids": [str(self.profile1.id), str(self.profile3.id)]}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["audit"]["profiles_count"], 2)
+
+    def test_api_audits_list_and_next_name(self):
+        from core.audits import create_audit
+
+        create_audit(title="List Test Audit")
+
+        # List endpoint
+        res_list = self.client.get(reverse("api_audits"))
+        self.assertEqual(res_list.status_code, 200)
+        data_list = res_list.json()
+        self.assertEqual(data_list["status"], "success")
+        self.assertGreaterEqual(len(data_list["audits"]), 1)
+
+        # Next name endpoint
+        res_name = self.client.get(reverse("api_next_audit_name"))
+        self.assertEqual(res_name.status_code, 200)
+        data_name = res_name.json()
+        self.assertEqual(data_name["status"], "success")
+        self.assertTrue("-WB-" in data_name["next_name"])

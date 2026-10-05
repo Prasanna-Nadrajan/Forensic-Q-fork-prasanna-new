@@ -186,9 +186,10 @@ def extract_keywords_from_file(file_obj, filename: str = "") -> list[str]:
 
 def get_all_profiles() -> QuerySet[InvestigationProfile]:
     """
-    Returns all investigation profiles ordered by full name.
+    Returns all investigation profiles ordered by full name,
+    prefetching audits to prevent N+1 queries.
     """
-    return InvestigationProfile.objects.all().order_by("full_name")
+    return InvestigationProfile.objects.prefetch_related("audits").all().order_by("full_name")
 
 
 def get_profile_by_id(profile_id: str | uuid.UUID | None) -> InvestigationProfile | None:

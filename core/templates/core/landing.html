@@ -1,6 +1,6 @@
 <c-base title="ForensiQ | Forensic Investigation Platform">
 
-    <!-- Page Header Section with Top Right Profiles Button & Modal -->
+    <!-- Page Header Section with Top Right Audits & Profiles Buttons & Modal -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8" x-data="profilesManager">
         <div>
             <div
@@ -13,31 +13,38 @@
             </h1>
         </div>
 
-        <!-- Top Right: Profiles Button -->
-        <div>
-            <button type="button" id="landing-profiles-btn" @click="showProfileModal = true"
+        <!-- Top Right: Audits & Profiles Buttons -->
+        <div class="flex items-center gap-2">
+            <button type="button" id="landing-audits-btn" @click="openModalTab('audits')"
                 class="h-10 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold flex items-center gap-2 transition shadow-lg shadow-amber-500/20 cursor-pointer">
-                <i class="fa-solid fa-users text-xs"></i>
+                <i class="fa-solid fa-folder-tree text-xs"></i>
+                <span>Audits</span>
+                <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-zinc-950/20 text-zinc-950 text-[10px] font-mono" x-text="auditsList.length"></span>
+            </button>
+            <button type="button" id="landing-profiles-btn" @click="openModalTab('directory')"
+                class="h-10 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold flex items-center gap-2 transition border border-slate-200 dark:border-zinc-700 cursor-pointer">
+                <i class="fa-solid fa-users text-xs text-amber-500"></i>
                 <span>Profiles</span>
-                <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-zinc-950/20 text-zinc-950 text-[10px] font-mono" x-text="profilesList.length"></span>
+                <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-[10px] font-mono" x-text="profilesList.length"></span>
             </button>
         </div>
 
 
-        <!-- Investigation Profiles Management Modal -->
+        <!-- Unified Audits & Investigation Profiles Management Modal -->
         <div x-show="showProfileModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-3 sm:p-4">
             <div @click.outside="showProfileModal = false"
-                class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
+                class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
                 
                 <!-- Modal Header -->
                 <div class="p-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50/50 dark:bg-zinc-950/40">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center text-lg">
-                            <i class="fa-solid fa-user-shield"></i>
+                            <i class="fa-solid fa-folder-tree" x-show="activeTab === 'audits' || activeTab === 'create_audit'"></i>
+                            <i class="fa-solid fa-user-shield" x-show="activeTab === 'directory' || activeTab === 'add'"></i>
                         </div>
                         <div>
-                            <h3 class="text-base font-bold text-slate-900 dark:text-white">Investigation Profiles &amp; Surveillance</h3>
-                            <p class="text-xs text-slate-500 dark:text-zinc-400">Auditee registry and search/flag keywords unified across ForensiQ modules.</p>
+                            <h3 class="text-base font-bold text-slate-900 dark:text-white">Forensic Audits &amp; Target Profiles</h3>
+                            <p class="text-xs text-slate-500 dark:text-zinc-400">Sequential audit references (YYYY-WB-XX), mapped subject profiles, and keyword surveillance.</p>
                         </div>
                     </div>
                     <button type="button" @click="showProfileModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer p-1">
@@ -45,12 +52,29 @@
                     </button>
                 </div>
 
-                <!-- Navigation Tabs (Profiles Directory vs Add Profile) -->
-                <div class="flex items-center gap-2 px-5 pt-3 border-b border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                <!-- Navigation Tabs (Audits vs New Audit vs Profiles vs Add Profile) -->
+                <div class="flex items-center gap-2 px-5 pt-3 border-b border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-x-auto">
+                    <button type="button" 
+                            @click="activeTab = 'audits'"
+                            :class="activeTab === 'audits' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200'"
+                            class="px-3.5 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer shrink-0">
+                        <i class="fa-solid fa-folder-tree text-xs"></i>
+                        <span>Audits Directory</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-mono" x-text="auditsList.length"></span>
+                    </button>
+
+                    <button type="button" 
+                            @click="activeTab = 'create_audit'"
+                            :class="activeTab === 'create_audit' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200'"
+                            class="px-3.5 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer shrink-0">
+                        <i class="fa-solid fa-plus-circle text-xs"></i>
+                        <span>New Audit</span>
+                    </button>
+
                     <button type="button" 
                             @click="activeTab = 'directory'"
                             :class="activeTab === 'directory' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200'"
-                            class="px-4 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer">
+                            class="px-3.5 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer shrink-0">
                         <i class="fa-solid fa-address-book text-xs"></i>
                         <span>Profiles Directory</span>
                         <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-mono" x-text="profilesList.length"></span>
@@ -59,7 +83,7 @@
                     <button type="button" 
                             @click="activeTab = 'add'"
                             :class="activeTab === 'add' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200'"
-                            class="px-4 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer">
+                            class="px-3.5 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer shrink-0">
                         <i class="fa-solid fa-user-plus text-xs"></i>
                         <span>Add Profile</span>
                     </button>
@@ -77,7 +101,284 @@
                     </button>
                 </div>
 
-                <!-- Tab 1: Profiles Directory Content -->
+                <!-- Tab 1: Audits Directory Content -->
+                <div x-show="activeTab === 'audits'" class="p-5 flex-1 overflow-y-auto space-y-4">
+                    
+                    <!-- Search & Filter Bar for Audits -->
+                    <div class="flex items-center gap-2.5">
+                        <div class="relative flex-1">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 text-xs"></i>
+                            <input type="text" 
+                                   x-model="auditSearchQuery" 
+                                   placeholder="Filter audits by ID (e.g. 2026-WB-01), title, status, or mapped auditee..."
+                                   class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition">
+                        </div>
+                        <button type="button" @click="activeTab = 'create_audit'"
+                                class="h-9 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>New Audit</span>
+                        </button>
+                    </div>
+
+                    <!-- Audits List Cards -->
+                    <div class="space-y-3.5">
+                        <template x-for="audit in filteredAudits()" :key="audit.id">
+                            <div class="p-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/40 hover:border-slate-300 dark:hover:border-zinc-700 transition">
+                                
+                                <!-- Audit Header Row -->
+                                <div class="flex items-start justify-between gap-3 mb-2.5">
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <span class="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-500 font-mono font-bold text-xs shrink-0"
+                                              x-text="audit.name"></span>
+                                        <div class="min-w-0">
+                                            <h4 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate" x-text="audit.title || 'Untitled Audit Scope'"></h4>
+                                            <span class="text-[10px] text-slate-400 dark:text-zinc-500 font-mono" x-show="audit.created_at" x-text="'Registered ' + audit.created_at"></span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Status Badge -->
+                                    <div class="shrink-0 flex items-center gap-2">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+                                              :class="{
+                                                  'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20': audit.status === 'ACTIVE',
+                                                  'bg-sky-500/10 text-sky-400 border border-sky-500/20': audit.status === 'IN_PROGRESS',
+                                                  'bg-slate-500/10 text-slate-400 border border-slate-500/20': audit.status === 'COMPLETED',
+                                                  'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20': audit.status === 'ARCHIVED'
+                                              }"
+                                              x-text="audit.status"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Audit Description (if any) -->
+                                <p x-show="audit.description" class="text-xs text-slate-600 dark:text-zinc-400 mb-3" x-text="audit.description"></p>
+
+                                <!-- Mapped Profiles Row -->
+                                <div class="pt-2.5 border-t border-slate-100 dark:border-zinc-800/80">
+                                    <div class="flex items-center justify-between gap-2 mb-2">
+                                        <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
+                                            <i class="fa-solid fa-users text-amber-500 text-[10px]"></i>
+                                            <span>Mapped Profiles</span>
+                                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-mono"
+                                                  x-text="audit.profiles_count || (audit.profiles || []).length"></span>
+                                        </div>
+                                        <button type="button" 
+                                                @click="startEditAuditMapping(audit)"
+                                                class="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 cursor-pointer transition">
+                                            <i class="fa-solid fa-user-pen text-[9px]"></i>
+                                            <span x-text="editingAuditId === audit.id ? 'Close' : 'Manage Mappings'"></span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Profiles Chips -->
+                                    <div x-show="editingAuditId !== audit.id" class="flex flex-wrap items-center gap-1.5">
+                                        <template x-for="p in (audit.profiles || [])" :key="p.id">
+                                            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200">
+                                                <span class="w-4 h-4 rounded bg-amber-500/20 text-amber-500 flex items-center justify-center text-[9px] font-mono font-bold" x-text="p.initials || 'Q'"></span>
+                                                <span class="font-medium" x-text="p.full_name"></span>
+                                                <span class="text-[9px] text-slate-400 dark:text-zinc-500" x-show="p.department" x-text="'(' + p.department + ')'"></span>
+                                            </span>
+                                        </template>
+                                        <span x-show="!audit.profiles || audit.profiles.length === 0" class="text-[11px] text-slate-400 dark:text-zinc-500 italic">
+                                            No subject profiles mapped under this audit yet.
+                                        </span>
+                                    </div>
+
+                                    <!-- Inline Profile Mapping Checkbox Editor -->
+                                    <div x-show="editingAuditId === audit.id" class="mt-2 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-amber-500/30 space-y-2.5" x-cloak>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[11px] font-bold text-slate-800 dark:text-zinc-200">
+                                                Select profiles to map under <span class="font-mono text-amber-500" x-text="audit.name"></span>:
+                                            </span>
+                                            <div class="flex items-center gap-2">
+                                                <button type="button" @click="selectAllForEditingAudit()" class="text-[10px] text-amber-500 hover:underline cursor-pointer font-semibold">Select All</button>
+                                                <span class="text-slate-300 dark:text-zinc-700">|</span>
+                                                <button type="button" @click="clearAllForEditingAudit()" class="text-[10px] text-slate-400 hover:underline cursor-pointer font-semibold">Clear</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                                            <template x-for="p in profilesList" :key="p.id">
+                                                <label class="flex items-center justify-between p-2 rounded-lg border border-slate-100 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-pointer transition text-xs">
+                                                    <div class="flex items-center gap-2.5">
+                                                        <input type="checkbox" :value="p.id" x-model="editingAuditSelectedProfiles"
+                                                               class="rounded border-slate-300 text-amber-500 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer">
+                                                        <span class="w-5 h-5 rounded bg-amber-500/15 text-amber-500 flex items-center justify-center text-[10px] font-mono font-bold" x-text="p.initials || 'Q'"></span>
+                                                        <span class="font-semibold text-slate-900 dark:text-white" x-text="p.full_name"></span>
+                                                        <span class="text-[10px] text-slate-400 dark:text-zinc-500" x-show="p.department" x-text="'• ' + p.department"></span>
+                                                    </div>
+                                                    <span class="text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-wider"
+                                                          :class="{
+                                                              'text-rose-400 bg-rose-500/10': p.risk_level === 'CRITICAL' || p.risk_level === 'HIGH',
+                                                              'text-amber-400 bg-amber-500/10': p.risk_level === 'MEDIUM',
+                                                              'text-emerald-400 bg-emerald-500/10': p.risk_level === 'LOW'
+                                                          }"
+                                                          x-text="p.risk_level"></span>
+                                                </label>
+                                            </template>
+                                        </div>
+
+                                        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                                            <button type="button" @click="cancelEditAuditMapping()"
+                                                    class="px-2.5 py-1 text-xs rounded-lg text-slate-500 hover:text-slate-700 dark:text-zinc-400 cursor-pointer">
+                                                Cancel
+                                            </button>
+                                            <button type="button" @click="saveAuditMapping(audit.id)"
+                                                    :disabled="isSavingAuditMapping"
+                                                    class="px-3 py-1 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5">
+                                                <i class="fa-solid" :class="isSavingAuditMapping ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+                                                <span>Save Mappings</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="filteredAudits().length === 0" class="py-12 text-center text-xs text-slate-400 dark:text-zinc-500">
+                            <i class="fa-solid fa-folder-open text-3xl text-slate-300 dark:text-zinc-700 mb-2 block"></i>
+                            No audits found matching your query. Click "New Audit" to initialize one.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: New Audit Form -->
+                <div x-show="activeTab === 'create_audit'" class="p-5 flex-1 overflow-y-auto" x-cloak>
+                    <form @submit.prevent="submitCreateAudit()" class="space-y-4">
+                        {% csrf_token %}
+
+                        <!-- Auto-generated Audit Reference Badge Row -->
+                        <div class="p-3.5 rounded-xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center font-mono font-bold text-sm">
+                                    <i class="fa-solid fa-hashtag"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-bold text-slate-900 dark:text-white">Audit Reference ID:</span>
+                                        <span class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-500 font-mono font-black text-xs tracking-wider" x-text="nextAuditName"></span>
+                                    </div>
+                                    <p class="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+                                        <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
+                                        <span>Auto-generated sequence (YYYY-WB-XX) starting from 01</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
+                                Year: {{ next_audit_name|slice:":4" }}
+                            </div>
+                        </div>
+
+                        <!-- Audit Title / Objective -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">
+                                Audit Title / Subject <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" x-model="newAuditTitle" placeholder="e.g. Strategic Vendor Collusion & Procurement Review" required
+                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                        </div>
+
+                        <!-- Status & Optional Custom ID -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Audit Status</label>
+                                <select x-model="newAuditStatus"
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
+                                    <option value="ACTIVE" selected>Active</option>
+                                    <option value="IN_PROGRESS">In Progress</option>
+                                    <option value="COMPLETED">Completed</option>
+                                    <option value="ARCHIVED">Archived</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">
+                                    Override Reference ID <span class="text-[10px] text-slate-400 font-normal">(Leave blank for auto)</span>
+                                </label>
+                                <input type="text" x-model="newAuditCustomName" :placeholder="nextAuditName"
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono">
+                            </div>
+                        </div>
+
+                        <!-- Scope & Description Notes -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Investigation Scope / Terms of Reference</label>
+                            <textarea x-model="newAuditDescription" rows="2" placeholder="Audit terms of reference, whistle-blower allegations, or suspicious parameter hypotheses..."
+                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"></textarea>
+                        </div>
+
+                        <!-- Map Profiles Under This Audit (Multi-Select Checkboxes) -->
+                        <div class="pt-2 border-t border-slate-100 dark:border-zinc-800">
+                            <div class="flex items-center justify-between mb-2">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-900 dark:text-white">
+                                        <i class="fa-solid fa-users text-amber-500 mr-1"></i>Map Investigation Profiles Under This Audit
+                                    </label>
+                                    <p class="text-[11px] text-slate-500 dark:text-zinc-400">Select target auditees and custodians involved in this investigation.</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" @click="selectAllForNewAudit()" class="text-[10px] text-amber-500 hover:underline cursor-pointer font-semibold">Select All</button>
+                                    <span class="text-slate-300 dark:text-zinc-700">|</span>
+                                    <button type="button" @click="clearAllForNewAudit()" class="text-[10px] text-slate-400 hover:underline cursor-pointer font-semibold">Clear</button>
+                                    <span class="ml-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 text-[10px] font-mono font-bold"
+                                          x-text="newAuditSelectedProfiles.length + ' selected'"></span>
+                                </div>
+                            </div>
+
+                            <!-- Filter Profiles Search Input -->
+                            <div class="relative mb-2">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 text-[11px]"></i>
+                                <input type="text" x-model="profileAuditFilterQuery" placeholder="Filter targets by name, department, or ID..."
+                                       class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                            </div>
+
+                            <!-- Checkbox List -->
+                            <div class="max-h-52 overflow-y-auto space-y-1.5 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-950/30">
+                                <template x-for="p in filteredProfilesForAudit()" :key="p.id">
+                                    <label class="flex items-center justify-between p-2 rounded-lg border border-slate-200/60 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 hover:border-amber-500/50 cursor-pointer transition text-xs">
+                                        <div class="flex items-center gap-2.5 min-w-0">
+                                            <input type="checkbox" :value="p.id" x-model="newAuditSelectedProfiles"
+                                                   class="rounded border-slate-300 text-amber-500 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer shrink-0">
+                                            <span class="w-6 h-6 rounded-md bg-amber-500/15 text-amber-500 flex items-center justify-center text-[10px] font-mono font-bold shrink-0" x-text="p.initials || 'Q'"></span>
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="font-bold text-slate-900 dark:text-white truncate" x-text="p.full_name"></span>
+                                                    <span class="text-[10px] font-mono text-slate-400" x-show="p.employee_id" x-text="'#' + p.employee_id"></span>
+                                                </div>
+                                                <span class="text-[10px] text-slate-500 dark:text-zinc-400 truncate block" x-text="p.department || 'General Audit'"></span>
+                                            </div>
+                                        </div>
+                                        <div class="shrink-0 flex items-center gap-2">
+                                            <span class="text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-wider"
+                                                  :class="{
+                                                      'text-rose-400 bg-rose-500/10': p.risk_level === 'CRITICAL' || p.risk_level === 'HIGH',
+                                                      'text-amber-400 bg-amber-500/10': p.risk_level === 'MEDIUM',
+                                                      'text-emerald-400 bg-emerald-500/10': p.risk_level === 'LOW'
+                                                  }"
+                                                  x-text="p.risk_level"></span>
+                                        </div>
+                                    </label>
+                                </template>
+                                <div x-show="filteredProfilesForAudit().length === 0" class="py-6 text-center text-xs text-slate-400 dark:text-zinc-500">
+                                    No profiles found matching search.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-3">
+                            <button type="button" @click="activeTab = 'audits'"
+                                class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 bg-slate-100 dark:bg-zinc-800 cursor-pointer">
+                                Cancel
+                            </button>
+                            <button type="submit" :disabled="isSubmittingAudit"
+                                class="px-5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 transition flex items-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20 disabled:opacity-50">
+                                <i class="fa-solid" :class="isSubmittingAudit ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+                                <span>Create Audit &amp; Map Profiles</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Tab 3: Profiles Directory Content -->
                 <div x-show="activeTab === 'directory'" class="p-5 flex-1 overflow-y-auto space-y-4">
                     
                     <!-- Search & Filter Bar -->
@@ -120,6 +421,21 @@
                                               }"
                                               x-text="prof.risk_level"></span>
                                     </div>
+                                </div>
+
+                                <!-- Audits Association Badges -->
+                                <div class="mb-2 flex flex-wrap items-center gap-1.5">
+                                    <span class="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                                        <i class="fa-solid fa-folder-tree text-[9px] text-amber-500"></i>
+                                        <span>Audits:</span>
+                                    </span>
+                                    <template x-for="a in (prof.audits || [])" :key="a.id || a.name">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-500 border border-amber-500/25"
+                                              x-text="a.name" :title="a.title"></span>
+                                    </template>
+                                    <span x-show="!prof.audits || prof.audits.length === 0" class="text-[10px] text-slate-400 dark:text-zinc-500 italic">
+                                        Not assigned to any audit yet.
+                                    </span>
                                 </div>
 
                                 <!-- Keywords List & Add Keyword Area -->
@@ -186,7 +502,7 @@
                     </div>
                 </div>
 
-                <!-- Tab 2: Add Profile Form -->
+                <!-- Tab 4: Add Profile Form -->
                 <div x-show="activeTab === 'add'" class="p-5 flex-1 overflow-y-auto" x-cloak>
                     <form method="POST" action="{% url 'create_profile' %}" class="space-y-3.5">
                         {% csrf_token %}
@@ -320,14 +636,34 @@
         {% endfor %}
     </div>
 
-    <!-- Client-side Alpine Component Definition for Profiles & Surveillance Keywords -->
+    <!-- Client-side Alpine Component Definition for Audits & Profiles Management -->
     <script>
         function initProfilesManager() {
             if (!window.Alpine) return;
             Alpine.data('profilesManager', () => ({
                 showProfileModal: false,
-                activeTab: 'directory',
+                activeTab: 'audits', // 'audits' | 'create_audit' | 'directory' | 'add'
                 searchQuery: '',
+                auditSearchQuery: '',
+                profileAuditFilterQuery: '',
+
+                // Audits State
+                auditsList: {{ audits_json|safe }},
+                nextAuditName: '{{ next_audit_name }}',
+                newAuditTitle: '',
+                newAuditDescription: '',
+                newAuditStatus: 'ACTIVE',
+                newAuditCustomName: '',
+                newAuditSelectedProfiles: [],
+                isSubmittingAudit: false,
+
+                // Inline Edit Mapping State
+                editingAuditId: null,
+                editingAuditSelectedProfiles: [],
+                isSavingAuditMapping: false,
+
+                // Profiles State
+                profilesList: {{ profiles_json|safe }},
                 newKeywords: [],
                 keywordInput: '',
                 activeAppendProfileId: null,
@@ -338,7 +674,12 @@
                 uploadNotice: '',
                 uploadNoticeType: 'success',
                 noticeTimeout: null,
-                profilesList: {{ profiles_json|safe }},
+
+                openModalTab(tab) {
+                    this.activeTab = tab;
+                    this.showProfileModal = true;
+                },
+
                 setNotice(msg, type = 'success') {
                     this.uploadNotice = msg;
                     this.uploadNoticeType = type;
@@ -347,6 +688,172 @@
                         this.uploadNotice = '';
                     }, 5000);
                 },
+
+                selectAllForNewAudit() {
+                    const filtered = this.filteredProfilesForAudit().map(p => p.id);
+                    const set = new Set([...this.newAuditSelectedProfiles, ...filtered]);
+                    this.newAuditSelectedProfiles = Array.from(set);
+                },
+
+                clearAllForNewAudit() {
+                    this.newAuditSelectedProfiles = [];
+                },
+
+                selectAllForEditingAudit() {
+                    this.editingAuditSelectedProfiles = this.profilesList.map(p => p.id);
+                },
+
+                clearAllForEditingAudit() {
+                    this.editingAuditSelectedProfiles = [];
+                },
+
+                startEditAuditMapping(audit) {
+                    if (this.editingAuditId === audit.id) {
+                        this.cancelEditAuditMapping();
+                        return;
+                    }
+                    this.editingAuditId = audit.id;
+                    this.editingAuditSelectedProfiles = Array.isArray(audit.profile_ids) ? [...audit.profile_ids] : [];
+                },
+
+                cancelEditAuditMapping() {
+                    this.editingAuditId = null;
+                    this.editingAuditSelectedProfiles = [];
+                },
+
+                async saveAuditMapping(auditId) {
+                    this.isSavingAuditMapping = true;
+                    try {
+                        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                        const res = await fetch(`/audits/${auditId}/map-profiles/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken,
+                            },
+                            body: JSON.stringify({
+                                profile_ids: this.editingAuditSelectedProfiles,
+                                replace: true
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            const idx = this.auditsList.findIndex(a => a.id === auditId);
+                            if (idx !== -1) {
+                                this.auditsList[idx] = data.audit;
+                            }
+                            // Update local profiles' audits list
+                            const mappedIds = new Set(data.audit.profile_ids || []);
+                            this.profilesList.forEach(p => {
+                                if (!p.audits) p.audits = [];
+                                if (mappedIds.has(p.id)) {
+                                    if (!p.audits.some(a => (a.id === data.audit.id || a.name === data.audit.name))) {
+                                        p.audits.push({ id: data.audit.id, name: data.audit.name, title: data.audit.title, status: data.audit.status });
+                                    }
+                                } else {
+                                    p.audits = p.audits.filter(a => a.id !== data.audit.id && a.name !== data.audit.name);
+                                }
+                            });
+                            this.cancelEditAuditMapping();
+                            this.setNotice(`Updated profile mappings for ${data.audit.name}.`, 'success');
+                        } else {
+                            this.setNotice(data.message || 'Failed updating profile mappings.', 'error');
+                        }
+                    } catch (err) {
+                        this.setNotice('Network error updating mappings.', 'error');
+                    } finally {
+                        this.isSavingAuditMapping = false;
+                    }
+                },
+
+                async submitCreateAudit() {
+                    if (!this.newAuditTitle.trim()) {
+                        this.setNotice('Please enter an Audit Title or objective.', 'error');
+                        return;
+                    }
+                    this.isSubmittingAudit = true;
+                    try {
+                        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                        const payload = {
+                            name: this.newAuditCustomName.trim() || null,
+                            title: this.newAuditTitle.trim(),
+                            description: this.newAuditDescription.trim(),
+                            status: this.newAuditStatus,
+                            profile_ids: this.newAuditSelectedProfiles
+                        };
+                        const res = await fetch('/audits/create/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken,
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            this.auditsList.unshift(data.audit);
+                            this.nextAuditName = data.next_audit_name || '';
+                            
+                            // Update profiles' audits list
+                            const mappedIds = new Set(data.audit.profile_ids || []);
+                            this.profilesList.forEach(p => {
+                                if (mappedIds.has(p.id)) {
+                                    if (!p.audits) p.audits = [];
+                                    if (!p.audits.some(a => (a.id === data.audit.id || a.name === data.audit.name))) {
+                                        p.audits.push({
+                                            id: data.audit.id,
+                                            name: data.audit.name,
+                                            title: data.audit.title,
+                                            status: data.audit.status
+                                        });
+                                    }
+                                }
+                            });
+
+                            // Reset form fields
+                            this.newAuditTitle = '';
+                            this.newAuditDescription = '';
+                            this.newAuditStatus = 'ACTIVE';
+                            this.newAuditCustomName = '';
+                            this.newAuditSelectedProfiles = [];
+                            this.activeTab = 'audits';
+                            this.setNotice(`Audit ${data.audit.name} created successfully with ${data.audit.profiles_count} mapped profile(s).`, 'success');
+                        } else {
+                            this.setNotice(data.message || 'Failed creating audit.', 'error');
+                        }
+                    } catch (err) {
+                        this.setNotice('Network error creating audit.', 'error');
+                    } finally {
+                        this.isSubmittingAudit = false;
+                    }
+                },
+
+                filteredAudits() {
+                    if (!this.auditSearchQuery.trim()) return this.auditsList;
+                    const q = this.auditSearchQuery.toLowerCase();
+                    return this.auditsList.filter(a => {
+                        const nameMatch = (a.name || '').toLowerCase().includes(q);
+                        const titleMatch = (a.title || '').toLowerCase().includes(q);
+                        const descMatch = (a.description || '').toLowerCase().includes(q);
+                        const statusMatch = (a.status || '').toLowerCase().includes(q);
+                        const profileMatch = (a.profiles || []).some(p => 
+                            (p.full_name || '').toLowerCase().includes(q) ||
+                            (p.department || '').toLowerCase().includes(q)
+                        );
+                        return nameMatch || titleMatch || descMatch || statusMatch || profileMatch;
+                    });
+                },
+
+                filteredProfilesForAudit() {
+                    if (!this.profileAuditFilterQuery.trim()) return this.profilesList;
+                    const q = this.profileAuditFilterQuery.toLowerCase();
+                    return this.profilesList.filter(p => {
+                        return (p.full_name || '').toLowerCase().includes(q)
+                            || (p.department || '').toLowerCase().includes(q)
+                            || (p.employee_id || '').toLowerCase().includes(q);
+                    });
+                },
+
                 addTag() {
                     const val = this.keywordInput.trim();
                     if (!val) return;
@@ -358,9 +865,11 @@
                     });
                     this.keywordInput = '';
                 },
+
                 removeTag(idx) {
                     this.newKeywords.splice(idx, 1);
                 },
+
                 async uploadKeywordsFileForNewProfile(event) {
                     const file = event.target.files?.[0];
                     if (!file) return;
@@ -396,6 +905,7 @@
                         event.target.value = '';
                     }
                 },
+
                 async uploadKeywordsFileForProfile(profileId, event) {
                     const file = event.target.files?.[0];
                     if (!file) return;
@@ -428,6 +938,7 @@
                         event.target.value = '';
                     }
                 },
+
                 async submitAppendKeyword(profileId) {
                     const kw = this.appendKeywordInput.trim();
                     if (!kw) return;
@@ -460,6 +971,7 @@
                         this.isSubmittingAppend = false;
                     }
                 },
+
                 filteredProfiles() {
                     if (!this.searchQuery.trim()) return this.profilesList;
                     const q = this.searchQuery.toLowerCase();
@@ -469,11 +981,13 @@
                         const desigMatch = (p.designation || '').toLowerCase().includes(q);
                         const empMatch = (p.employee_id || '').toLowerCase().includes(q);
                         const kwMatch = (p.keywords || []).some(k => k.toLowerCase().includes(q));
-                        return nameMatch || deptMatch || desigMatch || empMatch || kwMatch;
+                        const auditMatch = (p.audits || []).some(a => (a.name || '').toLowerCase().includes(q) || (a.title || '').toLowerCase().includes(q));
+                        return nameMatch || deptMatch || desigMatch || empMatch || kwMatch || auditMatch;
                     });
                 }
             }));
         }
+
         if (window.Alpine) {
             initProfilesManager();
         } else {

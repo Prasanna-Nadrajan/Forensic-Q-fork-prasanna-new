@@ -127,6 +127,16 @@ class InvestigationProfile(ForensicBaseModel):
         return f"{parts[0][0]}{parts[-1][0]}".upper()
 
     def to_dict(self) -> dict[str, object]:
+        audits_info = []
+        if self.pk:
+            try:
+                audits_info = [
+                    {"id": str(a.id), "name": a.name, "title": a.title, "status": a.status}
+                    for a in self.audits.all()
+                ]
+            except Exception:
+                audits_info = []
+
         return {
             "id": str(self.id),
             "full_name": self.full_name,
@@ -141,4 +151,73 @@ class InvestigationProfile(ForensicBaseModel):
             "display_name": self.display_name,
             "avatar_color": self.avatar_color,
             "keywords": self.keywords or [],
+            "audits": audits_info,
+        }
+
+
+class Audit(ForensicBaseModel):
+    """
+    Forensic Audit Entity.
+    Identified by an auto-generated unique reference: YYYY-WB-XX (e.g. 2026-WB-01).
+    Groups and maps investigation profiles (auditees/targets) under a single audit mandate.
+    """
+
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        IN_PROGRESS = "IN_PROGRESS", "In Progress"
+        COMPLETED = "COMPLETED", "Completed"
+        ARCHIVED = "ARCHIVED", "Archived"
+
+    name = models.CharField(
+        max_length=32,
+        unique=True,
+        db_index=True,
+        help_text="Auto-generated unique Audit ID (e.g. YYYY-WB-XX)",
+    )
+    title = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Audit Title or Investigative Objective",
+    )
+    description = models.TextField(
+        blank=True,
+        default="",
+        help_text="Investigation scope, allegations, or background notes",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        db_index=True,
+    )
+    profiles = models.ManyToManyField(
+        InvestigationProfile,
+        related_name="audits",
+        blank=True,
+        help_text="Investigation profiles mapped under this audit",
+    )
+
+    class Meta:
+        app_label = "core"
+        ordering = ["-name"]
+        verbose_name = "Audit"
+        verbose_name_plural = "Audits"
+
+    def __str__(self) -> str:
+        if self.title:
+            return f"{self.name} - {self.title}"
+        return self.name
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": str(self.id),
+            "name": self.name,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status,
+            "profiles_count": self.profiles.count(),
+            "profile_ids": [str(p.id) for p in self.profiles.all()],
+            "profiles": [p.to_dict() for p in self.profiles.all()],
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M") if self.created_at else "",
         }

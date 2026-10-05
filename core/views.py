@@ -8,6 +8,12 @@ from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
 
+from .audits import (
+    create_audit,
+    generate_next_audit_name,
+    get_all_audits,
+    map_profiles_to_audit,
+)
 from .modules import get_discovered_modules
 from .profiles import (
     add_keywords_to_profile,
@@ -67,11 +73,14 @@ def portal_logout_view(request):
 
 def landing_view(request: HttpRequest) -> HttpResponse:
     """
-    ForensiQ Landing Page dynamically loading all modules from apps/ directory
-    and registered investigation profiles with their surveillance keywords.
+    ForensiQ Landing Page dynamically loading all modules from apps/ directory,
+    registered investigation profiles with their surveillance keywords,
+    and forensic audits with mapped profiles.
     """
     modules = get_discovered_modules()
     profiles = [p.to_dict() for p in get_all_profiles()]
+    audits = [a.to_dict() for a in get_all_audits()]
+    next_audit_name = generate_next_audit_name()
     return render(
         request,
         "core/landing.html",
@@ -80,6 +89,9 @@ def landing_view(request: HttpRequest) -> HttpResponse:
             "total_modules": len(modules),
             "profiles": profiles,
             "profiles_json": json.dumps(profiles),
+            "audits": audits,
+            "audits_json": json.dumps(audits),
+            "next_audit_name": next_audit_name,
         },
     )
 
@@ -334,5 +346,145 @@ def profile_list_api_view(request: HttpRequest) -> JsonResponse:
         {
             "status": "success",
             "profiles": [p.to_dict() for p in profiles],
+        }
+    )
+
+
+@require_POST
+def create_audit_view(request: HttpRequest) -> HttpResponse:
+    """
+    Creates a new Forensic Audit with an auto-generated unique name (YYYY-WB-XX)
+    and maps initial investigation profiles under it.
+    Supports both JSON AJAX submission and standard form POST.
+    """
+    is_json = (
+        request.content_type == "application/json"
+        or request.headers.get("x-requested-with") == "XMLHttpRequest"
+    )
+    if is_json and request.body:
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except Exception:
+            payload = {}
+    else:
+        payload = request.POST
+
+    title = payload.get("title", "").strip()
+    description = payload.get("description", "").strip()
+    status = payload.get("status", "ACTIVE").strip() or "ACTIVE"
+    name = payload.get("name", "").strip() or None
+
+    # Handle profile IDs from JSON list or form getlist
+    profile_ids = []
+    if is_json:
+        raw_pids = payload.get("profile_ids")
+        if isinstance(raw_pids, list):
+            profile_ids = [str(x).strip() for x in raw_pids if str(x).strip()]
+    else:
+        profile_ids = request.POST.getlist("profile_ids")
+        if not profile_ids:
+            raw_single = request.POST.get("profile_ids", "")
+            if raw_single:
+                if raw_single.startswith("["):
+                    try:
+                        profile_ids = json.loads(raw_single)
+                    except Exception:
+                        profile_ids = [
+                            x.strip() for x in raw_single.strip("[]").split(",") if x.strip()
+                        ]
+                else:
+                    profile_ids = [x.strip() for x in raw_single.split(",") if x.strip()]
+
+    try:
+        audit = create_audit(
+            name=name,
+            title=title,
+            description=description,
+            status=status,
+            profile_ids=profile_ids,
+        )
+    except Exception as err:
+        if is_json:
+            return JsonResponse({"status": "error", "message": str(err)}, status=400)
+        messages.error(request, f"Failed to create audit: {err}")
+        return redirect(payload.get("next", "/"))
+
+    if is_json:
+        return JsonResponse(
+            {
+                "status": "success",
+                "audit": audit.to_dict(),
+                "next_audit_name": generate_next_audit_name(),
+            }
+        )
+
+    messages.success(request, f"Audit '{audit.name}' successfully created.")
+    return redirect(payload.get("next", "/"))
+
+
+@require_POST
+def map_audit_profiles_view(request: HttpRequest, audit_id: str) -> JsonResponse:
+    """
+    Updates or replaces mapped investigation profiles under a specific audit.
+    """
+    is_json = (
+        request.content_type == "application/json"
+        or request.headers.get("x-requested-with") == "XMLHttpRequest"
+    )
+    if is_json and request.body:
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except Exception:
+            payload = {}
+    else:
+        payload = request.POST
+
+    replace = bool(payload.get("replace", True))
+    raw_pids = payload.get("profile_ids", [])
+    if isinstance(raw_pids, str):
+        try:
+            raw_pids = json.loads(raw_pids)
+        except Exception:
+            raw_pids = [x.strip() for x in raw_pids.split(",") if x.strip()]
+
+    try:
+        audit = map_profiles_to_audit(audit_id, raw_pids, replace=replace)
+        return JsonResponse(
+            {
+                "status": "success",
+                "message": f"Updated profile mappings for Audit '{audit.name}'",
+                "audit": audit.to_dict(),
+            }
+        )
+    except ValueError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=404)
+    except Exception as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=500)
+
+
+def audit_list_api_view(request: HttpRequest) -> JsonResponse:
+    """
+    JSON API returning all registered audits and their mapped profiles.
+    """
+    audits = get_all_audits()
+    return JsonResponse(
+        {
+            "status": "success",
+            "audits": [a.to_dict() for a in audits],
+            "next_audit_name": generate_next_audit_name(),
+        }
+    )
+
+
+def get_next_audit_name_api_view(request: HttpRequest) -> JsonResponse:
+    """
+    JSON API returning the next sequential auto-generated audit name (YYYY-WB-XX).
+    """
+    year_param = request.GET.get("year")
+    year = int(year_param) if year_param and year_param.isdigit() else None
+    return JsonResponse(
+        {
+            "status": "success",
+            "next_name": generate_next_audit_name(year=year),
         }
     )
