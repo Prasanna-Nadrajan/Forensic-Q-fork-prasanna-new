@@ -84,7 +84,8 @@
                     </div>
 
                     <div class="text-[11px] text-slate-500 dark:text-zinc-400 space-y-0.5 mt-auto">
-                        <div class="truncate"><i class="fa-regular fa-building text-[10px] mr-1 text-slate-400"></i>{{ prof.department }}</div>
+                        <div class="truncate"><i class="fa-regular fa-building text-[10px] mr-1 text-slate-400"></i>{{
+                            prof.department }}</div>
                         <div class="truncate">
                             <i class="fa-solid fa-landmark text-[10px] mr-1 text-amber-500/70"></i>
                             {% if prof.banks %}
@@ -113,11 +114,16 @@
                         </label>
                         <select id="time_window_days" name="time_window_days"
                             class="rounded-lg border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold py-1.5 px-3 text-slate-800 dark:text-zinc-200 focus:ring-amber-500 focus:border-amber-500">
-                            <option value="1" {% if time_window_days == 1 %}selected{% endif %}>1 Day (Rapid Layering)</option>
-                            <option value="3" {% if time_window_days == 3 %}selected{% endif %}>3 Days (Default Standard)</option>
-                            <option value="7" {% if time_window_days == 7 %}selected{% endif %}>7 Days (Weekly Window)</option>
-                            <option value="14" {% if time_window_days == 14 %}selected{% endif %}>14 Days (Extended Trail)</option>
-                            <option value="30" {% if time_window_days == 30 %}selected{% endif %}>30 Days (Full Month)</option>
+                            <option value="1" {% if time_window_days==1 %}selected{% endif %}>1 Day (Rapid Layering)
+                            </option>
+                            <option value="3" {% if time_window_days==3 %}selected{% endif %}>3 Days (Default Standard)
+                            </option>
+                            <option value="7" {% if time_window_days==7 %}selected{% endif %}>7 Days (Weekly Window)
+                            </option>
+                            <option value="14" {% if time_window_days==14 %}selected{% endif %}>14 Days (Extended Trail)
+                            </option>
+                            <option value="30" {% if time_window_days==30 %}selected{% endif %}>30 Days (Full Month)
+                            </option>
                         </select>
                     </div>
 
@@ -148,7 +154,8 @@
             <i class="fa-solid fa-arrows-spin text-base animate-spin" style="animation-duration: 4s;"></i>
         </div>
         <div class="text-xs">
-            <h4 class="font-bold text-sm text-rose-200">Suspicious Circular Round-Tripping Detected ({{ circular_trails|length }} Loops)</h4>
+            <h4 class="font-bold text-sm text-rose-200">Suspicious Circular Round-Tripping Detected ({{
+                circular_trails|length }} Loops)</h4>
             <p class="text-rose-300/80 mt-0.5">
                 Funds were identified leaving originating accounts and cycling back to the same entity or through
                 reciprocating conduits.
@@ -220,38 +227,38 @@
 
     <!-- Initialize Workstation V2 Global Data -->
     <script>
-        window.beatsData = {{ beats_json|safe }};
-        window.conduitDeckData = {{ conduit_deck_json|safe }};
-        window.topologyGraphData = {{ topology_graph_json|safe }};
+        window.beatsData = {{ beats_json | safe }};
+        window.conduitDeckData = {{ conduit_deck_json | safe }};
+        window.topologyGraphData = {{ topology_graph_json | safe }};
     </script>
 
     <!-- 1. Forensic Vitals Summary Banner -->
-    <c-trail.vitals
-        :direct_volume="metrics.total_direct_volume_formatted"
-        :direct_count="metrics.total_direct_transfers_count"
-        :outflow_volume="metrics.total_outflow_formatted"
-        :hops_count="metrics.total_intermediate_hops_count"
-        :retained_volume="metrics.total_retained_formatted"
-        :conduits_count="metrics.unique_intermediaries_count"
-        :loop_count="circular_trails|length"
-    />
+    <c-trail.vitals :direct_volume="metrics.total_direct_volume_formatted"
+        :direct_count="metrics.total_direct_transfers_count" :outflow_volume="metrics.total_outflow_formatted"
+        :hops_count="metrics.total_intermediate_hops_count" :retained_volume="metrics.total_retained_formatted"
+        :conduits_count="metrics.unique_intermediaries_count" :loop_count="circular_trails|length" />
 
     <!-- Watched Profile Surveillance Keywords Bar -->
     {% if trail_keywords %}
-    <div class="mb-6 p-3.5 bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent border border-purple-500/20 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+    <div
+        class="mb-6 p-3.5 bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent border border-purple-500/20 rounded-2xl flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2">
             <span class="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
-                <i class="fa-solid fa-bullseye text-xs"></i> Watched Profile Surveillance Keywords ({{ trail_keywords|length }}):
+                <i class="fa-solid fa-bullseye text-xs"></i> Watched Profile Surveillance Keywords ({{
+                trail_keywords|length }}):
             </span>
             {% for kw in trail_keywords %}
-            <span class="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-md bg-white dark:bg-zinc-800 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 shadow-xs">
+            <span
+                class="px-2 py-0.5 text-[11px] font-mono font-semibold rounded-md bg-white dark:bg-zinc-800 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 shadow-xs">
                 {{ kw }}
             </span>
             {% endfor %}
         </div>
         {% if metrics.keyword_hits_count %}
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20">
-            <i class="fa-solid fa-triangle-exclamation text-xs"></i> {{ metrics.keyword_hits_count }} Surveillance Hits in Money Trail
+        <span
+            class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20">
+            <i class="fa-solid fa-triangle-exclamation text-xs"></i> {{ metrics.keyword_hits_count }} Surveillance Hits
+            in Money Trail
         </span>
         {% else %}
         <span class="text-xs font-medium text-slate-400 dark:text-zinc-500 italic">
@@ -448,9 +455,11 @@
         .tabulator .tabulator-header .tabulator-col {
             min-height: 38px;
         }
+
         .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
             padding: 8px 10px;
         }
+
         .tabulator .tabulator-header .tabulator-col .tabulator-col-title {
             white-space: nowrap;
             font-weight: 700;
@@ -461,112 +470,113 @@
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             // Direct Transfers Table
-            const directData = {{ direct_records_json|safe }};
-            const directColumns = [
-                {
-                    title: "Method", field: "Match_Method", minWidth: 150, formatter: function (cell) {
-                        const val = cell.getValue();
-                        if (val === "UTR_EXACT") {
-                            return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">UTR EXACT</span>';
-                        }
-                        return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">FUZZY FALLBACK</span>';
+            const directData = {{ direct_records_json| safe
+        }};
+        const directColumns = [
+            {
+                title: "Method", field: "Match_Method", minWidth: 150, formatter: function (cell) {
+                    const val = cell.getValue();
+                    if (val === "UTR_EXACT") {
+                        return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">UTR EXACT</span>';
                     }
-                },
-                {
-                    title: "Direction", field: "Direction", minWidth: 130, formatter: function (cell) {
-                        return '<span class="font-mono text-xs font-semibold text-slate-300">' + (cell.getValue() || '') + '</span>';
-                    }
-                },
-                { title: "Originator (A)", field: "Sender_Person", minWidth: 160 },
-                { title: "Recipient (B)", field: "Recipient_Person", minWidth: 160 },
-                {
-                    title: "Amount", field: "Amount_Formatted", minWidth: 135, hozAlign: "right", formatter: function (cell) {
-                        return '<span class="font-mono font-bold text-emerald-400">' + (cell.getValue() || '₹0.00') + '</span>';
-                    }
-                },
-                { title: "Transfer Date", field: "Transfer_Date", minWidth: 145 },
-                {
-                    title: "UTR / Reference", field: "UTR", minWidth: 185, formatter: function (cell) {
-                        return '<span class="font-mono text-xs text-sky-400">' + (cell.getValue() || 'N/A') + '</span>';
-                    }
-                },
-                { title: "Sender Narration", field: "Sender_Narration", minWidth: 230, tooltip: true },
-                { title: "Recipient Narration", field: "Recipient_Narration", minWidth: 230, tooltip: true },
-            ];
+                    return '<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">FUZZY FALLBACK</span>';
+                }
+            },
+            {
+                title: "Direction", field: "Direction", minWidth: 130, formatter: function (cell) {
+                    return '<span class="font-mono text-xs font-semibold text-slate-300">' + (cell.getValue() || '') + '</span>';
+                }
+            },
+            { title: "Originator (A)", field: "Sender_Person", minWidth: 160 },
+            { title: "Recipient (B)", field: "Recipient_Person", minWidth: 160 },
+            {
+                title: "Amount", field: "Amount_Formatted", minWidth: 135, hozAlign: "right", formatter: function (cell) {
+                    return '<span class="font-mono font-bold text-emerald-400">' + (cell.getValue() || '₹0.00') + '</span>';
+                }
+            },
+            { title: "Transfer Date", field: "Transfer_Date", minWidth: 145 },
+            {
+                title: "UTR / Reference", field: "UTR", minWidth: 185, formatter: function (cell) {
+                    return '<span class="font-mono text-xs text-sky-400">' + (cell.getValue() || 'N/A') + '</span>';
+                }
+            },
+            { title: "Sender Narration", field: "Sender_Narration", minWidth: 230, tooltip: true },
+            { title: "Recipient Narration", field: "Recipient_Narration", minWidth: 230, tooltip: true },
+        ];
 
-            window.tableDirect = new Tabulator("#table-direct-transfers", {
-                data: directData,
-                columns: directColumns,
-                layout: "fitDataFill",
-                pagination: "local",
-                paginationSize: 10,
-                paginationSizeSelector: [5, 10, 25, 50],
-                movableColumns: true,
-                placeholder: "No direct 1-to-1 transfers identified between the selected profiles.",
-            });
+        window.tableDirect = new Tabulator("#table-direct-transfers", {
+            data: directData,
+            columns: directColumns,
+            layout: "fitDataFill",
+            pagination: "local",
+            paginationSize: 10,
+            paginationSizeSelector: [5, 10, 25, 50],
+            movableColumns: true,
+            placeholder: "No direct 1-to-1 transfers identified between the selected profiles.",
+        });
 
-            // Intermediate Transfers Table
-            const intermediateData = {{ intermediate_records_json|safe }};
-            const intermediateColumns = [
-                {
-                    title: "Conduit Intermediary (X)", field: "Intermediary_Entity", minWidth: 210, formatter: function (cell) {
-                        return '<span class="font-bold text-amber-400 flex items-center gap-1.5"><i class="fa-solid fa-user-tag text-xs"></i>' + (cell.getValue() || '') + '</span>';
-                    }
-                },
-                { title: "Originator (A)", field: "Sender_Person", minWidth: 155 },
-                { title: "Beneficiary (B)", field: "Recipient_Person", minWidth: 155 },
-                { title: "Outflow Date", field: "Outflow_Date", minWidth: 130 },
-                { title: "Inflow Date", field: "Inflow_Date", minWidth: 130 },
-                {
-                    title: "Delta", field: "Time_Delta_Days", minWidth: 95, hozAlign: "center", formatter: function (cell) {
-                        return '<span class="font-mono text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">' + (cell.getValue() || 0) + ' d</span>';
-                    }
-                },
-                {
-                    title: "Outflow (A→X)", field: "Outflow_Formatted", minWidth: 140, hozAlign: "right", formatter: function (cell) {
-                        return '<span class="font-mono font-semibold text-slate-300">' + (cell.getValue() || '₹0.00') + '</span>';
-                    }
-                },
-                {
-                    title: "Inflow (X→B)", field: "Inflow_Formatted", minWidth: 140, hozAlign: "right", formatter: function (cell) {
-                        return '<span class="font-mono font-semibold text-emerald-400">' + (cell.getValue() || '₹0.00') + '</span>';
-                    }
-                },
-                {
-                    title: "Retained Margin", field: "Retention_Formatted", minWidth: 145, hozAlign: "right", formatter: function (cell) {
-                        return '<span class="font-mono text-xs text-rose-400">' + (cell.getValue() || '₹0.00') + '</span>';
-                    }
-                },
-                {
-                    title: "Retention %", field: "Retention_Pct_Str", minWidth: 120, hozAlign: "center", formatter: function (cell) {
-                        const row = cell.getRow().getData();
-                        const pct = parseFloat(row.Retention_Pct || 0);
-                        const color = pct > 0 ? 'text-amber-400' : 'text-slate-500';
-                        return '<span class="font-mono text-xs ' + color + '">' + (cell.getValue() || '0.00%') + '</span>';
-                    }
-                },
-                {
-                    title: "Outflow UTR", field: "Outflow_UTR", minWidth: 165, formatter: function (cell) {
-                        return '<span class="font-mono text-[11px] text-zinc-400">' + (cell.getValue() || 'N/A') + '</span>';
-                    }
-                },
-                {
-                    title: "Inflow UTR", field: "Inflow_UTR", minWidth: 165, formatter: function (cell) {
-                        return '<span class="font-mono text-[11px] text-zinc-400">' + (cell.getValue() || 'N/A') + '</span>';
-                    }
-                },
-            ];
+        // Intermediate Transfers Table
+        const intermediateData = {{ intermediate_records_json| safe }};
+        const intermediateColumns = [
+            {
+                title: "Conduit Intermediary (X)", field: "Intermediary_Entity", minWidth: 210, formatter: function (cell) {
+                    return '<span class="font-bold text-amber-400 flex items-center gap-1.5"><i class="fa-solid fa-user-tag text-xs"></i>' + (cell.getValue() || '') + '</span>';
+                }
+            },
+            { title: "Originator (A)", field: "Sender_Person", minWidth: 155 },
+            { title: "Beneficiary (B)", field: "Recipient_Person", minWidth: 155 },
+            { title: "Inflow Date", field: "Outflow_Date", minWidth: 130 },
+            { title: "Outflow Date", field: "Inflow_Date", minWidth: 130 },
+            {
+                title: "Delta", field: "Time_Delta_Days", minWidth: 95, hozAlign: "center", formatter: function (cell) {
+                    return '<span class="font-mono text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">' + (cell.getValue() || 0) + ' d</span>';
+                }
+            },
+            {
+                title: "Inflow (A→X)", field: "Outflow_Formatted", minWidth: 140, hozAlign: "right", formatter: function (cell) {
+                    return '<span class="font-mono font-semibold text-slate-300">' + (cell.getValue() || '₹0.00') + '</span>';
+                }
+            },
+            {
+                title: "Outflow (X→B)", field: "Inflow_Formatted", minWidth: 140, hozAlign: "right", formatter: function (cell) {
+                    return '<span class="font-mono font-semibold text-emerald-400">' + (cell.getValue() || '₹0.00') + '</span>';
+                }
+            },
+            {
+                title: "Retained Margin", field: "Retention_Formatted", minWidth: 145, hozAlign: "right", formatter: function (cell) {
+                    return '<span class="font-mono text-xs text-rose-400">' + (cell.getValue() || '₹0.00') + '</span>';
+                }
+            },
+            {
+                title: "Retention %", field: "Retention_Pct_Str", minWidth: 120, hozAlign: "center", formatter: function (cell) {
+                    const row = cell.getRow().getData();
+                    const pct = parseFloat(row.Retention_Pct || 0);
+                    const color = pct > 0 ? 'text-amber-400' : 'text-slate-500';
+                    return '<span class="font-mono text-xs ' + color + '">' + (cell.getValue() || '0.00%') + '</span>';
+                }
+            },
+            {
+                title: "Outflow UTR", field: "Outflow_UTR", minWidth: 165, formatter: function (cell) {
+                    return '<span class="font-mono text-[11px] text-zinc-400">' + (cell.getValue() || 'N/A') + '</span>';
+                }
+            },
+            {
+                title: "Inflow UTR", field: "Inflow_UTR", minWidth: 165, formatter: function (cell) {
+                    return '<span class="font-mono text-[11px] text-zinc-400">' + (cell.getValue() || 'N/A') + '</span>';
+                }
+            },
+        ];
 
-            window.tableIntermediate = new Tabulator("#table-intermediate-transfers", {
-                data: intermediateData,
-                columns: intermediateColumns,
-                layout: "fitDataFill",
-                pagination: "local",
-                paginationSize: 10,
-                paginationSizeSelector: [5, 10, 25, 50],
-                movableColumns: true,
-                placeholder: "No 1-hop conduit transactions detected between the selected profiles within the configured time delta.",
-            });
+        window.tableIntermediate = new Tabulator("#table-intermediate-transfers", {
+            data: intermediateData,
+            columns: intermediateColumns,
+            layout: "fitDataFill",
+            pagination: "local",
+            paginationSize: 10,
+            paginationSizeSelector: [5, 10, 25, 50],
+            movableColumns: true,
+            placeholder: "No 1-hop conduit transactions detected between the selected profiles within the configured time delta.",
+        });
         });
     </script>
 </c-base>
