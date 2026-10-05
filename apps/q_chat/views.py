@@ -41,7 +41,7 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     if active_audit:
         audit_names = {p.full_name.strip().lower() for p in active_audit.profiles.all()}
         custodians = [c for c in custodians if c["custodian_name"].strip().lower() in audit_names]
-        channels = [c for c in channels if c.primary_custodian.strip().lower() in audit_names]
+        channels = [c for c in channels if c.custodian_name.strip().lower() in audit_names]
 
     context = {
         "metrics": metrics,

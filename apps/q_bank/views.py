@@ -58,9 +58,10 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     accounts = get_all_bank_accounts()
 
     if active_audit:
-        audit_profile_names = list(active_audit.profiles.values_list("full_name", flat=True))
-        persons = persons.filter(full_name__in=audit_profile_names)
-        accounts = accounts.filter(person__in=persons)
+        audit_names_set = {p.full_name.strip().lower() for p in active_audit.profiles.all()}
+        audit_names_list = list(active_audit.profiles.values_list("full_name", flat=True))
+        persons = [p for p in persons if p["full_name"].strip().lower() in audit_names_set]
+        accounts = accounts.filter(person__full_name__in=audit_names_list)
 
     frequent_entities = get_frequent_counterparties(limit=10)
 

@@ -35,7 +35,11 @@ Props:
             {% endif %}
         </div>
 
-        {% if slot %}
+        {% if actions %}
+        <div class="flex items-center gap-2 flex-wrap">
+            {{ actions }}
+        </div>
+        {% elif slot %}
         <div class="flex items-center gap-2 flex-wrap">
             {{ slot }}
         </div>
