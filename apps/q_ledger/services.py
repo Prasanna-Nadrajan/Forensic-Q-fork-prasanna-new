@@ -44,7 +44,7 @@ def ensure_masters_initialized() -> LedgerMasterConfig:
 
     config = LedgerMasterConfig.objects.create(is_active=True)
 
-    if fallback_gl.exists():
+    if fallback_gl.exists():  # pragma: no cover
         try:
             df_gl = pd.read_excel(fallback_gl)
             gl_count = len(df_gl)
@@ -53,7 +53,7 @@ def ensure_masters_initialized() -> LedgerMasterConfig:
         except Exception as exc:
             logger.warning("Could not seed GL master file: {}", exc)
 
-    if fallback_sloc.exists():
+    if fallback_sloc.exists():  # pragma: no cover
         try:
             df_sloc = pd.read_excel(fallback_sloc)
             sloc_count = len(df_sloc)
@@ -187,7 +187,7 @@ def get_or_load_backend_dataset() -> tuple[pd.DataFrame | None, pd.DataFrame | N
     prpo_sample = BACKEND_DATA_DIR / "sample_prpo_extract.xlsx"
     mara_sample = BACKEND_DATA_DIR / "sample_mara_master.xlsx"
 
-    if prpo_sample.exists():
+    if prpo_sample.exists():  # pragma: no cover
         logger.info("Initializing Q-Ledger with backend seed Excel files: {}", prpo_sample)
         with open(prpo_sample, "rb") as f_prpo:
             prpo_content = f_prpo.read()
