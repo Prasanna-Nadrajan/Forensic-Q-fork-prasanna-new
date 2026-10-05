@@ -151,12 +151,25 @@ def device_detail_view(request: HttpRequest, device_id: str) -> HttpResponse:
 
     total_hits = device.hits.count()
 
+    from .models import ScannedDevice
+
+    custodian_devices = (
+        ScannedDevice.objects.filter(
+            custodian_name__iexact=device.custodian_name.strip()
+            if device.custodian_name
+            else "unknown"
+        )
+        .only("id", "hostname", "scan_title")
+        .order_by("-created_at")
+    )
+
     return render(
         request,
         "q_scan/device_detail.html",
         {
             "device": device,
             "total_hits": total_hits,
+            "custodian_devices": custodian_devices,
         },
     )
 

@@ -9,6 +9,27 @@
         back_url="/scan/">
         
         <div class="flex items-center gap-2">
+            {% if custodian_devices|length > 1 %}
+            <div x-data="{ open: false }" class="relative">
+                <button @click="open = !open" @click.away="open = false" class="relative flex items-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-1.5 shadow-sm text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:border-teal-500/50 transition cursor-pointer w-56">
+                    <i class="fa-solid fa-desktop text-teal-400 mr-2 text-[11px]"></i>
+                    <span class="truncate pr-4 flex-1 text-left">{{ device.hostname }}</span>
+                    <i class="fa-solid fa-chevron-down absolute right-3 text-[10px] text-slate-400 transition-transform" :class="open ? 'rotate-180' : ''"></i>
+                </button>
+                
+                <div x-show="open" x-transition.opacity.duration.200ms style="display: none;" class="absolute right-0 mt-1.5 w-64 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div class="max-h-60 overflow-y-auto py-1">
+                        {% for d in custodian_devices %}
+                        <a href="{% url 'q_scan:device_detail' d.id %}" class="block px-3 py-2 hover:bg-teal-50 dark:hover:bg-teal-900/20 {% if d.id == device.id %}bg-teal-50 dark:bg-teal-900/10 border-l-2 border-teal-500{% else %}border-l-2 border-transparent{% endif %} transition">
+                            <div class="text-xs font-semibold {% if d.id == device.id %}text-teal-700 dark:text-teal-400{% else %}text-slate-700 dark:text-zinc-300{% endif %} truncate">{{ d.hostname }}</div>
+                            <div class="text-[10px] text-slate-500 dark:text-zinc-500 truncate mt-0.5">{{ d.scan_title }}</div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <a href="{% url 'q_scan:export_csv' %}?device_id={{ device.id }}" 
                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-lg shadow-teal-600/20 transition-all">
                 <i class="fa-solid fa-file-export"></i>
