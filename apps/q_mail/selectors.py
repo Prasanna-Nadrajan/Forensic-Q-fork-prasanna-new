@@ -500,7 +500,7 @@ def get_all_custodian_profiles() -> list[dict[str, Any]]:
     profiles_dict = {}
 
     for inv in investigations:
-        key = (inv.auditee_name, inv.auditee_department, inv.auditee_email)
+        key = inv.auditee_name.strip().lower() if inv.auditee_name else "unknown"
         if key not in profiles_dict:
             profiles_dict[key] = {
                 "custodian_name": inv.auditee_name,
