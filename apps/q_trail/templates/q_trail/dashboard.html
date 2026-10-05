@@ -114,16 +114,11 @@
                         </label>
                         <select id="time_window_days" name="time_window_days"
                             class="rounded-lg border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-semibold py-1.5 px-3 text-slate-800 dark:text-zinc-200 focus:ring-amber-500 focus:border-amber-500">
-                            <option value="1" {% if time_window_days==1 %}selected{% endif %}>1 Day (Rapid Layering)
-                            </option>
-                            <option value="3" {% if time_window_days==3 %}selected{% endif %}>3 Days (Default Standard)
-                            </option>
-                            <option value="7" {% if time_window_days==7 %}selected{% endif %}>7 Days (Weekly Window)
-                            </option>
-                            <option value="14" {% if time_window_days==14 %}selected{% endif %}>14 Days (Extended Trail)
-                            </option>
-                            <option value="30" {% if time_window_days==30 %}selected{% endif %}>30 Days (Full Month)
-                            </option>
+                            <option value="1" {% if time_window_days == 1 %}selected{% endif %}>1 Day (Rapid Layering)</option>
+                            <option value="3" {% if time_window_days == 3 %}selected{% endif %}>3 Days (Default Standard)</option>
+                            <option value="7" {% if time_window_days == 7 %}selected{% endif %}>7 Days (Weekly Window)</option>
+                            <option value="14" {% if time_window_days == 14 %}selected{% endif %}>14 Days (Extended Trail)</option>
+                            <option value="30" {% if time_window_days == 30 %}selected{% endif %}>30 Days (Full Month)</option>
                         </select>
                     </div>
 
@@ -470,8 +465,7 @@
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             // Direct Transfers Table
-            const directData = {{ direct_records_json| safe
-        }};
+            const directData = {{ direct_records_json|safe }};
         const directColumns = [
             {
                 title: "Method", field: "Match_Method", minWidth: 150, formatter: function (cell) {
