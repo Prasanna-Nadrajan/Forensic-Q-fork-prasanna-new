@@ -104,6 +104,16 @@ def case_detail_view(request: HttpRequest, case_id: str) -> HttpResponse:
     if case.total_documents > 0:
         chart_html = get_case_risk_chart_html(summary["risk_distribution"])
 
+    from .models import VerificationCase
+
+    custodian_cases = (
+        VerificationCase.objects.filter(
+            custodian_name__iexact=case.custodian_name.strip() if case.custodian_name else "unknown"
+        )
+        .only("id", "case_ref", "case_title")
+        .order_by("-created_at")
+    )
+
     return render(
         request,
         "q_verify/case_detail.html",
@@ -111,6 +121,7 @@ def case_detail_view(request: HttpRequest, case_id: str) -> HttpResponse:
             "case": case,
             "summary": summary,
             "chart_html": chart_html,
+            "custodian_cases": custodian_cases,
         },
     )
 
