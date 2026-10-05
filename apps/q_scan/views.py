@@ -33,10 +33,19 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     Main Q-Scan forensic dashboard displaying audited endpoints, keyword metrics,
     and high-performance remote-paginated evidence grid.
     """
+    from core.audits import get_active_audit
     from core.profiles import get_profile_keywords
 
+    active_audit = get_active_audit(request)
     metrics = get_scan_dashboard_metrics()
     custodian_profiles = get_all_custodian_profiles()
+
+    if active_audit:
+        audit_names = {p.full_name.strip().lower() for p in active_audit.profiles.all()}
+        custodian_profiles = [
+            p for p in custodian_profiles if p["custodian_name"].strip().lower() in audit_names
+        ]
+
     active_profile_keywords = get_profile_keywords(request=request)
 
     context = {

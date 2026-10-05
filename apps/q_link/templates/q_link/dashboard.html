@@ -11,7 +11,23 @@
         icon="fa-solid fa-diagram-project" icon_color="text-amber-400" back_url="/">
 
         <c-slot name="actions">
-            <div class="flex items-center gap-2.5">
+            <div class="flex flex-wrap items-center gap-2.5">
+                {% if active_audit %}
+                <!-- Audit vs All Profiles Toggle Switch -->
+                <div class="inline-flex p-0.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs">
+                    <a href="?scope=audit"
+                       class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope != 'all' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %}">
+                        <i class="fa-solid fa-folder-tree text-[10px]"></i>
+                        <span>Audit: {{ active_audit.name }} ({{ audit_profiles_count }})</span>
+                    </a>
+                    <a href="?scope=all"
+                       class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope == 'all' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %}">
+                        <i class="fa-solid fa-globe text-[10px]"></i>
+                        <span>All Profiles ({{ total_profiles_count }})</span>
+                    </a>
+                </div>
+                {% endif %}
+
                 <button type="button" id="btn-sync-all" onclick="syncAllModules()"
                     class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition-all transform hover:-translate-y-0.5 cursor-pointer">
                     <i class="fa-solid fa-rotate text-xs" id="icon-sync"></i>

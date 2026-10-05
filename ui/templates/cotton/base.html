@@ -62,17 +62,121 @@
                 </a>
             </div>
 
-            <!-- Right Controls: Lock/Logout & Theme Switcher -->
-            <div class="flex items-center space-x-2.5">
-                {% if request.session.portal_authenticated %}
+            <!-- Right Controls: Active Audit Switcher, Lock/Logout & Theme Switcher -->
+            <div x-data="globalAuditManager" class="flex items-center space-x-2.5">
+                {% if request.path != '/' and request.path != '/login/' %}
+                <!-- Active Audit Switcher Button -->
+                <button type="button" @click="showAuditModal = true"
+                    class="h-9 px-3 rounded-lg flex items-center gap-2 text-xs font-bold transition border cursor-pointer {% if active_audit %}bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/30{% else %}bg-theme-subtle hover:bg-theme-subtle/80 text-theme-muted border-theme-border{% endif %}">
+                    <i class="fa-solid fa-folder-tree text-xs text-amber-500"></i>
+                    {% if active_audit %}
+                        <span class="font-mono">{{ active_audit.name }}</span>
+                        <span class="hidden md:inline font-normal text-slate-400 dark:text-zinc-400 max-w-[130px] truncate">&bull; {{ active_audit.title|default:"Active Audit" }}</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/20 text-amber-500 font-mono">{{ audit_profiles_count }}</span>
+                    {% else %}
+                        <span>Select Audit</span>
+                        <span class="text-[10px] text-amber-500 font-normal hidden sm:inline">(All Profiles)</span>
+                    {% endif %}
+                    <i class="fa-solid fa-chevron-down text-[9px] text-theme-muted ml-0.5"></i>
+                </button>
 
+                <!-- Audit Switcher Modal -->
+                <div x-show="showAuditModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-3 sm:p-4 text-left">
+                    <div @click.outside="showAuditModal = false"
+                        class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden relative flex flex-col max-h-[85vh]">
+                        
+                        <!-- Modal Header -->
+                        <div class="p-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50/50 dark:bg-zinc-950/40">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center text-sm">
+                                    <i class="fa-solid fa-folder-tree"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">Active Audit Workspace</h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-zinc-400">Filter profiles and evidence specifically for this audit.</p>
+                                </div>
+                            </div>
+                            <button type="button" @click="showAuditModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer p-1">
+                                <i class="fa-solid fa-xmark text-sm"></i>
+                            </button>
+                        </div>
+
+                        <!-- Modal Body -->
+                        <div class="p-4 space-y-3 flex-1 overflow-y-auto">
+                            <!-- Search -->
+                            <div class="relative">
+                                <i class="fa-solid fa-magnifying-glass text-xs text-slate-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                                <input type="text" x-model="searchAuditQuery" placeholder="Search audits by name, title, or scope..."
+                                    class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                            </div>
+
+                            <!-- Show All Option -->
+                            <button type="button" @click="switchAudit('')"
+                                class="w-full p-2.5 rounded-xl border text-left text-xs transition flex items-center justify-between cursor-pointer {% if not active_audit %}border-amber-500 bg-amber-500/10 font-bold text-amber-500{% else %}border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-slate-700 dark:text-zinc-300{% endif %}">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-globe text-xs text-amber-500"></i>
+                                    <div>
+                                        <div>All Profiles (Global Workspace)</div>
+                                        <div class="text-[10px] text-slate-400 dark:text-zinc-500 font-normal">No audit filter applied &bull; {{ total_profiles_count }} total profiles</div>
+                                    </div>
+                                </div>
+                                {% if not active_audit %}
+                                <i class="fa-solid fa-circle-check text-amber-500 text-sm"></i>
+                                {% endif %}
+                            </button>
+
+                            <!-- Audits List -->
+                            <div class="space-y-2">
+                                <template x-for="audit in filteredAudits()" :key="audit.id">
+                                    <button type="button" @click="switchAudit(audit.id)"
+                                        class="w-full p-3 rounded-xl border text-left transition flex items-center justify-between cursor-pointer"
+                                        :class="currentAuditId === audit.id ? 'border-amber-500 bg-amber-500/10 shadow-xs' : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-slate-50/50 dark:bg-zinc-950/40'">
+                                        <div class="min-w-0 pr-2">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="font-mono font-bold text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-500" x-text="audit.name"></span>
+                                                <h4 class="font-bold text-xs text-slate-900 dark:text-white truncate" x-text="audit.title || 'Untitled Audit'"></h4>
+                                            </div>
+                                            <p class="text-[11px] text-slate-500 dark:text-zinc-400 truncate" x-show="audit.description" x-text="audit.description"></p>
+                                            <div class="flex items-center gap-2 mt-1 text-[10px] text-slate-400 dark:text-zinc-500">
+                                                <span class="font-semibold text-amber-500" x-text="(audit.profiles_count || (audit.profiles || []).length) + ' mapped profile(s)'"></span>
+                                                <span>&bull;</span>
+                                                <span class="uppercase tracking-wider" x-text="audit.status"></span>
+                                            </div>
+                                        </div>
+                                        <div class="shrink-0">
+                                            <i class="fa-solid fa-circle-check text-amber-500 text-base" x-show="currentAuditId === audit.id"></i>
+                                            <span x-show="currentAuditId !== audit.id" class="text-[11px] font-bold text-amber-500 hover:underline">Select</span>
+                                        </div>
+                                    </button>
+                                </template>
+
+                                <div x-show="filteredAudits().length === 0" class="py-6 text-center text-xs text-slate-400 dark:text-zinc-500">
+                                    No audits found matching search.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="p-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-xs bg-slate-50/50 dark:bg-zinc-950/40">
+                            <a href="/#landing-audits-btn" class="text-amber-500 hover:text-amber-400 font-semibold flex items-center gap-1">
+                                <i class="fa-solid fa-plus text-[10px]"></i>
+                                <span>Manage / Create Audits</span>
+                            </a>
+                            <button type="button" @click="showAuditModal = false" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-medium cursor-pointer">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if request.session.portal_authenticated %}
                 <a href="{% url 'portal_logout' %}" title="Logout"
                     class="h-9 px-3 rounded-lg flex items-center gap-1.5 text-xs font-semibold text-theme-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-theme-border transition">
                     <i class="fa-solid fa-lock text-xs"></i>
                     <span class="hidden sm:inline">Logout</span>
                 </a>
                 {% endif %}
-
 
                 <!-- Dark / Light Mode Toggle Button -->
                 <button id="theme-toggle" type="button" aria-label="Toggle Dark Mode"
@@ -94,7 +198,7 @@
         ForensiQ &bull; Forensic Investigation & Data Analytics Workstation
     </footer>
 
-    <!-- Global Helpers (Modal & CSRF) -->
+    <!-- Global Helpers (Modal, CSRF, and Audit Switcher) -->
     <script>
         // Global Modal Management
         window.openModal = function (id) {
@@ -136,6 +240,52 @@
                 window.closeModal(modalId);
             }
         });
+
+        function initGlobalAuditManager() {
+            if (!window.Alpine) return;
+            Alpine.data('globalAuditManager', () => ({
+                showAuditModal: {% if not active_audit and request.path != '/' and request.path != '/login/' and request.path != '/logout/' and request.path != '/admin/' and all_audits %}true{% else %}false{% endif %},
+                searchAuditQuery: '',
+                auditsList: {{ all_audits_json|default:'[]'|safe }},
+                currentAuditId: '{{ active_audit.id|default:'' }}',
+                isSwitching: false,
+                filteredAudits() {
+                    if (!this.searchAuditQuery.trim()) return this.auditsList;
+                    const q = this.searchAuditQuery.toLowerCase();
+                    return this.auditsList.filter(a =>
+                        (a.name || '').toLowerCase().includes(q) ||
+                        (a.title || '').toLowerCase().includes(q) ||
+                        (a.description || '').toLowerCase().includes(q)
+                    );
+                },
+                async switchAudit(auditId) {
+                    this.isSwitching = true;
+                    try {
+                        const csrfToken = window.getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                        const res = await fetch('/audits/active/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken,
+                            },
+                            body: JSON.stringify({ audit_id: auditId })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            window.location.reload();
+                        }
+                    } catch (err) {
+                        console.error('Error switching active audit:', err);
+                        this.isSwitching = false;
+                    }
+                }
+            }));
+        }
+        if (window.Alpine) {
+            initGlobalAuditManager();
+        } else {
+            document.addEventListener('alpine:init', initGlobalAuditManager);
+        }
     </script>
 </body>
 

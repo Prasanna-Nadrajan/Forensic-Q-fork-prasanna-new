@@ -1,7 +1,8 @@
 <c-base title="ForensiQ | Forensic Investigation Platform">
 
-    <!-- Page Header Section with Top Right Audits & Profiles Buttons & Modal -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8" x-data="profilesManager">
+    <div x-data="profilesManager">
+        <!-- Page Header Section with Top Right Audits & Profiles Buttons & Modal -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
             <div
                 class="flex items-center space-x-2 text-xs font-mono font-semibold uppercase tracking-wider text-amber-500 mb-1.5">
@@ -619,21 +620,139 @@
     </div>
 
 
-    <!-- Dynamic Modules Flex Grid (Centered last row if not multiple of 3) -->
-    <div class="flex flex-wrap justify-center gap-6">
-        {% for module in modules %}
-        <div class="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.333333%-16px)] flex">
-            <c-module_card :num="module.num" :category="module.category" :name="module.name" :tag="module.tag"
-                :accent="module.accent" :href="module.href" :tagline="module.tagline" />
+        <!-- App Launch Audit Intercept Modal -->
+        <div x-show="showLaunchModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-3 sm:p-4 text-left">
+            <div @click.outside="showLaunchModal = false"
+                class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden relative flex flex-col max-h-[88vh]">
+                
+                <!-- Header -->
+                <div class="p-5 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50/70 dark:bg-zinc-950/60">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center text-lg font-bold">
+                            <i class="fa-solid fa-rocket"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-mono uppercase tracking-wider text-amber-500 font-bold">Launch Engine</span>
+                                <span class="text-xs text-slate-400 dark:text-zinc-500">&bull;</span>
+                                <span class="text-xs font-bold text-slate-700 dark:text-zinc-300" x-text="'Q-' + pendingModule.name"></span>
+                            </div>
+                            <h3 class="text-base font-black text-slate-900 dark:text-white">Select Audit Workspace</h3>
+                        </div>
+                    </div>
+                    <button type="button" @click="showLaunchModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer p-1">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <!-- Body -->
+                <div class="p-5 space-y-4 flex-1 overflow-y-auto">
+                    <p class="text-xs text-slate-500 dark:text-zinc-400">
+                        Choose a registered forensic audit below to scope subjects, financial accounts, and intelligence inside <span class="font-bold text-slate-800 dark:text-zinc-200" x-text="'Q-' + pendingModule.name"></span>.
+                    </p>
+
+                    <!-- Search box -->
+                    <div class="relative" x-show="auditsList.length > 0">
+                        <i class="fa-solid fa-magnifying-glass text-xs text-slate-400 dark:text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        <input type="text" x-model="launchAuditSearchQuery" placeholder="Filter audit by ID (e.g. 2026-WB-01), title, or scope..."
+                            class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition">
+                    </div>
+
+                    <!-- Audits List -->
+                    <div class="space-y-2">
+                        <template x-for="audit in filteredAuditsForLaunch()" :key="audit.id">
+                            <button type="button" @click="launchWithAudit(audit.id)"
+                                class="w-full p-3.5 rounded-xl border text-left transition flex items-center justify-between cursor-pointer group hover:border-amber-500/80 hover:bg-amber-500/5 dark:hover:bg-amber-500/10"
+                                :class="currentActiveAuditId === audit.id ? 'border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/40' : 'border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/40'">
+                                <div class="min-w-0 pr-3">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="font-mono font-bold text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-500" x-text="audit.name"></span>
+                                        <h4 class="font-bold text-xs text-slate-900 dark:text-white truncate" x-text="audit.title || 'Untitled Audit'"></h4>
+                                        <span x-show="currentActiveAuditId === audit.id" class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">Active</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1" x-show="audit.description" x-text="audit.description"></p>
+                                    <div class="flex items-center gap-2.5 mt-1.5 text-[10px] text-slate-400 dark:text-zinc-500">
+                                        <span class="font-semibold text-amber-500 flex items-center gap-1">
+                                            <i class="fa-solid fa-users text-[9px]"></i>
+                                            <span x-text="(audit.profiles_count || (audit.profiles || []).length) + ' mapped profile(s)'"></span>
+                                        </span>
+                                        <span>&bull;</span>
+                                        <span class="uppercase font-mono text-[9px]" x-text="audit.status"></span>
+                                    </div>
+                                </div>
+                                <div class="shrink-0 flex items-center gap-1.5 text-xs font-bold text-amber-500 group-hover:translate-x-0.5 transition-transform">
+                                    <span>Open</span>
+                                    <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                                </div>
+                            </button>
+                        </template>
+
+                        <div x-show="auditsList.length > 0 && filteredAuditsForLaunch().length === 0" class="py-6 text-center text-xs text-slate-400 dark:text-zinc-500">
+                            No audits matching search query.
+                        </div>
+
+                        <div x-show="auditsList.length === 0" class="py-8 text-center space-y-2 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl p-4">
+                            <i class="fa-solid fa-folder-open text-2xl text-amber-500 mb-1 block"></i>
+                            <h4 class="text-xs font-bold text-slate-800 dark:text-zinc-200">No Audits Created Yet</h4>
+                            <p class="text-[11px] text-slate-400 dark:text-zinc-500">Create an audit with sequential ID (e.g. 2026-WB-01) or open in unrestricted mode.</p>
+                        </div>
+                    </div>
+
+                    <!-- Alternative Option: Open with All Profiles (Global) -->
+                    <div class="pt-2 border-t border-slate-100 dark:border-zinc-800">
+                        <button type="button" @click="launchWithoutAudit()"
+                            class="w-full p-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-900 text-left transition flex items-center justify-between cursor-pointer group">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 flex items-center justify-center text-xs">
+                                    <i class="fa-solid fa-globe"></i>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-800 dark:text-zinc-200 group-hover:text-amber-500 transition-colors">
+                                        Open with All Profiles (Global Mode)
+                                    </div>
+                                    <div class="text-[10px] text-slate-400 dark:text-zinc-500">
+                                        Launch without filtering to a specific audit (<span x-text="profilesList.length"></span> total profiles)
+                                    </div>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-arrow-right text-xs text-slate-400 group-hover:text-amber-500 group-hover:translate-x-0.5 transition"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="p-4 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-between text-xs bg-slate-50/70 dark:bg-zinc-950/60">
+                    <button type="button" @click="showLaunchModal = false; openModalTab('create_audit');"
+                        class="text-amber-500 hover:text-amber-400 font-semibold flex items-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-plus-circle text-xs"></i>
+                        <span>Create New Audit</span>
+                    </button>
+                    <button type="button" @click="showLaunchModal = false" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold cursor-pointer">
+                        Cancel
+                    </button>
+                </div>
+            </div>
         </div>
-        {% empty %}
-        <div
-            class="w-full p-12 text-center text-slate-500 dark:text-zinc-500 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800">
-            <i class="fa-solid fa-folder-open text-4xl text-amber-500 mb-3 block"></i>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">No Active Modules</h3>
-            <p class="text-xs">No investigation modules are currently configured for this session.</p>
+
+        <!-- Dynamic Modules Flex Grid (Centered last row if not multiple of 3) -->
+        <div class="flex flex-wrap justify-center gap-6">
+            {% for module in modules %}
+            <div class="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.333333%-16px)] flex"
+                 {% if module.tag != 'BUILDING' %}
+                 @click.prevent="promptLaunchModule('{{ module.name }}', '{{ module.href }}')"
+                 {% endif %}>
+                <c-module_card :num="module.num" :category="module.category" :name="module.name" :tag="module.tag"
+                    :accent="module.accent" :href="module.href" :tagline="module.tagline" />
+            </div>
+            {% empty %}
+            <div
+                class="w-full p-12 text-center text-slate-500 dark:text-zinc-500 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800">
+                <i class="fa-solid fa-folder-open text-4xl text-amber-500 mb-3 block"></i>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">No Active Modules</h3>
+                <p class="text-xs">No investigation modules are currently configured for this session.</p>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
 
     <!-- Client-side Alpine Component Definition for Audits & Profiles Management -->
@@ -646,6 +765,64 @@
                 searchQuery: '',
                 auditSearchQuery: '',
                 profileAuditFilterQuery: '',
+
+                // Launch Modal State
+                showLaunchModal: false,
+                pendingModule: { name: '', href: '' },
+                launchAuditSearchQuery: '',
+                currentActiveAuditId: '{{ active_audit.id|default:'' }}',
+
+                promptLaunchModule(name, href) {
+                    this.pendingModule = { name: name, href: href };
+                    this.launchAuditSearchQuery = '';
+                    this.showLaunchModal = true;
+                },
+
+                filteredAuditsForLaunch() {
+                    if (!this.launchAuditSearchQuery.trim()) return this.auditsList;
+                    const q = this.launchAuditSearchQuery.toLowerCase();
+                    return this.auditsList.filter(a =>
+                        (a.name || '').toLowerCase().includes(q) ||
+                        (a.title || '').toLowerCase().includes(q) ||
+                        (a.description || '').toLowerCase().includes(q)
+                    );
+                },
+
+                async launchWithAudit(auditId) {
+                    try {
+                        const csrfToken = window.getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                        await fetch('/audits/active/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken,
+                            },
+                            body: JSON.stringify({ audit_id: auditId })
+                        });
+                        window.location.href = this.pendingModule.href;
+                    } catch (e) {
+                        console.error('Launch failed:', e);
+                        window.location.href = this.pendingModule.href;
+                    }
+                },
+
+                async launchWithoutAudit() {
+                    try {
+                        const csrfToken = window.getCookie('csrftoken') || document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                        await fetch('/audits/active/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken,
+                            },
+                            body: JSON.stringify({ audit_id: '' })
+                        });
+                        window.location.href = this.pendingModule.href;
+                    } catch (e) {
+                        console.error('Launch without audit failed:', e);
+                        window.location.href = this.pendingModule.href;
+                    }
+                },
 
                 // Audits State
                 auditsList: {{ audits_json|safe }},

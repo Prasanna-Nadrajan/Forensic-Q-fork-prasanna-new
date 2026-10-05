@@ -1256,3 +1256,61 @@ class CoreAuditTests(TestCase):
         data_name = res_name.json()
         self.assertEqual(data_name["status"], "success")
         self.assertTrue("-WB-" in data_name["next_name"])
+
+    def test_set_active_audit_and_context_filtering(self):
+        from django.test import RequestFactory
+
+        from core.audits import create_audit
+        from core.context_processors import global_profiles_context
+
+        audit = create_audit(
+            title="Active Filter Test Audit",
+            profile_ids=[str(self.profile1.id), str(self.profile2.id)],
+        )
+
+        # 1. API set active audit via POST
+        res = self.client.post(
+            reverse("set_active_audit"),
+            data=json.dumps({"audit_id": str(audit.id)}),
+            content_type="application/json",
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["active_audit"]["name"], audit.name)
+
+        # 2. Context processor reflects filtered profiles
+        factory = RequestFactory()
+        req = factory.get("/")
+        req.session = self.client.session
+        ctx = global_profiles_context(req)
+
+        self.assertTrue(ctx["is_audit_active"])
+        self.assertEqual(ctx["active_audit"].id, audit.id)
+        # Should only have profile1 and profile2, not profile3
+        self.assertEqual(len(ctx["investigation_profiles"]), 2)
+        self.assertEqual(ctx["audit_profiles_count"], 2)
+        self.assertGreaterEqual(ctx["total_profiles_count"], 3)
+        prof_ids = [p.id for p in ctx["investigation_profiles"]]
+        self.assertIn(self.profile1.id, prof_ids)
+        self.assertIn(self.profile2.id, prof_ids)
+        self.assertNotIn(self.profile3.id, prof_ids)
+
+        # 3. Clear active audit
+        res_clear = self.client.post(
+            reverse("set_active_audit"),
+            data=json.dumps({"audit_id": ""}),
+            content_type="application/json",
+        )
+        self.assertEqual(res_clear.status_code, 200)
+        clear_data = res_clear.json()
+        self.assertEqual(clear_data["status"], "success")
+        self.assertIsNone(clear_data["active_audit"])
+
+        req.session = self.client.session
+        ctx_cleared = global_profiles_context(req)
+        self.assertFalse(ctx_cleared["is_audit_active"])
+        self.assertIsNone(ctx_cleared["active_audit"])
+        self.assertEqual(
+            len(ctx_cleared["investigation_profiles"]), ctx_cleared["total_profiles_count"]
+        )

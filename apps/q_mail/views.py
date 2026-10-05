@@ -12,6 +12,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from loguru import logger
 
+from core.audits import get_active_audit
+
 from .selectors import (
     get_all_custodian_profiles,
     get_attachment_by_id,
@@ -35,7 +37,13 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     Main Q-Mail Dashboard: Lists all custodian profiles and upload portal.
     """
     recover_stalled_investigations()
+    active_audit = get_active_audit(request)
     profiles = get_all_custodian_profiles()
+
+    if active_audit:
+        audit_names = {p.full_name.strip().lower() for p in active_audit.profiles.all()}
+        profiles = [p for p in profiles if p["custodian_name"].strip().lower() in audit_names]
+
     return render(
         request,
         "q_mail/dashboard.html",

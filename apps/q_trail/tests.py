@@ -951,3 +951,63 @@ class QTrailExtendedCoverageTests(TestCase):
         self.assertIn("brokerx@okaxis", loop["conduits"])
         self.assertEqual(len(loop["hops"]), 3)
         self.assertTrue(bool(loop.get("forensic_narrative")))
+
+
+class QTrailAuditScopingTests(TestCase):
+    """Tests for Q-Trail audit scoping and scope toggle between audit and all profiles."""
+
+    def setUp(self):
+        from core.audits import create_audit
+        from core.models import InvestigationProfile
+
+        self.prof1 = InvestigationProfile.objects.create(
+            full_name="Target Subject Alpha",
+            employee_id="EMP-T1",
+            department="Procurement",
+        )
+        self.prof2 = InvestigationProfile.objects.create(
+            full_name="Target Subject Beta",
+            employee_id="EMP-T2",
+            department="Finance",
+        )
+        self.prof3 = InvestigationProfile.objects.create(
+            full_name="Unrelated Subject Gamma",
+            employee_id="EMP-T3",
+            department="HR",
+        )
+
+        self.audit = create_audit(
+            title="Procurement Scope Audit",
+            profile_ids=[str(self.prof1.id), str(self.prof2.id)],
+        )
+
+    def test_get_available_profiles_scoped_by_audit_id(self):
+        all_profiles = get_available_profiles_for_trail(audit_id=None)
+        self.assertGreaterEqual(len(all_profiles), 3)
+
+        scoped_profiles = get_available_profiles_for_trail(audit_id=self.audit.id)
+        self.assertEqual(len(scoped_profiles), 2)
+        scoped_names = [p["name"] for p in scoped_profiles]
+        self.assertIn("Target Subject Alpha", scoped_names)
+        self.assertIn("Target Subject Beta", scoped_names)
+        self.assertNotIn("Unrelated Subject Gamma", scoped_names)
+
+    def test_dashboard_view_audit_scope_and_toggle(self):
+        session = self.client.session
+        session["portal_authenticated"] = True
+        session["active_audit_id"] = str(self.audit.id)
+        session["active_audit_name"] = self.audit.name
+        session.save()
+
+        # 1. Default or scope=audit
+        res_audit = self.client.get(reverse("q_trail:dashboard") + "?scope=audit")
+        self.assertEqual(res_audit.status_code, 200)
+        self.assertEqual(res_audit.context["scope"], "audit")
+        self.assertEqual(len(res_audit.context["available_profiles"]), 2)
+        self.assertEqual(res_audit.context["audit_profiles_count"], 2)
+
+        # 2. scope=all toggle
+        res_all = self.client.get(reverse("q_trail:dashboard") + "?scope=all")
+        self.assertEqual(res_all.status_code, 200)
+        self.assertEqual(res_all.context["scope"], "all")
+        self.assertGreaterEqual(len(res_all.context["available_profiles"]), 3)

@@ -24,11 +24,24 @@ from core.models import InvestigationProfile
 from .models import CaseDossier, FundTrailPath
 
 
-def get_available_profiles_for_trail() -> list[dict[str, Any]]:
+def get_available_profiles_for_trail(
+    audit_id: str | uuid.UUID | None = None,
+) -> list[dict[str, Any]]:
     """
-    Retrieves all investigation auditees and profiles available for money trail mapping,
+    Retrieves investigation auditees and profiles available for money trail mapping,
     annotating each with bank account counts, transaction counts, and financial institutions.
+    If audit_id is provided, scopes exclusively to profiles mapped to that audit.
     """
+    mapped_profile_names: set[str] = set()
+    mapped_profile_ids: set[str] = set()
+    if audit_id:
+        from core.audits import get_audit_by_id
+
+        audit = get_audit_by_id(audit_id)
+        if audit:
+            mapped_profile_names = {p.full_name.strip().lower() for p in audit.profiles.all()}
+            mapped_profile_ids = {str(p.id) for p in audit.profiles.all()}
+
     persons = (
         AuditedPerson.objects.prefetch_related("bank_accounts__transactions")
         .annotate(
@@ -41,6 +54,9 @@ def get_available_profiles_for_trail() -> list[dict[str, Any]]:
     seen_ids: set[str] = set()
 
     for person in persons:
+        if audit_id and person.full_name.strip().lower() not in mapped_profile_names:
+            continue
+
         accounts = list(person.bank_accounts.all())
         txns_count = sum(a.transactions.count() for a in accounts)
         banks = sorted({a.bank_name for a in accounts if a.bank_name})
@@ -67,6 +83,8 @@ def get_available_profiles_for_trail() -> list[dict[str, Any]]:
 
     # Cross-reference with core InvestigationProfile in case some profiles don't yet have an AuditedPerson
     core_profiles = InvestigationProfile.objects.all().order_by("full_name")
+    if audit_id:
+        core_profiles = core_profiles.filter(id__in=mapped_profile_ids)
     for cp in core_profiles:
         # Check if already added via matching name or ID
         if not any(p["name"].lower() == cp.full_name.lower() for p in profiles_data):

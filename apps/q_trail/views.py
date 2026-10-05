@@ -17,6 +17,8 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_http_methods, require_POST
 from loguru import logger
 
+from core.audits import get_active_audit
+
 from .selectors import (
     generate_trail_sankey_chart,
     get_all_trail_cases,
@@ -44,7 +46,20 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     Enables investigators to select multiple auditee profiles and trace
     direct transfers, 1-hop conduit intermediaries, and circular fund loops.
     """
-    available_profiles = get_available_profiles_for_trail()
+    active_audit = get_active_audit(request)
+    scope = request.GET.get("scope") or request.POST.get("scope")
+    if not scope:
+        scope = "audit" if active_audit else "all"
+
+    all_profiles = get_available_profiles_for_trail(audit_id=None)
+    audit_profiles = (
+        get_available_profiles_for_trail(audit_id=active_audit.id) if active_audit else []
+    )
+
+    if scope == "audit" and active_audit:
+        available_profiles = audit_profiles
+    else:
+        available_profiles = all_profiles
 
     compare_all = (
         request.GET.get("compare_all") == "1" or request.POST.get("action") == "compare_all"
@@ -171,6 +186,10 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
         "available_profiles": available_profiles,
         "selected_profile_ids": profile_ids,
         "time_window_days": time_window_days,
+        "active_audit": active_audit,
+        "scope": scope,
+        "audit_profiles_count": len(audit_profiles),
+        "all_profiles_count": len(all_profiles),
         "metrics": formatted_metrics,
         "sankey_figure_html": sankey_html,
         "direct_records": direct_records,

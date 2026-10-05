@@ -244,14 +244,43 @@ def get_graph_overview(
     *,
     max_nodes: int = 80,
     min_risk: int = 0,
+    filter_names: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Generates a top-level network overview of the highest risk entities and their connections
-    for the primary Q-Link dashboard view.
+    for the primary Q-Link dashboard view. If filter_names is provided, focuses on entities
+    matching those names and their 1-hop connected neighbors.
     """
-    entities = ForensicEntity.objects.filter(risk_rating__gte=min_risk).order_by(
-        "-is_target", "-risk_rating"
-    )[:max_nodes]
+    if filter_names:
+        clean_names = [n.strip() for n in filter_names if n.strip()]
+        target_q = Q()
+        for name in clean_names:
+            target_q |= Q(display_name__iexact=name)
+
+        target_entities = list(ForensicEntity.objects.filter(target_q))
+        target_ids = [e.id for e in target_entities]
+
+        if target_ids:
+            relations = EntityRelationship.objects.filter(
+                Q(source_entity_id__in=target_ids) | Q(target_entity_id__in=target_ids)
+            )
+            connected_ids = set(target_ids)
+            for r in relations:
+                connected_ids.add(r.source_entity_id)
+                connected_ids.add(r.target_entity_id)
+
+            entities = ForensicEntity.objects.filter(id__in=connected_ids).order_by(
+                "-is_target", "-risk_rating"
+            )[:max_nodes]
+        else:
+            entities = ForensicEntity.objects.filter(risk_rating__gte=min_risk).order_by(
+                "-is_target", "-risk_rating"
+            )[:max_nodes]
+    else:
+        entities = ForensicEntity.objects.filter(risk_rating__gte=min_risk).order_by(
+            "-is_target", "-risk_rating"
+        )[:max_nodes]
+
     entity_ids = [str(e.id) for e in entities]
 
     nodes = [

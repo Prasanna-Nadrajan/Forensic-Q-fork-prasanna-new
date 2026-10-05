@@ -9,6 +9,8 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
+from core.audits import get_active_audit
+
 from .selectors import (
     get_all_chat_channels,
     get_all_custodian_profiles,
@@ -31,9 +33,15 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     Main Q-Chat Instant Messaging Forensics Dashboard.
     Organized by target custodian profile directory with aggregate metrics.
     """
+    active_audit = get_active_audit(request)
     metrics = get_chat_dashboard_metrics()
     custodians = get_all_custodian_profiles()
     channels = get_all_chat_channels()
+
+    if active_audit:
+        audit_names = {p.full_name.strip().lower() for p in active_audit.profiles.all()}
+        custodians = [c for c in custodians if c["custodian_name"].strip().lower() in audit_names]
+        channels = [c for c in channels if c.primary_custodian.strip().lower() in audit_names]
 
     context = {
         "metrics": metrics,

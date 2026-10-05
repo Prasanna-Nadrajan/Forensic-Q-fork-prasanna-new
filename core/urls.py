@@ -30,6 +30,7 @@ urlpatterns = [
         views.map_audit_profiles_view,
         name="map_audit_profiles",
     ),
+    path("audits/active/", views.set_active_audit_view, name="set_active_audit"),
     path("api/audits/", views.audit_list_api_view, name="api_audits"),
     path("api/audits/next-name/", views.get_next_audit_name_api_view, name="api_next_audit_name"),
 ]

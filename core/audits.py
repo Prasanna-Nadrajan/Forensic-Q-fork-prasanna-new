@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
+from django.http import HttpRequest
 from django.utils import timezone
 from loguru import logger
 
@@ -168,3 +169,35 @@ def unmap_profile_from_audit(
 
     audit.profiles.remove(profile_id)
     return audit
+
+
+def get_active_audit(request: HttpRequest) -> Audit | None:
+    """
+    Returns the currently active audit selected in the user's session.
+    """
+    audit_id = request.session.get("active_audit_id")
+    if audit_id:
+        return get_audit_by_id(audit_id)
+    return None
+
+
+def set_active_audit(request: HttpRequest, audit_id: str | uuid.UUID | None) -> Audit | None:
+    """
+    Sets or clears the active audit in the user's session.
+    """
+    if not audit_id or str(audit_id).strip().lower() in ("__none__", "all", "none", ""):
+        request.session.pop("active_audit_id", None)
+        request.session.pop("active_audit_name", None)
+        if hasattr(request.session, "modified"):
+            request.session.modified = True
+        return None
+
+    audit = get_audit_by_id(audit_id)
+    if audit:
+        request.session["active_audit_id"] = str(audit.id)
+        request.session["active_audit_name"] = audit.name
+        if hasattr(request.session, "modified"):
+            request.session.modified = True
+        return audit
+
+    return None

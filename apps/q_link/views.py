@@ -13,6 +13,8 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 from loguru import logger
 
+from core.audits import get_active_audit
+
 from .backend.llm_agent import ForensicCopilotAgent
 from .backend.sync_all import sync_all_modules
 from .models import (
@@ -39,6 +41,11 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     Renders top summary metrics, live relationship alerts, active targets,
     and initializes the interactive Vis.js network graph canvas.
     """
+    active_audit = get_active_audit(request)
+    scope = request.GET.get("scope")
+    if not scope:
+        scope = "audit" if active_audit else "all"
+
     # Key Metrics
     total_entities = ForensicEntity.objects.count()
     total_relationships = EntityRelationship.objects.count()
@@ -47,13 +54,32 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
 
     # Alerts & Targets
     alerts = get_recent_alerts(limit=10, unacknowledged_only=False)
-    targets = ForensicEntity.objects.filter(is_target=True).order_by("-risk_rating")[:10]
+
+    audit_profile_names: list[str] = []
+    if active_audit:
+        audit_profile_names = list(active_audit.profiles.values_list("full_name", flat=True))
+
+    if scope == "audit" and active_audit and audit_profile_names:
+        from django.db.models import Q
+
+        audit_q = Q()
+        for name in audit_profile_names:
+            audit_q |= Q(display_name__iexact=name)
+
+        audit_targets = ForensicEntity.objects.filter(audit_q).order_by("-risk_rating")
+        targets = (
+            audit_targets
+            if audit_targets.exists()
+            else ForensicEntity.objects.filter(is_target=True).order_by("-risk_rating")[:10]
+        )
+        initial_graph = get_graph_overview(max_nodes=120, filter_names=audit_profile_names)
+    else:
+        targets = ForensicEntity.objects.filter(is_target=True).order_by("-risk_rating")[:10]
+        initial_graph = get_graph_overview(max_nodes=120)
+
     high_risk_entities = ForensicEntity.objects.filter(risk_rating__gte=50).order_by(
         "-risk_rating"
     )[:15]
-
-    # Initial Network Graph Payload
-    initial_graph = get_graph_overview(max_nodes=120)
 
     context = {
         "page_title": "Q-Link | Forensic Intelligence & Relationship Engine",
@@ -65,6 +91,9 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
         "targets": targets,
         "high_risk_entities": high_risk_entities,
         "initial_graph_json": json.dumps(initial_graph),
+        "active_audit": active_audit,
+        "scope": scope,
+        "audit_profiles_count": len(audit_profile_names),
     }
 
     return render(request, "q_link/dashboard.html", context)
@@ -81,10 +110,20 @@ def api_network_data(request: HttpRequest) -> JsonResponse:
     max_hops = int(request.GET.get("max_hops", 2))
     min_confidence = float(request.GET.get("min_confidence", 0.0))
 
+    active_audit = get_active_audit(request)
+    scope = request.GET.get("scope")
+    if not scope:
+        scope = "audit" if active_audit else "all"
+
     if entity_id:
         graph_data = get_entity_network(entity_id, max_hops=max_hops, min_confidence=min_confidence)
+    elif scope == "audit" and active_audit:
+        audit_names = list(active_audit.profiles.values_list("full_name", flat=True))
+        graph_data = get_graph_overview(max_nodes=150, filter_names=audit_names)
     else:
         graph_data = get_graph_overview(max_nodes=150)
+
+    return JsonResponse({"status": "success", **graph_data})
 
     return JsonResponse({"status": "success", **graph_data})
 

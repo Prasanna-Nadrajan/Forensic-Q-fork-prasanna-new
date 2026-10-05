@@ -12,6 +12,7 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
+from core.audits import get_active_audit
 from core.profiles import resolve_or_create_profile_from_request
 
 from .models import AudioRecording
@@ -37,10 +38,19 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     Common Q-Voice Hub & Target Custodians Directory Dashboard.
     Displays global platform metrics and the directory of all target custodian profiles.
     """
+    active_audit = get_active_audit(request)
+    custodians = get_all_custodian_profiles()
+    recordings = get_all_recordings()
+
+    if active_audit:
+        audit_names = {p.full_name.strip().lower() for p in active_audit.profiles.all()}
+        custodians = [c for c in custodians if c["custodian_name"].strip().lower() in audit_names]
+        recordings = [r for r in recordings if r.custodian_name.strip().lower() in audit_names]
+
     context: dict[str, Any] = {
         "status": "idle",
-        "custodians": get_all_custodian_profiles(),
-        "recordings": get_all_recordings(),
+        "custodians": custodians,
+        "recordings": recordings,
         "global_metrics": get_global_voice_metrics(),
         "error_message": "",
         "voice_endpoint": get_voice_api_endpoint(),

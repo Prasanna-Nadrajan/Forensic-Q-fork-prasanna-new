@@ -495,3 +495,73 @@ class QLinkDeepCoverageTests(TestCase):
         # Recent alerts unacknowledged
         alerts = get_recent_alerts(unacknowledged_only=True)
         self.assertIsNotNone(alerts)
+
+
+class QLinkAuditScopingTests(TestCase):
+    """Tests for Q-Link audit scoping and scope toggle between audit and all profiles."""
+
+    def setUp(self):
+        from core.audits import create_audit
+        from core.models import InvestigationProfile
+
+        self.prof1 = InvestigationProfile.objects.create(
+            full_name="Vikash Subject Alpha",
+            employee_id="EMP-LK1",
+            department="Procurement",
+        )
+        self.prof2 = InvestigationProfile.objects.create(
+            full_name="Raja Subject Beta",
+            employee_id="EMP-LK2",
+            department="Finance",
+        )
+
+        self.e1, _ = resolve_or_create_entity(
+            "Vikash Subject Alpha", ForensicEntity.EntityType.EMPLOYEE, is_target=True
+        )
+        self.e2, _ = resolve_or_create_entity(
+            "Raja Subject Beta", ForensicEntity.EntityType.EMPLOYEE, is_target=True
+        )
+        self.e3, _ = resolve_or_create_entity(
+            "Unrelated Vendor Omega", ForensicEntity.EntityType.VENDOR, is_target=False
+        )
+
+        self.audit = create_audit(
+            title="Q-Link Target Audit",
+            profile_ids=[str(self.prof1.id), str(self.prof2.id)],
+        )
+
+    def test_get_graph_overview_scoped_by_filter_names(self):
+        from .selectors import get_graph_overview
+
+        # Scoped overview
+        graph = get_graph_overview(filter_names=["Vikash Subject Alpha"])
+        node_labels = [n["label"] for n in graph["nodes"]]
+        self.assertIn("Vikash Subject Alpha", node_labels)
+        self.assertNotIn("Unrelated Vendor Omega", node_labels)
+
+        # Global overview
+        all_graph = get_graph_overview()
+        all_labels = [n["label"] for n in all_graph["nodes"]]
+        self.assertIn("Vikash Subject Alpha", all_labels)
+        self.assertIn("Unrelated Vendor Omega", all_labels)
+
+    def test_dashboard_view_audit_scope_and_toggle(self):
+        from django.urls import reverse
+
+        session = self.client.session
+        session["portal_authenticated"] = True
+        session["active_audit_id"] = str(self.audit.id)
+        session["active_audit_name"] = self.audit.name
+        session.save()
+
+        # 1. Scope audit
+        res_audit = self.client.get(reverse("q_link:dashboard") + "?scope=audit")
+        self.assertEqual(res_audit.status_code, 200)
+        self.assertEqual(res_audit.context["scope"], "audit")
+        target_names = [t.display_name for t in res_audit.context["targets"]]
+        self.assertIn("Vikash Subject Alpha", target_names)
+
+        # 2. Scope all
+        res_all = self.client.get(reverse("q_link:dashboard") + "?scope=all")
+        self.assertEqual(res_all.status_code, 200)
+        self.assertEqual(res_all.context["scope"], "all")

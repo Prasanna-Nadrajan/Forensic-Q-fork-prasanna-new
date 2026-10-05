@@ -13,6 +13,7 @@ from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
+from core.audits import get_active_audit
 from core.fuzzy import (
     extract_keywords_from_file,
     extract_keywords_from_request,
@@ -51,9 +52,16 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     Main Q-Bank Forensic Financial Dashboard.
     Presents the Audited Persons Directory as the primary operational entry point.
     """
+    active_audit = get_active_audit(request)
     metrics = get_bank_dashboard_metrics()
     persons = get_all_audited_persons()
     accounts = get_all_bank_accounts()
+
+    if active_audit:
+        audit_profile_names = list(active_audit.profiles.values_list("full_name", flat=True))
+        persons = persons.filter(full_name__in=audit_profile_names)
+        accounts = accounts.filter(person__in=persons)
+
     frequent_entities = get_frequent_counterparties(limit=10)
 
     context = {

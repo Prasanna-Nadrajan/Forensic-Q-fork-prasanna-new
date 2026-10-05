@@ -11,6 +11,8 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
+from core.audits import get_active_audit
+
 from .selectors import (
     get_all_custodian_profiles,
     get_case_risk_chart_html,
@@ -27,7 +29,14 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     """
     Main Q-Verify Dashboard: Custodian profiles directory.
     """
+    active_audit = get_active_audit(request)
     custodian_profiles = get_all_custodian_profiles()
+
+    if active_audit:
+        audit_names = {p.full_name.strip().lower() for p in active_audit.profiles.all()}
+        custodian_profiles = [
+            p for p in custodian_profiles if p["custodian_name"].strip().lower() in audit_names
+        ]
 
     return render(
         request,

@@ -13,6 +13,7 @@ from .audits import (
     generate_next_audit_name,
     get_all_audits,
     map_profiles_to_audit,
+    set_active_audit,
 )
 from .modules import get_discovered_modules
 from .profiles import (
@@ -330,6 +331,38 @@ def set_active_profile_view(request: HttpRequest) -> HttpResponse:
             {
                 "status": "success",
                 "active_profile": profile.to_dict() if profile else None,
+            }
+        )
+
+    next_url = payload.get("next") or request.META.get("HTTP_REFERER") or "/"
+    return redirect(next_url)
+
+
+@require_POST
+def set_active_audit_view(request: HttpRequest) -> HttpResponse:
+    """
+    Switches or clears the active audit for the current investigator session.
+    """
+    is_json = (
+        request.content_type == "application/json"
+        or request.headers.get("x-requested-with") == "XMLHttpRequest"
+    )
+    if is_json and request.body:
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except Exception:
+            payload = {}
+    else:
+        payload = request.POST
+
+    audit_id = payload.get("audit_id", "").strip()
+    audit = set_active_audit(request, audit_id if audit_id else None)
+
+    if is_json:
+        return JsonResponse(
+            {
+                "status": "success",
+                "active_audit": audit.to_dict() if audit else None,
             }
         )
 
