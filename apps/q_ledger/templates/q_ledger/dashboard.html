@@ -12,7 +12,7 @@
             <!-- Master Data Background Store Status & Upload Button -->
             <button onclick="openMastersModal()" 
                     title="Upload or update GL Account and SLoc master datasets stored in the background"
-                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-theme-surface hover:bg-theme-subtle text-theme-text text-xs font-semibold border border-theme-border transition-all cursor-pointer shadow-sm">
+                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-theme-surface hover:bg-theme-subtle text-theme-text text-xs font-semibold border border-theme-border transition-all cursor-pointer shadow-sm whitespace-nowrap">
                 <i class="fa-solid fa-database text-purple-400"></i>
                 <span>ERP Masters</span>
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/15 text-purple-400 border border-purple-500/30 font-bold">
@@ -22,14 +22,14 @@
 
             <!-- Export Excel Button -->
             <a href="{% url 'q_ledger:export_current_view' %}"
-               class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all cursor-pointer">
+               class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all cursor-pointer whitespace-nowrap">
                 <i class="fa-solid fa-file-excel text-amber-400"></i>
                 <span>Export Excel</span>
             </a>
 
             <!-- Import Transactional SAP Records Button -->
             <button onclick="openUploadModal()" 
-                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition-all transform hover:-translate-y-0.5 cursor-pointer">
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold shadow-lg shadow-amber-500/20 transition-all transform hover:-translate-y-0.5 cursor-pointer whitespace-nowrap">
                 <i class="fa-solid fa-cloud-arrow-up"></i>
                 <span>Import SAP Records</span>
             </button>
