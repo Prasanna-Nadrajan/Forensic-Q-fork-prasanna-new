@@ -354,7 +354,7 @@ def openpo(openpo_df: pd.DataFrame) -> pd.DataFrame:
 
     grouped["Date_Diff"] = (today - grouped["PO Date"]).dt.days
     grouped["GR Qty"] = grouped["GR Qty"].round(2)
-    grouped["PO Rem."] = grouped["PO Qty"] - grouped["GR Qty"]
+    grouped["PO Rem."] = (grouped["PO Qty"] - grouped["GR Qty"]).round(5)
     grouped = grouped[grouped["PO Rem."] > 0]
     grouped = grouped[grouped["Date_Diff"] > 750]
 
@@ -417,7 +417,7 @@ def tab66(tab66_df: pd.DataFrame):
     combined = pd.concat([filtered_rows, previous_rows]).sort_index()
     combined["Pstng Date"] = combined["Pstng Date"].dt.date
     if "PO Qty" in combined.columns and "GR Qty" in combined.columns:
-        combined["PO Rem."] = combined["PO Qty"] - combined["GR Qty"]
+        combined["PO Rem."] = (combined["PO Qty"] - combined["GR Qty"]).round(5)
 
     cols = [
         "Cost Ctr.",
