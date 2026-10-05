@@ -361,12 +361,19 @@ def investigation_detail_view(request: HttpRequest, mailbox_id: str) -> HttpResp
     summary = get_investigation_summary_metrics(mailbox_id)
     inv = summary["investigation"]
 
+    from .models import MailboxInvestigation
+
+    custodian_cases = MailboxInvestigation.objects.filter(
+        auditee_name__iexact=inv.auditee_name
+    ).order_by("-created_at")
+
     return render(
         request,
         "q_mail/investigation_detail.html",
         {
             "investigation": inv,
             "summary": summary,
+            "custodian_cases": custodian_cases,
         },
     )
 

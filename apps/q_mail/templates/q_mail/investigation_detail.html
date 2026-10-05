@@ -9,6 +9,27 @@
         back_url="/mail/">
         
         <div class="flex items-center gap-2">
+            {% if custodian_cases|length > 1 %}
+            <div x-data="{ open: false }" class="relative">
+                <button @click="open = !open" @click.away="open = false" class="relative flex items-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-1.5 shadow-sm text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:border-purple-500/50 transition cursor-pointer w-56">
+                    <i class="fa-solid fa-folder-open text-purple-400 mr-2 text-[11px]"></i>
+                    <span class="truncate pr-4 flex-1 text-left">{{ investigation.audit_ref }} &bull; {{ investigation.audit_name }}</span>
+                    <i class="fa-solid fa-chevron-down absolute right-3 text-[10px] text-slate-400 transition-transform" :class="open ? 'rotate-180' : ''"></i>
+                </button>
+                
+                <div x-show="open" x-transition.opacity.duration.200ms style="display: none;" class="absolute right-0 mt-1.5 w-64 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div class="max-h-60 overflow-y-auto py-1">
+                        {% for case in custodian_cases %}
+                        <a href="{% url 'q_mail:detail' case.id %}" class="block px-3 py-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 {% if case.id == investigation.id %}bg-purple-50 dark:bg-purple-900/10 border-l-2 border-purple-500{% else %}border-l-2 border-transparent{% endif %} transition">
+                            <div class="text-xs font-semibold {% if case.id == investigation.id %}text-purple-700 dark:text-purple-400{% else %}text-slate-700 dark:text-zinc-300{% endif %} truncate">{{ case.audit_ref }}</div>
+                            <div class="text-[10px] text-slate-500 dark:text-zinc-500 truncate mt-0.5">{{ case.audit_name }}</div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <a id="export-excel-btn" href="{% url 'q_mail:export_checkpoint_excel' investigation.id %}" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition cursor-pointer">
                 <i class="fa-solid fa-file-excel text-[11px]"></i>
                 <span>Export Evidence (Excel)</span>
