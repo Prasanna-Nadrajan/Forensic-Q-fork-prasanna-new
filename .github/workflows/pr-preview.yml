@@ -31,22 +31,24 @@ jobs:
         id: pr_meta
         run: |
           if [ "${{ github.event_name }}" = "issue_comment" ]; then
-            echo "number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-            # Fetch head ref for issue comment trigger
-            PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
-            HEAD_REF=$(echo "$PR_DATA" | jq -r '.head.ref')
-            echo "ref=$HEAD_REF" >> $GITHUB_OUTPUT
+            PR_NUM="${{ github.event.issue.number }}"
           else
-            echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
-            echo "ref=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+            PR_NUM="${{ github.event.pull_request.number }}"
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "number=$PR_NUM" >> $GITHUB_OUTPUT
+          # refs/pull/<number>/head is always accessible on origin even for fork PRs
+          echo "ref=refs/pull/$PR_NUM/head" >> $GITHUB_OUTPUT
 
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.pr_meta.outputs.ref }}
+          fetch-depth: 1
+
+      - name: Resolve Commit SHA
+        id: git_sha
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Install uv Package Manager
         uses: astral-sh/setup-uv@v5
@@ -63,6 +65,7 @@ jobs:
       - name: Install Cloudflare Tunnel Client (cloudflared)
         run: |
           choco install cloudflared -y
+          echo "C:\ProgramData\chocolatey\bin" >> $GITHUB_PATH
           cloudflared --version
 
       - name: Initialize SQLite Database
@@ -87,14 +90,22 @@ jobs:
           DJANGO_PID=$!
           echo "DJANGO_PID=$DJANGO_PID" >> $GITHUB_ENV
 
-          # 2. Wait for Django server port 8000 to be ready
-          for i in {1..15}; do
+          # 2. Wait for Django server port 8000 to be ready (up to 30 seconds)
+          SERVER_UP=false
+          for i in {1..30}; do
             if curl -s http://127.0.0.1:8000/login/ > /dev/null 2>&1; then
               echo "Django server is responding on http://127.0.0.1:8000"
+              SERVER_UP=true
               break
             fi
             sleep 1
           done
+
+          if [ "$SERVER_UP" != "true" ]; then
+            echo "::error::Django server failed to respond on port 8000. Server logs:"
+            cat django_server.log
+            exit 1
+          fi
 
           # 3. Start Cloudflare Quick Tunnel in background
           cloudflared tunnel --url http://127.0.0.1:8000 --no-autoupdate > cloudflared.log 2>&1 &
@@ -133,7 +144,7 @@ jobs:
           | :--- | :--- |
           | **🌐 Live URL** | [**${{ env.TUNNEL_URL }}**](${{ env.TUNNEL_URL }}) |
           | **🔑 Portal Password** | \`forensiq2026\` |
-          | **📌 Commit SHA** | \`${{ github.sha }}\` |
+          | **📌 Commit SHA** | \`${{ steps.git_sha.outputs.sha }}\` |
           | **⏱️ Session Lifetime** | Active for **45 minutes** (or until cancelled / new commit) |
           | **🛡️ Architecture** | Python 3.13, SQLite WAL, Django Cotton 6.1 |
 
