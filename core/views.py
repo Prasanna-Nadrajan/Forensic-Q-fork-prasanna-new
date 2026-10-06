@@ -418,19 +418,24 @@ def create_audit_view(request: HttpRequest) -> HttpResponse:
         if isinstance(raw_pids, list):
             profile_ids = [str(x).strip() for x in raw_pids if str(x).strip()]
     else:
-        profile_ids = request.POST.getlist("profile_ids")
-        if not profile_ids:
-            raw_single = request.POST.get("profile_ids", "")
-            if raw_single:
-                if raw_single.startswith("["):
-                    try:
-                        profile_ids = json.loads(raw_single)
-                    except Exception:
-                        profile_ids = [
-                            x.strip() for x in raw_single.strip("[]").split(",") if x.strip()
-                        ]
-                else:
-                    profile_ids = [x.strip() for x in raw_single.split(",") if x.strip()]
+        raw_list = request.POST.getlist("profile_ids")
+        for item in raw_list:
+            if not item:
+                continue
+            item_str = str(item).strip()
+            if item_str.startswith("["):
+                try:
+                    profile_ids.extend(
+                        [str(x).strip() for x in json.loads(item_str) if str(x).strip()]
+                    )
+                except Exception:
+                    profile_ids.extend(
+                        [x.strip() for x in item_str.strip("[]").split(",") if x.strip()]
+                    )
+            elif "," in item_str:
+                profile_ids.extend([x.strip() for x in item_str.split(",") if x.strip()])
+            else:
+                profile_ids.append(item_str)
 
     try:
         audit = create_audit(

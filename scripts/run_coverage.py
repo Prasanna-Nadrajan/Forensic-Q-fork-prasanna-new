@@ -60,12 +60,12 @@ def main():
     # Step 1: Run Django unit tests under coverage
     unit_ok = run_command(
         ["uv", "run", "coverage", "run", "manage.py", "test"],
-        "Executing Django Unit Test Suite (83 tests)",
+        "Executing Django Unit Test Suite (283 tests)",
     )
     if not unit_ok:
         sys.exit(1)
 
-    # Step 2: Optionally run Master E2E suite under coverage append
+    # Step 2: Optionally run Master E2E and Feature Verification suites under coverage append
     if args.include_e2e and not args.unit_only:
         run_command(
             ["uv", "run", "python", "manage.py", "migrate", "--noinput"],
@@ -80,9 +80,23 @@ def main():
                 "--append",
                 "scripts/test_e2e_workstation.py",
             ],
-            "Executing Master 10-Phase End-to-End Suite (--append)",
+            "Executing Master 12-Phase End-to-End Suite (--append)",
         )
         if not e2e_ok:
+            sys.exit(1)
+
+        verify_ok = run_command(
+            [
+                "uv",
+                "run",
+                "coverage",
+                "run",
+                "--append",
+                "scripts/verify_all_features.py",
+            ],
+            "Executing Systematic Feature Verification Suite (--append)",
+        )
+        if not verify_ok:
             sys.exit(1)
 
     # Step 3: Print terminal coverage report

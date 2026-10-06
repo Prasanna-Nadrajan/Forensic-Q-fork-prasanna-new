@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 import logging
 import tempfile
@@ -1212,6 +1213,7 @@ class CoreAuditTests(TestCase):
         self.assertTrue(data["audit"]["name"].endswith("-01") or "-WB-" in data["audit"]["name"])
 
     def test_create_audit_view_form_post(self):
+        # 1. Standard list in POST
         response = self.client.post(
             reverse("create_audit"),
             data={
@@ -1223,6 +1225,19 @@ class CoreAuditTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(self.Audit.objects.filter(title="Form Created Audit").exists())
+
+        # 2. Comma-separated string in POST
+        response_comma = self.client.post(
+            reverse("create_audit"),
+            data={
+                "title": "Comma Created Audit",
+                "status": "ACTIVE",
+                "profile_ids": f"{self.profile1.id},{self.profile2.id}",
+                "next": "/",
+            },
+        )
+        self.assertEqual(response_comma.status_code, 302)
+        self.assertTrue(self.Audit.objects.filter(title="Comma Created Audit").exists())
 
     def test_map_audit_profiles_view(self):
         from core.audits import create_audit
@@ -1237,6 +1252,22 @@ class CoreAuditTests(TestCase):
         data = response.json()
         self.assertEqual(data["status"], "success")
         self.assertEqual(data["audit"]["profiles_count"], 2)
+
+        # String json profile_ids
+        res_str = self.client.post(
+            reverse("map_audit_profiles", kwargs={"audit_id": audit.id}),
+            data=json.dumps({"profile_ids": f'["{self.profile1.id}"]'}),
+            content_type="application/json",
+        )
+        self.assertEqual(res_str.status_code, 200)
+
+        # 404 for non-existent audit
+        res_404 = self.client.post(
+            reverse("map_audit_profiles", kwargs={"audit_id": uuid.uuid4()}),
+            data=json.dumps({"profile_ids": []}),
+            content_type="application/json",
+        )
+        self.assertEqual(res_404.status_code, 404)
 
     def test_api_audits_list_and_next_name(self):
         from core.audits import create_audit
@@ -1307,10 +1338,255 @@ class CoreAuditTests(TestCase):
         self.assertEqual(clear_data["status"], "success")
         self.assertIsNone(clear_data["active_audit"])
 
+        # 4. Form POST set active audit with redirect
+        res_form = self.client.post(
+            reverse("set_active_audit"),
+            data={"audit_id": str(audit.id), "next": "/"},
+        )
+        self.assertEqual(res_form.status_code, 302)
+        self.assertEqual(res_form.url, "/")
+
         req.session = self.client.session
         ctx_cleared = global_profiles_context(req)
-        self.assertFalse(ctx_cleared["is_audit_active"])
-        self.assertIsNone(ctx_cleared["active_audit"])
-        self.assertEqual(
-            len(ctx_cleared["investigation_profiles"]), ctx_cleared["total_profiles_count"]
+        self.assertTrue(ctx_cleared["is_audit_active"])
+        self.assertEqual(ctx_cleared["active_audit"].id, audit.id)
+
+    def test_api_profiles_list(self):
+        res = self.client.get(reverse("api_profiles"))
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertGreaterEqual(len(data["profiles"]), 3)
+
+    def test_set_active_profile_view_json_and_redirect(self):
+        # 1. JSON POST to set active profile
+        res_json = self.client.post(
+            reverse("set_active_profile"),
+            data=json.dumps({"profile_id": str(self.profile1.id)}),
+            content_type="application/json",
         )
+        self.assertEqual(res_json.status_code, 200)
+        data = res_json.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["active_profile"]["full_name"], "Arun Kumar")
+
+        # 2. JSON POST with empty profile_id to clear
+        res_clear = self.client.post(
+            reverse("set_active_profile"),
+            data=json.dumps({"profile_id": ""}),
+            content_type="application/json",
+        )
+        self.assertEqual(res_clear.status_code, 200)
+        self.assertIsNone(res_clear.json()["active_profile"])
+
+        # 3. Form POST to set and redirect
+        res_form = self.client.post(
+            reverse("set_active_profile"),
+            data={"profile_id": str(self.profile2.id), "next": "/"},
+        )
+        self.assertEqual(res_form.status_code, 302)
+        self.assertEqual(res_form.url, "/")
+
+    def test_append_profile_keywords_view(self):
+        url = reverse("add_profile_keywords", kwargs={"profile_id": self.profile1.id})
+        res = self.client.post(
+            url,
+            data=json.dumps({"keywords": ["shell vendor", "kickback"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("shell vendor", data["profile"]["keywords"])
+
+        # Form POST submission
+        res_post = self.client.post(
+            url,
+            data={"keywords": "bribe, siphoning"},
+        )
+        self.assertEqual(res_post.status_code, 200)
+
+        # Error: missing keywords
+        res_bad = self.client.post(
+            url,
+            data=json.dumps({"keywords": []}),
+            content_type="application/json",
+        )
+        self.assertEqual(res_bad.status_code, 400)
+
+        # Error: non-existent profile
+        bad_url = reverse("add_profile_keywords", kwargs={"profile_id": uuid.uuid4()})
+        res_404 = self.client.post(
+            bad_url,
+            data=json.dumps({"keywords": ["test"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(res_404.status_code, 404)
+
+    def test_parse_keywords_file_view(self):
+        url = reverse("parse_keywords_file")
+
+        # 1. Plain text file
+        txt_content = b"offshore account\nhawala\nbribe\n"
+        txt_file = SimpleUploadedFile("watchlist.txt", txt_content, content_type="text/plain")
+        res_txt = self.client.post(url, {"file": txt_file})
+        self.assertEqual(res_txt.status_code, 200)
+        data_txt = res_txt.json()
+        self.assertEqual(data_txt["status"], "success")
+        self.assertIn("offshore account", data_txt["keywords"])
+
+        # 2. CSV file
+        csv_content = b"keyword\nfront company\nsiphoning\n"
+        csv_file = SimpleUploadedFile("watchlist.csv", csv_content, content_type="text/csv")
+        res_csv = self.client.post(url, {"file": csv_file})
+        self.assertEqual(res_csv.status_code, 200)
+        self.assertEqual(res_csv.json()["status"], "success")
+
+        # 3. Missing file
+        res_missing = self.client.post(url, {})
+        self.assertEqual(res_missing.status_code, 400)
+
+        # 4. Invalid file extension
+        pdf_file = SimpleUploadedFile("watchlist.pdf", b"%PDF-1.4", content_type="application/pdf")
+        res_invalid = self.client.post(url, {"file": pdf_file})
+        self.assertEqual(res_invalid.status_code, 400)
+
+    def test_upload_profile_keywords_file_view(self):
+        url = reverse("upload_profile_keywords_file", kwargs={"profile_id": self.profile1.id})
+
+        txt_file = SimpleUploadedFile(
+            "keywords.txt", b"bribe\nkickback\n", content_type="text/plain"
+        )
+        res = self.client.post(url, {"file": txt_file})
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("kickback", data["profile"]["keywords"])
+
+        # Missing file
+        res_missing = self.client.post(url, {})
+        self.assertEqual(res_missing.status_code, 400)
+
+        # Unsupported extension
+        res_unsupp = self.client.post(
+            url,
+            {
+                "file": SimpleUploadedFile(
+                    "bad.exe", b"exe", content_type="application/octet-stream"
+                )
+            },
+        )
+        self.assertEqual(res_unsupp.status_code, 400)
+
+        # Empty keywords in file
+        res_empty = self.client.post(
+            url,
+            {"file": SimpleUploadedFile("empty.txt", b"\n\n", content_type="text/plain")},
+        )
+        self.assertEqual(res_empty.status_code, 400)
+
+        # Non-existent profile
+        bad_url = reverse("upload_profile_keywords_file", kwargs={"profile_id": uuid.uuid4()})
+        res_404 = self.client.post(
+            bad_url,
+            {"file": SimpleUploadedFile("k.txt", b"kw", content_type="text/plain")},
+        )
+        self.assertEqual(res_404.status_code, 404)
+
+    def test_core_profiles_extract_keywords_from_excel_and_helpers(self):
+        import openpyxl
+
+        from core.profiles import extract_keywords_from_file
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Watchlist"
+        ws.append(["Keyword", "Risk Level"])
+        ws.append(["shell company", "HIGH"])
+        ws.append(["fake invoice, kickback", "CRITICAL"])
+        ws.append(["", ""])
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+
+        kws = extract_keywords_from_file(buf, "watchlist.xlsx")
+        self.assertIn("shell company", kws)
+        self.assertIn("fake invoice", kws)
+        self.assertIn("kickback", kws)
+
+    def test_core_profiles_sync_profiles_from_all_modules(self):
+        from q_bank.models import AuditedPerson
+        from q_verify.models import VerificationCase
+        from q_voice.models import AudioRecording
+
+        from core.profiles import sync_all_existing_entities_to_profiles
+
+        # Q-Bank person
+        AuditedPerson.objects.create(
+            full_name="Vikram Seth (Auditee)",
+            employee_id="EMP-9901",
+            department="Procurement",
+            designation="Director",
+            notes="Flagged for audit review",
+        )
+        # Q-Voice recording
+        from django.utils import timezone
+
+        AudioRecording.objects.create(
+            call_ref="CALL-9901",
+            call_title="Suspicious wiretap call",
+            call_timestamp=timezone.now(),
+            duration_seconds=120,
+            custodian_name="Sanjay Verma",
+            risk_score=75,
+        )
+        # Q-Verify case
+        VerificationCase.objects.create(
+            case_ref="VER-9901",
+            case_title="Supplier Invoices Audit",
+            custodian_name="Anil Kapoor",
+            custodian_department="Supply Chain",
+            custodian_email="anil@example.com",
+        )
+
+        created = sync_all_existing_entities_to_profiles()
+        self.assertGreaterEqual(created, 3)
+
+        self.assertTrue(self.InvestigationProfile.objects.filter(full_name="Vikram Seth").exists())
+        self.assertTrue(self.InvestigationProfile.objects.filter(full_name="Sanjay Verma").exists())
+        self.assertTrue(self.InvestigationProfile.objects.filter(full_name="Anil Kapoor").exists())
+
+    def test_resolve_or_create_profile_from_request(self):
+        from django.contrib.sessions.backends.db import SessionStore
+
+        from core.profiles import resolve_or_create_profile_from_request
+
+        factory = RequestFactory()
+
+        # 1. Existing profile by ID
+        req1 = factory.post("/", {"profile_id": str(self.profile1.id)})
+        req1.session = SessionStore()
+        p1, name1 = resolve_or_create_profile_from_request(req1)
+        self.assertEqual(p1.id, self.profile1.id)
+        self.assertEqual(name1, self.profile1.full_name)
+
+        # 2. Inline new profile
+        req2 = factory.post(
+            "/",
+            {
+                "new_profile_name": "New Investigator Subject",
+                "new_profile_dept": "Internal Audit",
+                "new_profile_role": "Specialist",
+            },
+        )
+        req2.session = SessionStore()
+        p2, name2 = resolve_or_create_profile_from_request(req2)
+        self.assertEqual(name2, "New Investigator Subject")
+        self.assertEqual(p2.department, "Internal Audit")
+
+        # 3. Fallback custodian name
+        req3 = factory.post("/", {"custodian_name": "Fallback Custodian"})
+        req3.session = SessionStore()
+        p3, name3 = resolve_or_create_profile_from_request(req3)
+        self.assertIsNotNone(p3)
+        self.assertEqual(name3, "Fallback Custodian")

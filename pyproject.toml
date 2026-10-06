@@ -69,7 +69,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.bandit]
-exclude_dirs = [".venv", "staticfiles", "node_modules", "tests"]
+exclude_dirs = [".venv", "staticfiles", "node_modules", "tests", "scratch"]
 skips = ["B101"]
 
 [tool.coverage.run]
