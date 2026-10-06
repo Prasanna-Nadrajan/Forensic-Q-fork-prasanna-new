@@ -217,3 +217,55 @@ def recompute_case_metrics(case: VerificationCase) -> None:
             "updated_at",
         ]
     )
+
+
+@transaction.atomic
+def perform_document_search(
+    document_id: str, custom_keywords: list[str] | None = None
+) -> VerifiedDocument:
+    """
+    Performs keyword search on the document content based on associated profile keywords
+    and optionally custom keywords. Results are saved in matched_keywords.
+    """
+    doc = VerifiedDocument.objects.get(id=document_id)
+
+    profile_keywords = []
+    if doc.case and doc.case.custodian_name:
+        from core.models import InvestigationProfile
+
+        profile = InvestigationProfile.objects.filter(
+            full_name__iexact=doc.case.custodian_name
+        ).first()
+        if profile and profile.keywords:
+            profile_keywords = profile.keywords
+
+    if not custom_keywords:
+        custom_keywords = []
+
+    # Deduplicate and combine keywords using set comprehension for Ruff C403 compliance
+    all_keywords = list({k.strip() for k in custom_keywords + profile_keywords if k.strip()})
+
+    if not all_keywords:
+        return doc
+
+    existing_matches = doc.matched_keywords or {}
+    new_keywords = [k for k in all_keywords if k not in existing_matches]
+
+    if new_keywords:
+        from .backend.content_search import search_keywords_in_file
+
+        new_results = search_keywords_in_file(
+            storage_path=doc.storage_path, mime_type=doc.mime_type, keywords=new_keywords
+        )
+
+        # In case the file text couldn't be extracted, it might return empty dict
+        # So we ensure the new keywords are at least recorded with 0
+        for kw in new_keywords:
+            if kw not in new_results:
+                new_results[kw] = 0
+
+        existing_matches.update(new_results)
+        doc.matched_keywords = existing_matches
+        doc.save(update_fields=["matched_keywords"])
+
+    return doc

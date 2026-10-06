@@ -506,3 +506,105 @@ class QVerifyUnitTests(TestCase):
         )
         self.assertIn("<div", html)
         self.assertIn("plotly", html.lower())
+
+
+class DocumentSearchTests(TestCase):
+    def setUp(self):
+        from core.models import InvestigationProfile
+
+        from .models import VerificationCase, VerifiedDocument
+
+        self.profile = InvestigationProfile.objects.create(
+            full_name="Test Target", email="test@target.com", keywords=["Confidential", "Secret"]
+        )
+        self.case = VerificationCase.objects.create(
+            case_title="Search Test Case", custodian_name=self.profile.full_name
+        )
+        self.doc = VerifiedDocument.objects.create(
+            case=self.case, filename="test_doc.txt", mime_type="text/plain", authenticity_score=100
+        )
+        import os
+        import tempfile
+
+        content = (
+            b"This is a Secret document containing confidential information and some custom_kw."
+        )
+        fd, temp_path = tempfile.mkstemp(suffix=".txt")
+        with os.fdopen(fd, "wb") as f:
+            f.write(content)
+
+        self.doc.storage_path = temp_path
+        self.doc.save()
+
+    def tearDown(self):
+        import os
+
+        if hasattr(self, "doc") and self.doc.storage_path and os.path.exists(self.doc.storage_path):
+            os.remove(self.doc.storage_path)
+
+    def test_perform_document_search(self):
+        from .services import perform_document_search
+
+        # Test search with profile keywords + custom keywords
+        doc = perform_document_search(self.doc.id, custom_keywords=["custom_kw"])
+        self.assertIn("Secret", doc.matched_keywords)
+        self.assertIn("Confidential", doc.matched_keywords)
+        self.assertIn("custom_kw", doc.matched_keywords)
+        self.assertEqual(doc.matched_keywords["Secret"], 1)
+
+    def test_document_search_api_view(self):
+        import json
+
+        from django.test import Client
+
+        c = Client()
+        session = c.session
+        session["portal_authenticated"] = True
+        session.save()
+
+        response = c.post(
+            f"/verify/document/{self.doc.id}/search/",
+            data=json.dumps({"custom_keywords": ["information"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["success"])
+        self.assertIn("information", data["matched_keywords"])
+        self.assertIn("Secret", data["matched_keywords"])
+
+    def test_content_search_backends(self):
+        from apps.q_verify.backend.content_search import (
+            _extract_text_from_docx,
+            _extract_text_from_image_ocr,
+            _extract_text_from_pdf_ocr,
+            _extract_text_from_xlsx,
+            search_keywords_in_file,
+        )
+
+        # We can just test them gracefully returning empty for missing files/exceptions
+        self.assertEqual(_extract_text_from_pdf_ocr("non_existent.pdf"), "")
+        self.assertEqual(_extract_text_from_image_ocr("non_existent.jpg"), "")
+        self.assertEqual(_extract_text_from_docx("non_existent.docx"), "")
+        self.assertEqual(_extract_text_from_xlsx("non_existent.xlsx"), "")
+
+        # Test search_keywords_in_file branching coverage
+        self.assertEqual(search_keywords_in_file("test.pdf", "application/pdf", []), {})
+        self.assertEqual(search_keywords_in_file("test.pdf", "application/pdf", ["key"]), {})
+        self.assertEqual(search_keywords_in_file("test.jpg", "image/jpeg", ["key"]), {})
+        self.assertEqual(
+            search_keywords_in_file(
+                "test.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ["key"],
+            ),
+            {},
+        )
+        self.assertEqual(
+            search_keywords_in_file(
+                "test.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ["key"],
+            ),
+            {},
+        )

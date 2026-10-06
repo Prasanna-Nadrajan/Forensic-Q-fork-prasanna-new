@@ -69,9 +69,13 @@ def run_verification():
         res_wrong_pw.status_code == 200 and "Invalid" in res_wrong_pw.content.decode(),
     )
 
-    res_login = client.post("/login/", {"password": "forensiq2026"})
+    from django.conf import settings
+
+    expected_password = getattr(settings, "PORTAL_ACCESS_PASSWORD", "forensiq2026")
+
+    res_login = client.post("/login/", {"password": expected_password})
     check(
-        "Accept master portal key (forensiq2026)",
+        f"Accept master portal key ({expected_password})",
         res_login.status_code == 302 and res_login.url == "/",
     )
 

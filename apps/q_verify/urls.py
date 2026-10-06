@@ -21,4 +21,9 @@ urlpatterns = [
         views.download_document_view,
         name="document_download",
     ),
+    path(
+        "document/<uuid:doc_id>/search/",
+        views.document_search_api_view,
+        name="document_search",
+    ),
 ]

@@ -115,6 +115,9 @@ class VerifiedDocument(ForensicBaseModel):
 
     anomalies = models.JSONField(default=list, help_text="List of detected anomaly flags")
     raw_metadata = models.JSONField(default=dict, help_text="Complete extracted metadata tree")
+    matched_keywords = models.JSONField(
+        default=dict, help_text="Keywords found in document content"
+    )
     summary = models.TextField(blank=True, default="")
 
     class Meta:
