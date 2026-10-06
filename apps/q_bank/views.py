@@ -3,24 +3,19 @@ Q-Bank Presentation & View Controllers
 Thin controllers routing requests, coordinating selectors & services, and rendering Cotton templates.
 """
 
-import io
-from decimal import Decimal
 from pathlib import Path
 
-import openpyxl
 from django.contrib import messages
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
+from loguru import logger
 
 from core.audits import get_active_audit
-from core.fuzzy import (
-    extract_keywords_from_file,
-    extract_keywords_from_request,
-    extract_keywords_from_string,
-)
+from core.fuzzy import extract_keywords_from_file, extract_keywords_from_string
+from core.profiles import get_profile_keywords, resolve_or_create_profile_from_request
 
-from .backend.statement_parser import format_inr
+from .backend.exporter import generate_frequent_counterparties_excel, generate_ledger_excel
 from .selectors import (
     fuzzy_search_transactions,
     get_all_audited_persons,
@@ -34,7 +29,9 @@ from .selectors import (
     get_frequent_transactions_breakdown,
     get_hyundai_details,
     get_paginated_bank_transactions,
+    get_person_financial_metrics,
     get_yearwise_breakdown,
+    resolve_bank_search_keywords,
 )
 from .services import (
     create_audited_person,
@@ -109,29 +106,7 @@ def person_detail_view(request: HttpRequest, person_id: str) -> HttpResponse:
         account_id=query_account_id, person_id=query_person_id
     )
 
-    # Calculate summary metrics for active view
-    if selected_account:
-        view_txns = selected_account.total_transactions
-        view_debit = selected_account.total_debit
-        view_credit = selected_account.total_credit
-        view_cdm_count = selected_account.cash_deposit_count
-        view_hyundai_count = selected_account.hyundai_count
-        last_txn = selected_account.transactions.order_by("-txn_date", "-created_at").first()
-        closing_balance = last_txn.closing_balance if last_txn else Decimal("0.00")
-    else:
-        view_txns = sum(a.total_transactions for a in accounts)
-        view_debit = sum(a.total_debit for a in accounts)
-        view_credit = sum(a.total_credit for a in accounts)
-        view_cdm_count = sum(a.cash_deposit_count for a in accounts)
-        view_hyundai_count = sum(a.hyundai_count for a in accounts)
-        closing_balance = Decimal("0.00")
-        for a in accounts:
-            last_txn = a.transactions.order_by("-txn_date", "-created_at").first()
-            if last_txn:
-                closing_balance += last_txn.closing_balance
-
-    from core.profiles import get_profile_keywords
-
+    view_metrics = get_person_financial_metrics(person=person, selected_account=selected_account)
     profile_keywords = get_profile_keywords(custodian_name=person.full_name, request=request)
     profile_keywords_str = ", ".join(profile_keywords) if profile_keywords else ""
 
@@ -142,17 +117,7 @@ def person_detail_view(request: HttpRequest, person_id: str) -> HttpResponse:
         "selected_account_id": str(selected_account.id) if selected_account else "",
         "profile_keywords": profile_keywords,
         "profile_keywords_str": profile_keywords_str,
-        "view_metrics": {
-            "total_transactions": view_txns,
-            "total_debit": view_debit,
-            "total_debit_formatted": format_inr(view_debit),
-            "total_credit": view_credit,
-            "total_credit_formatted": format_inr(view_credit),
-            "cash_deposit_count": view_cdm_count,
-            "hyundai_count": view_hyundai_count,
-            "closing_balance": closing_balance,
-            "closing_balance_formatted": format_inr(closing_balance),
-        },
+        "view_metrics": view_metrics,
         "frequent_entities": frequent_entities,
         "frequent_breakdown": frequent_breakdown,
         "all_transactions": all_transactions,
@@ -280,38 +245,16 @@ def fuzzy_search_api_view(request: HttpRequest) -> JsonResponse:
         threshold = 80
 
     # Extract keywords from request (supports text input + attached file)
-    keywords = extract_keywords_from_request(request, param_name="keywords", file_param="file")
-
-    raw_kw_param = request.POST.get("keywords", None)
+    raw_kw_param = request.POST.get("keywords")
     if raw_kw_param is None:
-        raw_kw_param = request.GET.get("keywords", None)
+        raw_kw_param = request.GET.get("keywords")
 
-    # Edge case: if keywords was explicitly provided as empty string and no file uploaded
-    if raw_kw_param is not None and not raw_kw_param.strip() and not request.FILES:
-        keywords_str = ""
-        keywords_list = None
-    elif not keywords and raw_kw_param is None and not request.FILES:
-        from core.profiles import get_profile_keywords
-
-        custodian_name = None
-        if person_id:
-            person = get_audited_person_by_id(person_id)
-            if person:
-                custodian_name = person.full_name
-        elif account_id:
-            account = get_bank_account_by_id(account_id)
-            if account and account.person:
-                custodian_name = account.person.full_name
-
-        p_kws = get_profile_keywords(custodian_name=custodian_name, request=request)
-        if p_kws:
-            keywords_list = list(p_kws)
-        else:
-            keywords_list = ["trust", "sarla"]
-        keywords_str = None
-    else:
-        keywords_list = keywords
-        keywords_str = None
+    keywords_list, keywords_str = resolve_bank_search_keywords(
+        request=request,
+        person_id=person_id,
+        account_id=account_id,
+        raw_keywords=raw_kw_param,
+    )
 
     matches = fuzzy_search_transactions(
         account_id=account_id,
@@ -350,6 +293,16 @@ def parse_keywords_api_view(request: HttpRequest) -> JsonResponse:
     ):
         return JsonResponse(
             {"status": "error", "message": "No file or keywords provided."},
+            status=400,
+        )
+
+    MAX_KEYWORD_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
+    if uploaded_file and uploaded_file.size > MAX_KEYWORD_FILE_SIZE:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Uploaded keyword file exceeds maximum size limit (10MB).",
+            },
             status=400,
         )
 
@@ -395,8 +348,6 @@ def upload_statement_view(request: HttpRequest) -> HttpResponse:
     person_id = request.POST.get("person_id", "").strip() or None
     account_holder = request.POST.get("account_holder", "").strip()
 
-    from core.profiles import resolve_or_create_profile_from_request
-
     profile, resolved_name = resolve_or_create_profile_from_request(
         request, default_department="Financial Audit"
     )
@@ -429,6 +380,9 @@ def upload_statement_view(request: HttpRequest) -> HttpResponse:
             return redirect(f"/bank/person/{account.person_id}/?account_id={account.id}")
         return redirect("q_bank:account_detail", account_id=account.id)
     except Exception as e:
+        logger.opt(exception=True).error(
+            "Failed to parse and import bank statement '{}': {}", uploaded_file.name, e
+        )
         messages.error(request, f"Failed to parse and import bank statement: {e}")
         return redirect("q_bank:dashboard")
 
@@ -452,6 +406,7 @@ def delete_account_view(request: HttpRequest, account_id: str) -> HttpResponse:
     return redirect("q_bank:dashboard")
 
 
+@require_GET
 def export_ledger_excel_view(request: HttpRequest) -> HttpResponse:
     """
     Exports filtered bank transactions to a native Excel workbook stream.
@@ -468,52 +423,7 @@ def export_ledger_excel_view(request: HttpRequest) -> HttpResponse:
         filter_type=filter_type,
     )
     rows = result.get("data", [])
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Transaction Ledger"
-
-    headers = [
-        "Txn Date",
-        "Account Holder",
-        "Bank Name",
-        "Counterparty Name",
-        "Narration",
-        "Direction",
-        "Debit Amount (INR)",
-        "Credit Amount (INR)",
-        "Closing Balance (INR)",
-        "Cash Deposit (CDM)",
-        "Hyundai Match",
-        "Risk Score",
-        "Risk Level",
-        "Txn Ref ID",
-    ]
-    ws.append(headers)
-
-    for r in rows:
-        ws.append(
-            [
-                r.get("txn_date", ""),
-                r.get("account_holder", ""),
-                r.get("bank_name", ""),
-                r.get("party_name", ""),
-                r.get("narration", ""),
-                r.get("direction_label", ""),
-                r.get("debit_amount", 0.0),
-                r.get("credit_amount", 0.0),
-                r.get("closing_balance", 0.0),
-                "YES" if r.get("is_cash_deposit") else "NO",
-                "YES" if r.get("is_hyundai_related") else "NO",
-                r.get("risk_score", 0),
-                r.get("risk_level", ""),
-                r.get("txn_ref", ""),
-            ]
-        )
-
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
+    output = generate_ledger_excel(rows)
 
     response = HttpResponse(
         output.read(),
@@ -523,6 +433,7 @@ def export_ledger_excel_view(request: HttpRequest) -> HttpResponse:
     return response
 
 
+@require_GET
 def export_frequent_excel_view(request: HttpRequest) -> HttpResponse:
     """
     Exports frequent counterparties analysis to Excel.
@@ -531,19 +442,7 @@ def export_frequent_excel_view(request: HttpRequest) -> HttpResponse:
     person_id = request.GET.get("person_id", "").strip() or None
     frequent = get_frequent_counterparties(account_id=account_id, person_id=person_id, limit=500)
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Frequent Counterparties"
-
-    headers = ["Counterparty Name", "Total Interactions", "Total Debit (INR)", "Total Credit (INR)"]
-    ws.append(headers)
-
-    for f in frequent:
-        ws.append([f["party_name"], f["total_interactions"], f["debit_total"], f["credit_total"]])
-
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
+    output = generate_frequent_counterparties_excel(frequent)
 
     response = HttpResponse(
         output.read(),

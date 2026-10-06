@@ -4,15 +4,23 @@ Optimized, N+1 safe queries for financial dashboards, Tabulator grids, and analy
 """
 
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, Q, QuerySet, Sum
+from django.db.models import Avg, Count, OuterRef, Q, QuerySet, Subquery, Sum
+from django.http import HttpRequest
 
-from core.fuzzy import extract_keywords_from_string, score_text_against_keywords
+from core.fuzzy import (
+    extract_keywords_from_request,
+    extract_keywords_from_string,
+    score_text_against_keywords,
+)
 
 from .backend.statement_parser import format_inr
 from .models import AuditedPerson, BankAccount, BankTransaction
+
+DEFAULT_BANK_SURVEILLANCE_KEYWORDS = ["trust", "sarla"]
 
 
 def get_all_audited_persons() -> list[dict[str, Any]]:
@@ -689,3 +697,103 @@ def fuzzy_search_transactions(
 
     matches.sort(key=lambda x: x["fuzzy_score"], reverse=True)
     return matches
+
+
+def get_person_financial_metrics(
+    person: AuditedPerson,
+    selected_account: BankAccount | None = None,
+) -> dict[str, Any]:
+    """
+    Computes summary metrics for an audited person or a selected bank account without N+1 queries.
+    """
+    if selected_account:
+        last_txn = (
+            selected_account.transactions.order_by("-txn_date", "-created_at")
+            .values("closing_balance")
+            .first()
+        )
+        closing_balance = last_txn["closing_balance"] if last_txn else Decimal("0.00")
+        return {
+            "total_transactions": selected_account.total_transactions,
+            "total_debit": selected_account.total_debit,
+            "total_debit_formatted": format_inr(selected_account.total_debit),
+            "total_credit": selected_account.total_credit,
+            "total_credit_formatted": format_inr(selected_account.total_credit),
+            "cash_deposit_count": selected_account.cash_deposit_count,
+            "hyundai_count": selected_account.hyundai_count,
+            "closing_balance": closing_balance,
+            "closing_balance_formatted": format_inr(closing_balance),
+        }
+
+    accounts = list(person.bank_accounts.all())
+    view_txns = sum(a.total_transactions for a in accounts)
+    view_debit = sum(a.total_debit for a in accounts)
+    view_credit = sum(a.total_credit for a in accounts)
+    view_cdm_count = sum(a.cash_deposit_count for a in accounts)
+    view_hyundai_count = sum(a.hyundai_count for a in accounts)
+
+    # Subquery to retrieve the latest closing balance per account in a single query
+    latest_balance_sub = (
+        BankTransaction.objects.filter(account=OuterRef("pk"))
+        .order_by("-txn_date", "-created_at")
+        .values("closing_balance")[:1]
+    )
+    annotated_accounts = person.bank_accounts.annotate(latest_closing=Subquery(latest_balance_sub))
+    closing_balance = sum(
+        (a.latest_closing for a in annotated_accounts if a.latest_closing is not None),
+        Decimal("0.00"),
+    )
+
+    return {
+        "total_transactions": view_txns,
+        "total_debit": view_debit,
+        "total_debit_formatted": format_inr(view_debit),
+        "total_credit": view_credit,
+        "total_credit_formatted": format_inr(view_credit),
+        "cash_deposit_count": view_cdm_count,
+        "hyundai_count": view_hyundai_count,
+        "closing_balance": closing_balance,
+        "closing_balance_formatted": format_inr(closing_balance),
+    }
+
+
+def resolve_bank_search_keywords(
+    *,
+    request: HttpRequest,
+    person_id: str | None = None,
+    account_id: str | None = None,
+    raw_keywords: str | None = None,
+) -> tuple[list[str], str | None]:
+    """
+    Resolves target search keywords hierarchically:
+    1. Uploaded file or explicit keyword query parameters.
+    2. If raw keyword parameter was explicitly blank and no file was provided, return empty.
+    3. Profile keywords associated with the Audited Person or Account Holder.
+    4. Fallback to default bank surveillance watchlist.
+    Returns (keywords_list, keywords_str).
+    """
+    keywords = extract_keywords_from_request(request, param_name="keywords", file_param="file")
+
+    # Edge case: keywords was explicitly provided as empty string and no file uploaded
+    if raw_keywords is not None and not raw_keywords.strip() and not request.FILES:
+        return [], ""
+
+    if not keywords and raw_keywords is None and not request.FILES:
+        from core.profiles import get_profile_keywords
+
+        custodian_name = None
+        if person_id:
+            person = get_audited_person_by_id(person_id)
+            if person:
+                custodian_name = person.full_name
+        elif account_id:
+            account = get_bank_account_by_id(account_id)
+            if account and account.person:
+                custodian_name = account.person.full_name
+
+        profile_kws = get_profile_keywords(custodian_name=custodian_name, request=request)
+        if profile_kws:
+            return list(profile_kws), None
+        return list(DEFAULT_BANK_SURVEILLANCE_KEYWORDS), None
+
+    return keywords, None
