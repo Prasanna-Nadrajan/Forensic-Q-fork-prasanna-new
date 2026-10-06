@@ -8,6 +8,7 @@ import tempfile
 import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pypdf
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -573,7 +574,10 @@ class DocumentSearchTests(TestCase):
         self.assertIn("information", data["matched_keywords"])
         self.assertIn("Secret", data["matched_keywords"])
 
-    def test_content_search_backends(self):
+    @patch("pdf2image.convert_from_path")
+    @patch("pytesseract.image_to_string")
+    def test_content_search_backends(self, mock_image_to_string, mock_convert):
+
         from apps.q_verify.backend.content_search import (
             _extract_text_from_docx,
             _extract_text_from_image_ocr,
@@ -582,29 +586,81 @@ class DocumentSearchTests(TestCase):
             search_keywords_in_file,
         )
 
-        # We can just test them gracefully returning empty for missing files/exceptions
+        # 1. Test missing files (graceful exception handling)
         self.assertEqual(_extract_text_from_pdf_ocr("non_existent.pdf"), "")
         self.assertEqual(_extract_text_from_image_ocr("non_existent.jpg"), "")
         self.assertEqual(_extract_text_from_docx("non_existent.docx"), "")
         self.assertEqual(_extract_text_from_xlsx("non_existent.xlsx"), "")
 
-        # Test search_keywords_in_file branching coverage
-        self.assertEqual(search_keywords_in_file("test.pdf", "application/pdf", []), {})
-        self.assertEqual(search_keywords_in_file("test.pdf", "application/pdf", ["key"]), {})
-        self.assertEqual(search_keywords_in_file("test.jpg", "image/jpeg", ["key"]), {})
-        self.assertEqual(
-            search_keywords_in_file(
+        # 2. Test PDF OCR success path via mock
+        mock_convert.return_value = ["fake_image"]
+        mock_image_to_string.return_value = "secret information inside pdf"
+        text = _extract_text_from_pdf_ocr("fake.pdf")
+        self.assertIn("secret information", text)
+
+        # 3. Test PDF PyPDF fallback success path via mock
+        mock_convert.side_effect = Exception("No poppler")
+        with patch("pypdf.PdfReader") as mock_reader:
+            mock_page = MagicMock()
+            mock_page.extract_text.return_value = "fallback secret"
+            mock_reader.return_value.pages = [mock_page]
+            text = _extract_text_from_pdf_ocr("fake.pdf")
+            self.assertIn("fallback secret", text)
+
+        # 4. Test Image OCR success path
+        with patch("PIL.Image.open"):
+            mock_image_to_string.return_value = "image secret"
+            text = _extract_text_from_image_ocr("fake.jpg")
+            self.assertIn("image secret", text)
+
+        # 5. Test DOCX success path
+        with patch("docx.Document") as mock_doc:
+            mock_p = MagicMock()
+            mock_p.text = "docx secret"
+            mock_doc.return_value.paragraphs = [mock_p]
+            text = _extract_text_from_docx("fake.docx")
+            self.assertEqual(text, "docx secret")
+
+        # 6. Test XLSX success path
+        with patch("openpyxl.load_workbook") as mock_wb:
+            mock_sheet = MagicMock()
+            mock_sheet.iter_rows.return_value = [("xlsx", "secret")]
+            mock_wb.return_value.worksheets = [mock_sheet]
+            text = _extract_text_from_xlsx("fake.xlsx")
+            self.assertEqual(text, "xlsx secret")
+
+        # 7. Test full pipeline success
+        with patch(
+            "apps.q_verify.backend.content_search._extract_text_from_pdf_ocr",
+            return_value="fraud detected",
+        ):
+            res = search_keywords_in_file("test.pdf", "application/pdf", ["fraud", "notfound"])
+            self.assertEqual(res.get("fraud"), 1)
+            self.assertEqual(res.get("notfound"), 0)
+
+        with patch(
+            "apps.q_verify.backend.content_search._extract_text_from_docx", return_value="fraud"
+        ):
+            res = search_keywords_in_file(
                 "test.docx",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                ["key"],
-            ),
-            {},
-        )
-        self.assertEqual(
-            search_keywords_in_file(
+                ["fraud"],
+            )
+            self.assertEqual(res.get("fraud"), 1)
+
+        with patch(
+            "apps.q_verify.backend.content_search._extract_text_from_xlsx", return_value="fraud"
+        ):
+            res = search_keywords_in_file(
                 "test.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                ["key"],
-            ),
-            {},
-        )
+                ["fraud"],
+            )
+            self.assertEqual(res.get("fraud"), 1)
+
+        with patch(
+            "apps.q_verify.backend.content_search._extract_text_from_image_ocr",
+            return_value="fraud",
+        ):
+            res = search_keywords_in_file("test.jpg", "image/jpeg", ["fraud"])
+            self.assertEqual(res.get("fraud"), 1)
