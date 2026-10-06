@@ -904,25 +904,15 @@
                 <input type="hidden" name="account_holder" value="{{ person.full_name }}">
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">Bank Institution
-                        Name</label>
-                    <input type="text" name="bank_name" placeholder="e.g. HDFC Bank, SBI, ICICI, Axis" required
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">Bank Institution Name</label>
+                    <input type="text" name="bank_name" placeholder="e.g. HDFC Bank, SBI, ICICI, Axis"
                         class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">Account / Card
-                            Number</label>
-                        <input type="text" name="account_number" placeholder="e.g. 501002984123"
-                            class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-emerald-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">Statement
-                            Label</label>
-                        <input type="text" name="statement_label" placeholder="e.g. FY 2024-25 Statement"
-                            class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500">
-                    </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">Account / Card Number</label>
+                    <input type="text" name="account_number" placeholder="e.g. 501002984123"
+                        class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-white font-mono focus:outline-none focus:border-emerald-500">
                 </div>
 
                 <c-file_uploader name="statement_file" accept=".xlsx,.xls,.csv,.docx,.pdf" label="Bank Statement File"
