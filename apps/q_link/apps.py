@@ -7,11 +7,11 @@ class QLinkConfig(AppConfig):
     verbose_name = "Q-Link"
 
     # Forensic Module Metadata
-    module_num = "06"
+    module_num = "05"
     module_category = "CORRELATOR"
     module_name = "Link"
     module_tag = "LIVE"
-    module_accent = "amber"
+    module_accent = "orange"
     module_tagline = "Cross-Source Evidence Correlation & Intelligence Engine"
     module_url = "/link/"
-    module_order = 6
+    module_order = 5

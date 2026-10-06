@@ -734,24 +734,67 @@
             </div>
         </div>
 
-        <!-- Dynamic Modules Flex Grid (Centered last row if not multiple of 3) -->
-        <div class="flex flex-wrap justify-center gap-6">
-            {% for module in modules %}
-            <div class="w-full md:w-[calc(50%-12px)] lg:w-[calc(33.333333%-16px)] flex"
-                 {% if module.tag != 'BUILDING' %}
-                 @click.prevent="promptLaunchModule('{{ module.name }}', '{{ module.href }}')"
-                 {% endif %}>
-                <c-module_card :num="module.num" :category="module.category" :name="module.name" :tag="module.tag"
-                    :accent="module.accent" :href="module.href" :tagline="module.tagline" />
+        <!-- Dynamic Modules Grid with Q-Link Golden Thread Visual Nexus -->
+        <div id="modules-hub-container" class="relative my-4">
+            <!-- Golden Threads Visual Nexus SVG Layer -->
+            <svg id="golden-threads-svg" 
+                 class="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible transition-opacity duration-500"
+                 xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <!-- Golden Thread Ambient Glow Filter -->
+                    <filter id="goldenGlow" x="-30%" y="-30%" width="160%" height="160%">
+                        <feGaussianBlur stdDeviation="3.5" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    
+                    <!-- Luminous Golden Thread Linear Gradient -->
+                    <linearGradient id="goldThreadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#d97706" stop-opacity="0.85" />
+                        <stop offset="25%" stop-color="#f59e0b" stop-opacity="0.95" />
+                        <stop offset="50%" stop-color="#fef08a" stop-opacity="1" />
+                        <stop offset="75%" stop-color="#f59e0b" stop-opacity="0.95" />
+                        <stop offset="100%" stop-color="#ea580c" stop-opacity="0.85" />
+                    </linearGradient>
+
+                    <!-- Traveling Golden Energy Pulse Gradient -->
+                    <linearGradient id="goldPulseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.1" />
+                        <stop offset="40%" stop-color="#fef08a" stop-opacity="1" />
+                        <stop offset="60%" stop-color="#ffffff" stop-opacity="1" />
+                        <stop offset="100%" stop-color="#ea580c" stop-opacity="0.1" />
+                    </linearGradient>
+                </defs>
+
+                <!-- Connecting Golden Threads Container -->
+                <g id="golden-threads-group"></g>
+            </svg>
+
+            <!-- 3x3 Dynamic Modules Grid with Q-Link in the Center -->
+            <div id="modules-cards-grid" class="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+                {% for module in modules %}
+                <div class="module-card-wrapper flex transition-all duration-300 {% if module.name == 'Link' %}hub-center-card z-20 scale-[1.02]{% else %}z-10 hover:z-20{% endif %}"
+                     id="module-card-{{ module.name|lower }}"
+                     data-module-name="{{ module.name }}"
+                     data-is-hub="{% if module.name == 'Link' %}true{% else %}false{% endif %}"
+                     {% if module.tag != 'BUILDING' %}
+                     @click.prevent="promptLaunchModule('{{ module.name }}', '{{ module.href }}')"
+                     {% endif %}>
+                    <c-module_card :num="module.num" :category="module.category" :name="module.name" :tag="module.tag"
+                        :accent="module.accent" :href="module.href" :tagline="module.tagline" />
+                </div>
+                {% empty %}
+                <div
+                    class="col-span-full p-12 text-center text-slate-500 dark:text-zinc-500 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800">
+                    <i class="fa-solid fa-folder-open text-4xl text-amber-500 mb-3 block"></i>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">No Active Modules</h3>
+                    <p class="text-xs">No investigation modules are currently configured for this session.</p>
+                </div>
+                {% endfor %}
             </div>
-            {% empty %}
-            <div
-                class="w-full p-12 text-center text-slate-500 dark:text-zinc-500 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800">
-                <i class="fa-solid fa-folder-open text-4xl text-amber-500 mb-3 block"></i>
-                <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">No Active Modules</h3>
-                <p class="text-xs">No investigation modules are currently configured for this session.</p>
-            </div>
-            {% endfor %}
         </div>
     </div>
 
@@ -1170,5 +1213,242 @@
         } else {
             document.addEventListener('alpine:init', initProfilesManager);
         }
+
+        // ====================================================================
+        // FORENSIQ GOLDEN THREAD DYNAMIC VISUAL CONNECTOR ENGINE
+        // Visually links all surrounding forensic tools directly to Q-Link
+        // ====================================================================
+        function renderGoldenThreads() {
+            const container = document.getElementById('modules-hub-container');
+            const svgGroup = document.getElementById('golden-threads-group');
+            const hubCard = document.getElementById('module-card-link');
+            if (!container || !svgGroup || !hubCard) return;
+
+            const satelliteCards = Array.from(container.querySelectorAll('.module-card-wrapper:not(#module-card-link)'));
+            if (!satelliteCards.length) return;
+
+            const containerRect = container.getBoundingClientRect();
+            const hubRect = hubCard.getBoundingClientRect();
+
+            // Exact center coordinates of Q-Link relative to the container
+            const hubCenterX = hubRect.left + hubRect.width / 2 - containerRect.left;
+            const hubCenterY = hubRect.top + hubRect.height / 2 - containerRect.top;
+
+            let html = '';
+
+            satelliteCards.forEach((card) => {
+                const cardRect = card.getBoundingClientRect();
+                const cardId = card.id;
+
+                const cardCenterX = cardRect.left + cardRect.width / 2 - containerRect.left;
+                const cardCenterY = cardRect.top + cardRect.height / 2 - containerRect.top;
+
+                // Angle from satellite card to central hub
+                const angle = Math.atan2(hubCenterY - cardCenterY, hubCenterX - cardCenterX);
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+
+                // Satellite card border exit point
+                const cardHalfW = cardRect.width / 2;
+                const cardHalfH = cardRect.height / 2;
+                const scaleCardX = Math.abs(cos) > 0.0001 ? cardHalfW / Math.abs(cos) : Infinity;
+                const scaleCardY = Math.abs(sin) > 0.0001 ? cardHalfH / Math.abs(sin) : Infinity;
+                const scaleCard = Math.min(scaleCardX, scaleCardY);
+                const startX = cardCenterX + cos * scaleCard;
+                const startY = cardCenterY + sin * scaleCard;
+
+                // Q-Link hub border entry point
+                const hubHalfW = hubRect.width / 2;
+                const hubHalfH = hubRect.height / 2;
+                const scaleHubX = Math.abs(cos) > 0.0001 ? hubHalfW / Math.abs(cos) : Infinity;
+                const scaleHubY = Math.abs(sin) > 0.0001 ? hubHalfH / Math.abs(sin) : Infinity;
+                const scaleHub = Math.min(scaleHubX, scaleHubY);
+                const endX = hubCenterX - cos * scaleHub;
+                const endY = hubCenterY - sin * scaleHub;
+
+                // Elegant subtle organic curvature (perpendicular arc offset)
+                const midX = (startX + endX) / 2;
+                const midY = (startY + endY) / 2;
+                const perpX = -sin * 12;
+                const perpY = cos * 12;
+                const ctrlX = midX + perpX;
+                const ctrlY = midY + perpY;
+
+                const pathD = `M ${startX.toFixed(1)} ${startY.toFixed(1)} Q ${ctrlX.toFixed(1)} ${ctrlY.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`;
+
+                html += `
+                    <g class="golden-thread-item transition-all duration-300" data-target-card="${cardId}">
+                        <!-- Luminous Ambient Golden Aura -->
+                        <path d="${pathD}" 
+                              class="golden-thread-glow transition-all duration-300"
+                              fill="none" 
+                              stroke="#f59e0b" 
+                              stroke-width="5" 
+                              opacity="0.18" 
+                              stroke-linecap="round" />
+                        
+                        <!-- Core High-Definition Metallic Golden Thread -->
+                        <path d="${pathD}" 
+                              class="golden-thread-line transition-all duration-300"
+                              fill="none" 
+                              stroke="url(#goldThreadGrad)" 
+                              stroke-width="1.8" 
+                              opacity="0.8" 
+                              stroke-linecap="round" />
+
+                        <!-- Active Golden Energy Pulse Particle traveling along thread -->
+                        <path d="${pathD}" 
+                              class="golden-thread-pulse"
+                              fill="none" 
+                              stroke="url(#goldPulseGrad)" 
+                              stroke-width="2.6" 
+                              stroke-dasharray="14 60" 
+                              stroke-linecap="round" />
+
+                        <!-- Satellite Terminal Golden Node Pin -->
+                        <circle cx="${startX.toFixed(1)}" cy="${startY.toFixed(1)}" r="3.5" 
+                                class="golden-thread-node-sat transition-all duration-300"
+                                fill="#f59e0b" stroke="#fef08a" stroke-width="1.5" />
+
+                        <!-- Q-Link Hub Terminal Golden Node Pin -->
+                        <circle cx="${endX.toFixed(1)}" cy="${endY.toFixed(1)}" r="4.2" 
+                                class="golden-thread-node-hub transition-all duration-300"
+                                fill="#ea580c" stroke="#fde047" stroke-width="1.5" />
+                    </g>
+                `;
+            });
+
+            svgGroup.innerHTML = html;
+        }
+
+        function initGoldenThreadSystem() {
+            const container = document.getElementById('modules-hub-container');
+            const hubCard = document.getElementById('module-card-link');
+            if (!container || !hubCard) return;
+
+            renderGoldenThreads();
+
+            // Hover on Q-Link Central Hub illuminates ALL 8 golden threads simultaneously
+            hubCard.addEventListener('mouseenter', () => {
+                container.classList.add('hub-hovered');
+            });
+            hubCard.addEventListener('mouseleave', () => {
+                container.classList.remove('hub-hovered');
+            });
+
+            // Hover on individual tool highlights its specific golden thread to Q-Link
+            const satelliteCards = container.querySelectorAll('.module-card-wrapper:not(#module-card-link)');
+            satelliteCards.forEach(card => {
+                const cardId = card.id;
+                card.addEventListener('mouseenter', () => {
+                    container.classList.add('has-active-thread');
+                    const threadItem = container.querySelector(`.golden-thread-item[data-target-card="${cardId}"]`);
+                    if (threadItem) {
+                        threadItem.classList.add('active-thread');
+                    }
+                });
+                card.addEventListener('mouseleave', () => {
+                    container.classList.remove('has-active-thread');
+                    const threadItem = container.querySelector(`.golden-thread-item[data-target-card="${cardId}"]`);
+                    if (threadItem) {
+                        threadItem.classList.remove('active-thread');
+                    }
+                });
+            });
+
+            // Auto-recalculate on window resize, tab visibility change, or container resize
+            if (window.ResizeObserver) {
+                const ro = new ResizeObserver(() => {
+                    requestAnimationFrame(renderGoldenThreads);
+                });
+                ro.observe(container);
+            }
+            window.addEventListener('resize', () => requestAnimationFrame(renderGoldenThreads));
+            window.addEventListener('load', renderGoldenThreads);
+            setTimeout(renderGoldenThreads, 200);
+            setTimeout(renderGoldenThreads, 800);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initGoldenThreadSystem);
+        } else {
+            initGoldenThreadSystem();
+        }
     </script>
+
+    <!-- Golden Thread Aesthetic Stylesheet -->
+    <style>
+        @keyframes goldenThreadFlow {
+            from {
+                stroke-dashoffset: 74;
+            }
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        .golden-thread-pulse {
+            animation: goldenThreadFlow 3s linear infinite;
+            filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.85));
+        }
+
+        .golden-thread-line {
+            filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.55));
+        }
+
+        /* Q-Link Center Card Prominent Orange Aura */
+        .hub-center-card > a {
+            border-color: rgba(249, 115, 22, 0.55) !important;
+            box-shadow: 0 10px 25px -5px rgba(249, 115, 22, 0.2), 0 0 20px rgba(249, 115, 22, 0.12) !important;
+        }
+        .dark .hub-center-card > a {
+            border-color: rgba(249, 115, 22, 0.65) !important;
+            box-shadow: 0 12px 32px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(249, 115, 22, 0.22) !important;
+        }
+
+        /* Hovering Q-Link Hub: All 8 golden threads glow with radiant power */
+        #modules-hub-container.hub-hovered .golden-thread-glow {
+            opacity: 0.55;
+            stroke-width: 9px;
+        }
+        #modules-hub-container.hub-hovered .golden-thread-line {
+            opacity: 1;
+            stroke-width: 2.8px;
+            filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.95));
+        }
+        #modules-hub-container.hub-hovered .golden-thread-pulse {
+            stroke-width: 3.6px;
+            animation-duration: 1.3s;
+            filter: drop-shadow(0 0 12px rgba(254, 240, 138, 1));
+        }
+        #modules-hub-container.hub-hovered .hub-center-card > a {
+            box-shadow: 0 0 38px rgba(249, 115, 22, 0.45) !important;
+        }
+
+        /* Hovering a satellite tool: its direct golden thread to Q-Link illuminates */
+        .golden-thread-item.active-thread .golden-thread-glow {
+            opacity: 0.7;
+            stroke-width: 10px;
+        }
+        .golden-thread-item.active-thread .golden-thread-line {
+            opacity: 1;
+            stroke-width: 3.4px;
+            filter: drop-shadow(0 0 12px rgba(245, 158, 11, 1));
+        }
+        .golden-thread-item.active-thread .golden-thread-pulse {
+            stroke-width: 4.2px;
+            animation-duration: 1s;
+            filter: drop-shadow(0 0 14px rgba(254, 240, 138, 1));
+        }
+        .golden-thread-item.active-thread .golden-thread-node-sat,
+        .golden-thread-item.active-thread .golden-thread-node-hub {
+            r: 5.5;
+            filter: drop-shadow(0 0 8px #f59e0b);
+        }
+
+        /* Dim unselected threads when one is focused */
+        #modules-hub-container.has-active-thread .golden-thread-item:not(.active-thread) {
+            opacity: 0.2;
+        }
+    </style>
 </c-base>

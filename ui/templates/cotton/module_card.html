@@ -9,7 +9,8 @@ Props: num, category, name, tagline, tag, accent, href
        bg-theme-surface/80 border border-theme-border border-l-4 border-l-zinc-400 dark:border-l-zinc-600 shadow-sm hover:border-theme-border-strong
    {% else %}
        bg-theme-surface border border-theme-border shadow-sm hover:shadow-xl dark:hover:shadow-2xl dark:hover:shadow-black/70
-       {% if a == 'orange' %} border-l-4 border-l-[#e87a4d] dark:border-l-[#e87a4d] hover:border-r-[#e87a4d]/30
+       {% if name == 'Link' %} border-l-4 border-l-orange-500 ring-1 ring-orange-500/40 hover:border-r-orange-500/50 shadow-md shadow-orange-500/10
+       {% elif a == 'orange' %} border-l-4 border-l-[#e87a4d] dark:border-l-[#e87a4d] hover:border-r-[#e87a4d]/30
        {% elif a == 'gold' %} border-l-4 border-l-[#d6c487] dark:border-l-[#d6c487] hover:border-r-[#d6c487]/30
        {% elif a == 'purple' %} border-l-4 border-l-[#a994cb] dark:border-l-[#a994cb] hover:border-r-[#a994cb]/30
        {% elif a == 'teal' %} border-l-4 border-l-[#68b5a8] dark:border-l-[#68b5a8] hover:border-r-[#68b5a8]/30
@@ -24,7 +25,8 @@ Props: num, category, name, tagline, tag, accent, href
     <!-- Subtle Ambient Hover Glow (Only for live/colored modules) -->
     {% if t != 'BUILDING' %}
     <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none
-        {% if a == 'orange' %} bg-gradient-to-br from-[#e87a4d]/5 to-transparent
+        {% if name == 'Link' %} bg-gradient-to-br from-orange-500/15 via-amber-500/5 to-transparent
+        {% elif a == 'orange' %} bg-gradient-to-br from-[#e87a4d]/5 to-transparent
         {% elif a == 'gold' %} bg-gradient-to-br from-[#d6c487]/5 to-transparent
         {% elif a == 'purple' %} bg-gradient-to-br from-[#a994cb]/5 to-transparent
         {% elif a == 'teal' %} bg-gradient-to-br from-[#68b5a8]/5 to-transparent
@@ -44,7 +46,8 @@ Props: num, category, name, tagline, tag, accent, href
                 {% if t == 'BUILDING' %}
                     text-zinc-500 dark:text-zinc-400
                 {% else %}
-                    {% if a == 'orange' %} text-[#e87a4d] dark:text-[#f08a5d]
+                    {% if name == 'Link' %} text-orange-500 dark:text-orange-400 font-extrabold
+                    {% elif a == 'orange' %} text-[#e87a4d] dark:text-[#f08a5d]
                     {% elif a == 'gold' %} text-[#b8a462] dark:text-[#d6c487]
                     {% elif a == 'purple' %} text-[#8e75b7] dark:text-[#bca7e0]
                     {% elif a == 'teal' %} text-[#4a9d90] dark:text-[#7ec7bb]
@@ -60,6 +63,10 @@ Props: num, category, name, tagline, tag, accent, href
             {% if t == 'BUILDING' %}
             <span class="text-[10px] font-bold tracking-widest px-2 py-0.5 rounded font-mono uppercase bg-zinc-200/90 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-700">
                 BUILDING
+            </span>
+            {% elif name == 'Link' %}
+            <span class="text-[10px] font-black tracking-widest px-2.5 py-0.5 rounded font-mono uppercase shadow-sm bg-gradient-to-r from-orange-500 to-amber-500 text-zinc-950 flex items-center gap-1">
+                <i class="fa-solid fa-circle-nodes text-[9px]"></i> HUB
             </span>
             {% elif t %}
             <span class="text-[10px] font-extrabold tracking-widest px-2.5 py-0.5 rounded font-mono uppercase shadow-sm
@@ -78,11 +85,12 @@ Props: num, category, name, tagline, tag, accent, href
         </div>
 
         <!-- Module Title: Q-Name -->
-        <h2 class="text-3xl font-extrabold tracking-tight {% if t == 'BUILDING' %}text-zinc-800 dark:text-zinc-200{% else %}text-slate-900 dark:text-white{% endif %} mb-2">
+        <h2 class="text-3xl font-extrabold tracking-tight {% if t == 'BUILDING' %}text-zinc-800 dark:text-zinc-200{% else %}text-slate-900 dark:text-white{% endif %} mb-2 flex items-center">
             {% if t == 'BUILDING' %}
                 <span class="text-zinc-400 dark:text-zinc-500">Q</span>-{{ name }}
             {% else %}
-                <span class="{% if a == 'orange' %} text-[#e87a4d] dark:text-[#f08a5d]
+                <span class="{% if name == 'Link' %} text-orange-500 dark:text-orange-400
+                             {% elif a == 'orange' %} text-[#e87a4d] dark:text-[#f08a5d]
                              {% elif a == 'gold' %} text-[#b8a462] dark:text-[#d6c487]
                              {% elif a == 'purple' %} text-[#8e75b7] dark:text-[#bca7e0]
                              {% elif a == 'teal' %} text-[#4a9d90] dark:text-[#7ec7bb]
@@ -91,6 +99,11 @@ Props: num, category, name, tagline, tag, accent, href
                              {% elif a == 'steel' or a == 'blue' %} text-[#5a92b8] dark:text-[#7eaecf]
                              {% elif a == 'copper' or a == 'terracotta' %} text-[#b85a38] dark:text-[#d67b59]
                              {% else %} text-amber-500 {% endif %}">Q</span>-{{ name }}
+            {% endif %}
+            {% if name == 'Link' %}
+            <span class="ml-2 inline-flex items-center gap-1 text-[10px] font-bold tracking-wider font-mono px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/30">
+                <i class="fa-solid fa-bezier-curve text-[8px]"></i> NEXUS
+            </span>
             {% endif %}
         </h2>
 
@@ -116,6 +129,11 @@ Props: num, category, name, tagline, tag, accent, href
             <i class="fa-solid fa-code text-[10px]"></i> In Development
         </span>
         <i class="fa-solid fa-arrow-right text-[10px] transform group-hover:translate-x-1 transition-transform opacity-60"></i>
+        {% elif name == 'Link' %}
+        <span class="text-orange-500 font-bold flex items-center gap-1.5">
+            <i class="fa-solid fa-diagram-project text-xs"></i> Open Correlation Hub
+        </span>
+        <i class="fa-solid fa-arrow-right text-[10px] text-orange-500 transform group-hover:translate-x-1 transition-transform"></i>
         {% else %}
         <span>Open Engine</span>
         <i class="fa-solid fa-arrow-right text-[10px] transform group-hover:translate-x-1 transition-transform"></i>
