@@ -152,10 +152,10 @@
             </div>
 
             {% if profile_keywords %}
-            <!-- Profile Surveillance Registry Chips -->
+            <!-- Profile Keyword Registry Chips -->
             <div class="flex flex-wrap items-center gap-2 p-3 bg-purple-500/5 dark:bg-purple-900/10 border border-purple-500/20 rounded-2xl">
                 <span class="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
-                    <i class="fa-solid fa-bullseye text-xs"></i> Profile Surveillance Registry ({{ profile_keywords|length }}):
+                    <i class="fa-solid fa-bullseye text-xs"></i> Profile Keyword Registry ({{ profile_keywords|length }}):
                 </span>
                 {% for kw in profile_keywords %}
                 <a href="?q={{ kw|urlencode }}{% if selected_channel_id %}&channel_id={{ selected_channel_id }}{% endif %}" 

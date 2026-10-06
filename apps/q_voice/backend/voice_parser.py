@@ -154,7 +154,7 @@ def tag_transcript_detections(
 ) -> list[dict[str, str]]:
     """
     Tags hotwords and entities in a transcript line with appropriate classification types.
-    Types: 'identity' (p-tag), 'financial' (f-tag), 'suspicious' (s-tag), 'profile' (surveillance).
+    Types: 'identity' (p-tag), 'financial' (f-tag), 'suspicious' (s-tag), 'profile' (investigation).
     """
     if not text:
         return []
@@ -188,7 +188,7 @@ def tag_transcript_detections(
                         {
                             "term": kw.upper(),
                             "type": "profile",
-                            "category": "Profile Surveillance",
+                            "category": "Profile Keyword",
                         }
                     )
 
@@ -247,7 +247,7 @@ def screen_text_for_intent(
                 if max_risk < 35:
                     max_risk = 35
                 if highest_intent == "General":
-                    highest_intent = "Profile Surveillance Hit"
+                    highest_intent = "Profile Keyword Hit"
 
     return highest_intent, list(set(flagged)), max_risk
 

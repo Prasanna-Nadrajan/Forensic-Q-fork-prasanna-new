@@ -545,7 +545,7 @@ class CoreProfileViewsTests(TestCase):
         from core.profiles import add_keywords_to_profile, create_investigation_profile
 
         prof = create_investigation_profile(
-            full_name="Surveillance Target",
+            full_name="Investigation Target",
             keywords=["bribe"],
         )
         updated = add_keywords_to_profile(prof.id, "cash, gift, bribe, secret")
@@ -641,7 +641,7 @@ class CoreProfileViewsTests(TestCase):
 
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.append(["Surveillance Keyword", "Notes"])
+        ws.append(["Investigation Keyword", "Notes"])
         ws.append(["shell company", "priority 1"])
         ws.append(["hawala transfer", "priority 2"])
         buf = io.BytesIO()
@@ -649,7 +649,7 @@ class CoreProfileViewsTests(TestCase):
         buf.seek(0)
 
         uploaded_file = SimpleUploadedFile(
-            "surveillance.xlsx",
+            "investigation_keywords.xlsx",
             buf.getvalue(),
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
@@ -775,7 +775,7 @@ class CoreProfileViewsTests(TestCase):
 
 class ProfileKeywordRegistryIntegrationTests(TestCase):
     """
-    Validates end-to-end profile surveillance keyword registry consumption across
+    Validates end-to-end profile keyword registry consumption across
     all forensic Q-apps (q_bank, q_mail, q_voice, q_chat, q_trail, q_scan).
     """
 

@@ -348,7 +348,7 @@ def get_paginated_investigation_emails(
     order_prefix = "-" if sort_dir.lower() == "desc" else ""
     qs = qs.order_by(f"{order_prefix}{db_sort_field}", "-created_at")
 
-    # Resolve auditee profile surveillance keywords
+    # Resolve auditee profile investigation keywords
     inv = MailboxInvestigation.objects.filter(id=mailbox_id).first()
     profile_kws: list[str] = []
     if inv:

@@ -220,7 +220,7 @@ def analyze_profiles_money_trail(
     else:
         combined_intermediate = pd.DataFrame()
 
-    # 4. Resolve Profile Surveillance Keywords & Annotate Transfers
+    # 4. Resolve Profile Keywords & Annotate Transfers
     from core.profiles import get_profile_keywords
 
     trail_keywords_set: set[str] = set()

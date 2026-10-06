@@ -31,7 +31,7 @@ Table investigation_profiles {
   risk_level varchar(20) [default: 'MEDIUM', note: 'LOW, MEDIUM, HIGH, CRITICAL']
   notes text [default: '']
   avatar_color varchar(32) [default: 'indigo']
-  keywords json [note: 'Search/surveillance keywords array']
+  keywords json [note: 'Search/investigation keywords array']
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
 }

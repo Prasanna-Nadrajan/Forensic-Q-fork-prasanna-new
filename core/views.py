@@ -78,7 +78,7 @@ def portal_logout_view(request):
 def landing_view(request: HttpRequest) -> HttpResponse:
     """
     ForensiQ Landing Page dynamically loading all modules from apps/ directory,
-    registered investigation profiles with their surveillance keywords,
+    registered investigation profiles with their investigation keywords,
     and forensic audits with mapped profiles.
     """
     modules = get_discovered_modules()
@@ -103,7 +103,7 @@ def landing_view(request: HttpRequest) -> HttpResponse:
 @require_POST
 def create_profile_view(request: HttpRequest) -> HttpResponse:
     """
-    Creates a new investigation profile with optional surveillance keywords
+    Creates a new investigation profile with optional investigation keywords
     from modal submission or AJAX fetch.
     """
     is_json = (
@@ -165,7 +165,7 @@ MAX_KEYWORDS_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 @require_POST
 def add_profile_keywords_view(request: HttpRequest, profile_id: str) -> JsonResponse:
     """
-    Appends search and surveillance keywords to an existing investigation profile.
+    Appends search and investigation keywords to an existing investigation profile.
     """
     is_json = (
         request.content_type == "application/json"
@@ -254,7 +254,7 @@ def parse_keywords_file_view(request: HttpRequest) -> JsonResponse:
 def upload_profile_keywords_file_view(request: HttpRequest, profile_id: str) -> JsonResponse:
     """
     Uploads a keywords file (.txt, .xlsx, .xls, .csv) and directly attaches
-    extracted surveillance keywords to an existing profile.
+    extracted investigation keywords to an existing profile.
     """
     uploaded_file = request.FILES.get("file")
     if not uploaded_file:

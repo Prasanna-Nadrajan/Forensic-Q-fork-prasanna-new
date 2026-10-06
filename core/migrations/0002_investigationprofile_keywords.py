@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='investigationprofile',
             name='keywords',
-            field=models.JSONField(blank=True, default=list, help_text='Search and flag surveillance keywords associated with this auditee / target.'),
+            field=models.JSONField(blank=True, default=list, help_text='Search and flag investigation keywords associated with this auditee / target.'),
         ),
     ]

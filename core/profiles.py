@@ -53,7 +53,7 @@ def _normalize_keywords(raw: list[str] | str | None) -> list[str]:
 
 def extract_keywords_from_file(file_obj, filename: str = "") -> list[str]:
     """
-    Extracts search and surveillance keywords from an uploaded file (.txt, .csv, .xlsx, .xls).
+    Extracts search and investigation keywords from an uploaded file (.txt, .csv, .xlsx, .xls).
     Supports multi-sheet Excel files with smart header detection, CSV with column detection,
     and delimiter-separated plain text files.
     """
@@ -99,7 +99,10 @@ def extract_keywords_from_file(file_obj, filename: str = "") -> list[str]:
                 header_row = [str(c).strip().lower() if c is not None else "" for c in rows[0]]
                 kw_col_idx = None
                 for idx, h in enumerate(header_row):
-                    if any(k in h for k in ("keyword", "search term", "flagged", "surveillance")):
+                    if any(
+                        k in h
+                        for k in ("keyword", "search term", "flagged", "watchlist", "investigation")
+                    ):
                         kw_col_idx = idx
                         break
 
@@ -151,7 +154,10 @@ def extract_keywords_from_file(file_obj, filename: str = "") -> list[str]:
             header_row = [c.strip().lower() for c in rows[0]]
             kw_col_idx = None
             for idx, h in enumerate(header_row):
-                if any(k in h for k in ("keyword", "search term", "flagged", "surveillance")):
+                if any(
+                    k in h
+                    for k in ("keyword", "search term", "flagged", "watchlist", "investigation")
+                ):
                     kw_col_idx = idx
                     break
 
@@ -246,7 +252,7 @@ def get_profile_keywords(
     request: HttpRequest | None = None,
 ) -> list[str]:
     """
-    Resolves registered surveillance keywords for a profile, custodian name,
+    Resolves registered investigation keywords for a profile, custodian name,
     or the current active investigator session.
     Returns a normalized, deduplicated list of keyword strings.
     """
@@ -334,7 +340,7 @@ def add_keywords_to_profile(
     new_keywords: list[str] | str,
 ) -> InvestigationProfile:
     """
-    Appends search/flag surveillance keywords to an existing profile without
+    Appends search/flag investigation keywords to an existing profile without
     deleting or overwriting existing keywords (case-insensitive deduplication).
     """
     profile = get_profile_by_id(profile_id)

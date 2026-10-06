@@ -248,13 +248,13 @@
         :hops_count="metrics.total_intermediate_hops_count" :retained_volume="metrics.total_retained_formatted"
         :conduits_count="metrics.unique_intermediaries_count" :loop_count="circular_trails|length" />
 
-    <!-- Watched Profile Surveillance Keywords Bar -->
+    <!-- Watched Profile Keywords Bar -->
     {% if trail_keywords %}
     <div
         class="mb-6 p-3.5 bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-transparent border border-purple-500/20 rounded-2xl flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2">
             <span class="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
-                <i class="fa-solid fa-bullseye text-xs"></i> Watched Profile Surveillance Keywords ({{ trail_keywords|length }}):
+                <i class="fa-solid fa-bullseye text-xs"></i> Watched Profile Keywords ({{ trail_keywords|length }}):
             </span>
             {% for kw in trail_keywords %}
             <span
@@ -266,7 +266,7 @@
         {% if metrics.keyword_hits_count %}
         <span
             class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20">
-            <i class="fa-solid fa-triangle-exclamation text-xs"></i> {{ metrics.keyword_hits_count }} Surveillance Hits
+            <i class="fa-solid fa-triangle-exclamation text-xs"></i> {{ metrics.keyword_hits_count }} Keyword Hits
             in Money Trail
         </span>
         {% else %}

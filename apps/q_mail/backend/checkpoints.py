@@ -184,7 +184,7 @@ def evaluate_email_checkpoints(
 ) -> dict[str, Any]:
     """
     Evaluates all forensic checkpoints for a given EmailMessage instance.
-    Returns boolean flags and matched badges, including profile surveillance keywords.
+    Returns boolean flags and matched badges, including profile investigation keywords.
     """
     combined_text = f"{email_obj.subject or ''} {email_obj.body_plain or ''}"
     sender = email_obj.sender_email or ""

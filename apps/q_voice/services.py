@@ -264,7 +264,7 @@ def ingest_audio_recording(
                     clean_text, extra_keywords=profile_keywords
                 )
             elif profile_keywords:
-                # Append profile surveillance detections
+                # Append profile investigation detections
                 p_dets = tag_transcript_detections(clean_text, extra_keywords=profile_keywords)
                 for pd in p_dets:
                     if pd.get("type") == "profile" and pd not in seg_detections:

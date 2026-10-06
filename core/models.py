@@ -98,7 +98,7 @@ class InvestigationProfile(ForensicBaseModel):
     keywords = models.JSONField(
         default=list,
         blank=True,
-        help_text="Search and flag surveillance keywords associated with this auditee / target.",
+        help_text="Search and flag investigation keywords associated with this auditee / target.",
     )
 
     class Meta:

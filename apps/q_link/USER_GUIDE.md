@@ -39,7 +39,7 @@ The built-in Copilot Agent is not a simple chatbot—it is an **agentic investig
 #### 4. Reconstructed Chronological Sequence
 * Displays the consolidated cross-tool timeline for the active entity (e.g. Email communication ➔ PO issued ➔ Bank transfer ➔ PDF alteration).
 
-#### 5. Proactive Continuous Surveillance Alerts
+#### 5. Proactive Continuous Monitoring Alerts
 * Automatically alerts investigators when:
   * An entity converges across $\ge 3$ distinct forensic tools.
   * A direct employee-to-vendor financial or private email connection is identified.

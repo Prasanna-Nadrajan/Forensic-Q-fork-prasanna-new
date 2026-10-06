@@ -20,7 +20,7 @@ from core.fuzzy import (
 from .backend.statement_parser import format_inr
 from .models import AuditedPerson, BankAccount, BankTransaction
 
-DEFAULT_BANK_SURVEILLANCE_KEYWORDS = ["trust", "sarla"]
+DEFAULT_BANK_INVESTIGATION_KEYWORDS = ["trust", "sarla"]
 
 
 def get_all_audited_persons() -> list[dict[str, Any]]:
@@ -769,7 +769,7 @@ def resolve_bank_search_keywords(
     1. Uploaded file or explicit keyword query parameters.
     2. If raw keyword parameter was explicitly blank and no file was provided, return empty.
     3. Profile keywords associated with the Audited Person or Account Holder.
-    4. Fallback to default bank surveillance watchlist.
+    4. Fallback to default bank investigation watchlist.
     Returns (keywords_list, keywords_str).
     """
     keywords = extract_keywords_from_request(request, param_name="keywords", file_param="file")
@@ -794,6 +794,6 @@ def resolve_bank_search_keywords(
         profile_kws = get_profile_keywords(custodian_name=custodian_name, request=request)
         if profile_kws:
             return list(profile_kws), None
-        return list(DEFAULT_BANK_SURVEILLANCE_KEYWORDS), None
+        return list(DEFAULT_BANK_INVESTIGATION_KEYWORDS), None
 
     return keywords, None
