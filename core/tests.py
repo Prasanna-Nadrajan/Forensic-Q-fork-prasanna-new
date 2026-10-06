@@ -271,7 +271,7 @@ class CoreInvestigationProfilesTests(TestCase):
             designation="Manager",
             email="custodian.a@example.com",
             phone="+91 9876543210",
-            risk_level="HIGH",
+            is_substantiated=True,
             status="ACTIVE",
             notes="Under observation",
             avatar_color="orange",
@@ -323,11 +323,11 @@ class CoreInvestigationProfilesTests(TestCase):
             full_name="New Auditee B",
             employee_id="EMP-2002",
             department="Finance",
-            risk_level="INVALID_RISK",  # invalid choice falls back to MEDIUM
+            is_substantiated=True,
             status="INVALID",  # invalid choice falls back to ACTIVE
         )
         self.assertEqual(p.full_name, "New Auditee B")
-        self.assertEqual(p.risk_level, "MEDIUM")
+        self.assertTrue(p.is_substantiated)
         self.assertEqual(p.status, "ACTIVE")
 
     def test_resolve_or_create_profile_from_request(self):
@@ -620,7 +620,7 @@ class CoreProfileViewsTests(TestCase):
         self.assertEqual(res.status_code, 404)
 
     def test_parse_keywords_file_view_txt_success(self):
-        txt_content = b"kickback, bribe\nconsulting fee\toff-book;secret commission"
+        txt_content = b'kickback, bribe\n"consulting fee"\toff-book;"secret commission"'
         uploaded_file = SimpleUploadedFile("terms.txt", txt_content, content_type="text/plain")
         res = self.client.post(
             reverse("parse_keywords_file"),
@@ -635,34 +635,35 @@ class CoreProfileViewsTests(TestCase):
         self.assertIn("off-book", data["keywords"])
         self.assertIn("secret commission", data["keywords"])
 
-    def test_parse_keywords_file_view_xlsx_success(self):
-        import io
-
-        import openpyxl
-
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.append(["Investigation Keyword", "Notes"])
-        ws.append(["shell company", "priority 1"])
-        ws.append(["hawala transfer", "priority 2"])
-        buf = io.BytesIO()
-        wb.save(buf)
-        buf.seek(0)
-
+    def test_parse_keywords_file_view_xlsx_rejected(self):
         uploaded_file = SimpleUploadedFile(
             "investigation_keywords.xlsx",
-            buf.getvalue(),
+            b"dummy excel content",
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         res = self.client.post(
             reverse("parse_keywords_file"),
             {"file": uploaded_file},
         )
-        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.status_code, 400)
         data = res.json()
-        self.assertEqual(data["status"], "success")
-        self.assertIn("shell company", data["keywords"])
-        self.assertIn("hawala transfer", data["keywords"])
+        self.assertEqual(data["status"], "error")
+        self.assertIn("Only .txt files are supported", data["message"])
+
+    def test_parse_keywords_file_view_csv_rejected(self):
+        uploaded_file = SimpleUploadedFile(
+            "investigation_keywords.csv",
+            b"keyword1,keyword2",
+            content_type="text/csv",
+        )
+        res = self.client.post(
+            reverse("parse_keywords_file"),
+            {"file": uploaded_file},
+        )
+        self.assertEqual(res.status_code, 400)
+        data = res.json()
+        self.assertEqual(data["status"], "error")
+        self.assertIn("Only .txt files are supported", data["message"])
 
     def test_parse_keywords_file_view_no_file(self):
         res = self.client.post(reverse("parse_keywords_file"), {})
@@ -678,10 +679,10 @@ class CoreProfileViewsTests(TestCase):
             {"file": uploaded_file},
         )
         self.assertEqual(res.status_code, 400)
-        self.assertIn("Unsupported file type", res.json()["message"])
+        self.assertIn("Only .txt files are supported", res.json()["message"])
 
     def test_upload_profile_keywords_file_view_success(self):
-        txt_content = b"unauthorized payment, phantom vendor"
+        txt_content = b'"unauthorized payment", "phantom vendor"\t"off book deal"\r\nhawala'
         uploaded_file = SimpleUploadedFile("keywords.txt", txt_content, content_type="text/plain")
         url = reverse("upload_profile_keywords_file", kwargs={"profile_id": str(self.profile.id)})
         res = self.client.post(
@@ -693,10 +694,13 @@ class CoreProfileViewsTests(TestCase):
         self.assertEqual(data["status"], "success")
         self.assertIn("unauthorized payment", data["profile"]["keywords"])
         self.assertIn("phantom vendor", data["profile"]["keywords"])
+        self.assertIn("off book deal", data["profile"]["keywords"])
+        self.assertIn("hawala", data["profile"]["keywords"])
 
         # Check DB updated
         self.profile.refresh_from_db()
         self.assertIn("unauthorized payment", self.profile.keywords)
+        self.assertIn("off book deal", self.profile.keywords)
 
     def test_upload_profile_keywords_file_view_empty_file(self):
         uploaded_file = SimpleUploadedFile("empty.txt", b"   \n\n  ", content_type="text/plain")
@@ -717,26 +721,114 @@ class CoreProfileViewsTests(TestCase):
         )
         self.assertEqual(res.status_code, 404)
 
-    def test_upload_profile_keywords_csv_non_utf8(self):
-        # Create a non-utf8 byte string to trigger latin-1 fallback
-        csv_content = "header1,Keyword\nval1,fráud\nval2,bribe,extra".encode("latin-1")
+    def test_upload_profile_keywords_csv_rejected(self):
         uploaded_file = SimpleUploadedFile(
-            "test_non_utf8.csv", csv_content, content_type="text/csv"
+            "test.csv", b"keyword1,keyword2", content_type="text/csv"
         )
         url = reverse("upload_profile_keywords_file", kwargs={"profile_id": str(self.profile.id)})
         res = self.client.post(url, {"file": uploaded_file})
-        self.assertEqual(res.status_code, 200)
-        self.assertIn("fráud", res.json()["profile"]["keywords"])
-        self.assertIn("bribe", res.json()["profile"]["keywords"])
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("Only .txt files are supported", res.json()["message"])
 
-    def test_upload_profile_keywords_csv(self):
-        csv_content = b"header1,Keyword\nval1,fraud\nval2,bribe"
-        uploaded_file = SimpleUploadedFile("test.csv", csv_content, content_type="text/csv")
-        url = reverse("upload_profile_keywords_file", kwargs={"profile_id": str(self.profile.id)})
-        res = self.client.post(url, {"file": uploaded_file})
+    def test_extract_keywords_from_file_delimiters_and_quotes(self):
+        from core.profiles import extract_keywords_from_file
+
+        # Tests space, tab, comma, enter (\r\n and \n), semicolon delimiters and quotes
+        txt_content = (
+            b"kickback, bribe\t\"shell company\"\r\nhawala;off-book   'round tripping'  secret"
+        )
+        f = io.BytesIO(txt_content)
+        keywords = extract_keywords_from_file(f, "keywords.txt")
+        self.assertIn("kickback", keywords)
+        self.assertIn("bribe", keywords)
+        self.assertIn("shell company", keywords)
+        self.assertIn("hawala", keywords)
+        self.assertIn("off-book", keywords)
+        self.assertIn("round tripping", keywords)
+        self.assertIn("secret", keywords)
+
+    def test_extract_keywords_from_file_non_utf8_txt(self):
+        from core.profiles import extract_keywords_from_file
+
+        # Test latin-1 encoded text file
+        content = "bribe, fráud\tkickback\r\nsecret".encode("latin-1")
+        f = io.BytesIO(content)
+        keywords = extract_keywords_from_file(f, "latin.txt")
+        self.assertIn("bribe", keywords)
+        self.assertIn("fráud", keywords)
+        self.assertIn("kickback", keywords)
+        self.assertIn("secret", keywords)
+
+    def test_edit_profile_view_json_success(self):
+        url = reverse("edit_profile", kwargs={"profile_id": str(self.profile.id)})
+        res = self.client.post(
+            url,
+            data=json.dumps(
+                {
+                    "full_name": "Updated Custodian A",
+                    "department": "Internal Audit",
+                    "designation": "Director",
+                    "is_substantiated": True,
+                    "status": "FLAGGED",
+                    "keywords": ["kickback", "shell company"],
+                    "notes": "Updated investigation notes",
+                }
+            ),
+            content_type="application/json",
+        )
         self.assertEqual(res.status_code, 200)
-        self.assertIn("fraud", res.json()["profile"]["keywords"])
-        self.assertIn("bribe", res.json()["profile"]["keywords"])
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["profile"]["full_name"], "Updated Custodian A")
+        self.assertEqual(data["profile"]["department"], "Internal Audit")
+        self.assertTrue(data["profile"]["is_substantiated"])
+        self.assertEqual(data["profile"]["status"], "FLAGGED")
+        self.assertEqual(data["profile"]["keywords"], ["kickback", "shell company"])
+
+        # Check DB updated
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.full_name, "Updated Custodian A")
+        self.assertTrue(self.profile.is_substantiated)
+        self.assertEqual(self.profile.status, "FLAGGED")
+        self.assertEqual(self.profile.keywords, ["kickback", "shell company"])
+
+    def test_edit_profile_view_form_post(self):
+        url = reverse("edit_profile", kwargs={"profile_id": str(self.profile.id)})
+        res = self.client.post(
+            url,
+            data={
+                "full_name": "Form Edited Target",
+                "department": "Finance",
+                "designation": "CFO",
+                "is_substantiated": "true",
+                "keywords": json.dumps(["bribe", "hawala"]),
+                "next": "/",
+            },
+        )
+        self.assertEqual(res.status_code, 302)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.full_name, "Form Edited Target")
+        self.assertTrue(self.profile.is_substantiated)
+        self.assertEqual(self.profile.keywords, ["bribe", "hawala"])
+
+    def test_edit_profile_view_empty_name(self):
+        url = reverse("edit_profile", kwargs={"profile_id": str(self.profile.id)})
+        res = self.client.post(
+            url,
+            data=json.dumps({"full_name": "   "}),
+            content_type="application/json",
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("required", res.json()["message"].lower())
+
+    def test_edit_profile_view_not_found(self):
+        url = reverse("edit_profile", kwargs={"profile_id": str(uuid.uuid4())})
+        res = self.client.post(
+            url,
+            data=json.dumps({"full_name": "Ghost Profile"}),
+            content_type="application/json",
+        )
+        self.assertEqual(res.status_code, 404)
 
     def test_sync_global_profiles_from_apps(self):
         # Test the sync behavior for q_verify and q_voice
@@ -1076,7 +1168,7 @@ class CoreAuditTests(TestCase):
             department="Procurement",
             designation="Manager",
             status="ACTIVE",
-            risk_level="HIGH",
+            is_substantiated=True,
         )
         self.profile2 = self.InvestigationProfile.objects.create(
             full_name="Rajesh Sharma",
@@ -1084,7 +1176,7 @@ class CoreAuditTests(TestCase):
             department="Logistics",
             designation="Executive",
             status="ACTIVE",
-            risk_level="MEDIUM",
+            is_substantiated=False,
         )
         self.profile3 = self.InvestigationProfile.objects.create(
             full_name="Priya Patel",
@@ -1092,7 +1184,7 @@ class CoreAuditTests(TestCase):
             department="Finance",
             designation="Analyst",
             status="ACTIVE",
-            risk_level="LOW",
+            is_substantiated=False,
         )
 
     def test_auto_generate_audit_name_sequence(self):
@@ -1427,7 +1519,7 @@ class CoreAuditTests(TestCase):
         url = reverse("parse_keywords_file")
 
         # 1. Plain text file
-        txt_content = b"offshore account\nhawala\nbribe\n"
+        txt_content = b'"offshore account"\nhawala\nbribe\n'
         txt_file = SimpleUploadedFile("watchlist.txt", txt_content, content_type="text/plain")
         res_txt = self.client.post(url, {"file": txt_file})
         self.assertEqual(res_txt.status_code, 200)
@@ -1435,12 +1527,12 @@ class CoreAuditTests(TestCase):
         self.assertEqual(data_txt["status"], "success")
         self.assertIn("offshore account", data_txt["keywords"])
 
-        # 2. CSV file
+        # 2. CSV file (rejected because only .txt is allowed)
         csv_content = b"keyword\nfront company\nsiphoning\n"
         csv_file = SimpleUploadedFile("watchlist.csv", csv_content, content_type="text/csv")
         res_csv = self.client.post(url, {"file": csv_file})
-        self.assertEqual(res_csv.status_code, 200)
-        self.assertEqual(res_csv.json()["status"], "success")
+        self.assertEqual(res_csv.status_code, 400)
+        self.assertIn("Only .txt files are supported", res_csv.json()["message"])
 
         # 3. Missing file
         res_missing = self.client.post(url, {})

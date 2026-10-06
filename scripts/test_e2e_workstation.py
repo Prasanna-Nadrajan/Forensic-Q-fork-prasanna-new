@@ -449,7 +449,7 @@ class ForensiQE2ETestRunner:
             defaults={
                 "department": "Strategic Sourcing",
                 "designation": "Director",
-                "risk_level": "CRITICAL",
+                "is_substantiated": True,
             },
         )
         p2, _ = InvestigationProfile.objects.get_or_create(
@@ -457,7 +457,7 @@ class ForensiQE2ETestRunner:
             defaults={
                 "department": "Commercial Procurement",
                 "designation": "Manager",
-                "risk_level": "HIGH",
+                "is_substantiated": False,
             },
         )
 

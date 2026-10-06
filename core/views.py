@@ -22,6 +22,7 @@ from .profiles import (
     extract_keywords_from_file,
     get_all_profiles,
     set_active_profile,
+    update_investigation_profile,
 )
 
 
@@ -132,6 +133,9 @@ def create_profile_view(request: HttpRequest) -> HttpResponse:
         # Also check comma-separated keywords string from form post
         keywords_input = request.POST.get("keywords_input", "")
 
+    is_substantiated_raw = payload.get("is_substantiated", False)
+    is_substantiated = is_substantiated_raw in (True, "true", "True", "1", 1, "on")
+
     profile = create_investigation_profile(
         full_name=full_name,
         employee_id=payload.get("employee_id", "").strip(),
@@ -139,7 +143,7 @@ def create_profile_view(request: HttpRequest) -> HttpResponse:
         designation=payload.get("designation", "").strip(),
         email=payload.get("email", "").strip(),
         phone=payload.get("phone", "").strip(),
-        risk_level=payload.get("risk_level", "MEDIUM").strip() or "MEDIUM",
+        is_substantiated=is_substantiated,
         notes=payload.get("notes", "").strip(),
         avatar_color=payload.get("avatar_color", "indigo").strip() or "indigo",
         keywords=keywords_input,
@@ -158,7 +162,82 @@ def create_profile_view(request: HttpRequest) -> HttpResponse:
     return redirect(next_url)
 
 
-ALLOWED_KEYWORDS_EXTENSIONS = {".txt", ".csv", ".xlsx", ".xls"}
+@require_POST
+def edit_profile_view(request: HttpRequest, profile_id: str) -> HttpResponse:
+    """
+    Updates an existing investigation profile.
+    Supports JSON AJAX requests or standard HTML form submissions.
+    (Note: Profile deletion is strictly prohibited).
+    """
+    is_json = (
+        request.content_type == "application/json"
+        or request.headers.get("x-requested-with") == "XMLHttpRequest"
+    )
+    if is_json and request.body:
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except Exception:
+            payload = {}
+    else:
+        payload = request.POST
+
+    full_name = payload.get("full_name", "").strip()
+    if not full_name:
+        if is_json:
+            return JsonResponse(
+                {"status": "error", "message": "Target name is required."}, status=400
+            )
+        messages.error(request, "Target profile full name is required.")
+        return redirect(payload.get("next", "/"))
+
+    keywords_input = payload.get("keywords")
+    if not keywords_input and not is_json:
+        keywords_input = request.POST.get("keywords_input", "")
+
+    is_substantiated_raw = payload.get("is_substantiated", False)
+    is_substantiated = is_substantiated_raw in (True, "true", "True", "1", 1, "on")
+
+    try:
+        profile = update_investigation_profile(
+            profile_id=profile_id,
+            full_name=full_name,
+            employee_id=payload.get("employee_id", "").strip(),
+            department=payload.get("department", "").strip(),
+            designation=payload.get("designation", "").strip(),
+            email=payload.get("email", "").strip(),
+            phone=payload.get("phone", "").strip(),
+            is_substantiated=is_substantiated,
+            status=payload.get("status", "ACTIVE").strip() or "ACTIVE",
+            notes=payload.get("notes", "").strip(),
+            avatar_color=payload.get("avatar_color", "").strip(),
+            keywords=keywords_input if keywords_input is not None else None,
+        )
+    except ValueError as err:
+        if is_json:
+            return JsonResponse({"status": "error", "message": str(err)}, status=404)
+        messages.error(request, str(err))
+        return redirect(payload.get("next", "/"))
+    except Exception as err:
+        if is_json:
+            return JsonResponse({"status": "error", "message": str(err)}, status=500)
+        messages.error(request, f"Failed updating profile: {err}")
+        return redirect(payload.get("next", "/"))
+
+    if is_json:
+        return JsonResponse(
+            {
+                "status": "success",
+                "message": f"Investigation Profile '{profile.full_name}' successfully updated.",
+                "profile": profile.to_dict(),
+            }
+        )
+
+    messages.success(request, f"Investigation Profile '{profile.full_name}' successfully updated.")
+    next_url = payload.get("next") or "/"
+    return redirect(next_url)
+
+
+ALLOWED_KEYWORDS_EXTENSIONS = {".txt"}
 MAX_KEYWORDS_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
@@ -204,7 +283,7 @@ def add_profile_keywords_view(request: HttpRequest, profile_id: str) -> JsonResp
 @require_POST
 def parse_keywords_file_view(request: HttpRequest) -> JsonResponse:
     """
-    Parses and extracts keywords from an uploaded file (.txt, .xlsx, .xls, .csv).
+    Parses and extracts keywords from an uploaded .txt file.
     Returns the extracted list of keywords for client-side tag insertion.
     """
     uploaded_file = request.FILES.get("file")
@@ -212,7 +291,7 @@ def parse_keywords_file_view(request: HttpRequest) -> JsonResponse:
         return JsonResponse(
             {
                 "status": "error",
-                "message": "No file uploaded. Please select a .txt or .xlsx file.",
+                "message": "No file uploaded. Please select a .txt file.",
             },
             status=400,
         )
@@ -222,7 +301,7 @@ def parse_keywords_file_view(request: HttpRequest) -> JsonResponse:
         return JsonResponse(
             {
                 "status": "error",
-                "message": f"Unsupported file type '{ext}'. Allowed formats: .txt, .xlsx, .xls, .csv",
+                "message": f"Unsupported file type '{ext}'. Only .txt files are supported for keyword upload.",
             },
             status=400,
         )
@@ -253,7 +332,7 @@ def parse_keywords_file_view(request: HttpRequest) -> JsonResponse:
 @require_POST
 def upload_profile_keywords_file_view(request: HttpRequest, profile_id: str) -> JsonResponse:
     """
-    Uploads a keywords file (.txt, .xlsx, .xls, .csv) and directly attaches
+    Uploads a .txt keywords file and directly attaches
     extracted investigation keywords to an existing profile.
     """
     uploaded_file = request.FILES.get("file")
@@ -261,7 +340,7 @@ def upload_profile_keywords_file_view(request: HttpRequest, profile_id: str) -> 
         return JsonResponse(
             {
                 "status": "error",
-                "message": "No file uploaded. Please select a .txt or .xlsx file.",
+                "message": "No file uploaded. Please select a .txt file.",
             },
             status=400,
         )
@@ -271,7 +350,7 @@ def upload_profile_keywords_file_view(request: HttpRequest, profile_id: str) -> 
         return JsonResponse(
             {
                 "status": "error",
-                "message": f"Unsupported file type '{ext}'. Allowed formats: .txt, .xlsx, .xls, .csv",
+                "message": f"Unsupported file type '{ext}'. Only .txt files are supported for keyword upload.",
             },
             status=400,
         )

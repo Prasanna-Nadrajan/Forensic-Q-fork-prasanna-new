@@ -28,7 +28,7 @@ Table investigation_profiles {
   email varchar(254) [default: '']
   phone varchar(32) [default: '']
   status varchar(20) [default: 'ACTIVE', note: 'ACTIVE, MONITORING, CLEARED, FLAGGED']
-  risk_level varchar(20) [default: 'MEDIUM', note: 'LOW, MEDIUM, HIGH, CRITICAL']
+  is_substantiated boolean [default: false, note: 'Whether allegations/findings are substantiated']
   notes text [default: '']
   avatar_color varchar(32) [default: 'indigo']
   keywords json [note: 'Search/investigation keywords array']

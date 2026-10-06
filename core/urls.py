@@ -8,6 +8,11 @@ urlpatterns = [
     path("logout/", views.portal_logout_view, name="portal_logout"),
     path("profiles/create/", views.create_profile_view, name="create_profile"),
     path(
+        "profiles/<uuid:profile_id>/edit/",
+        views.edit_profile_view,
+        name="edit_profile",
+    ),
+    path(
         "profiles/<uuid:profile_id>/keywords/",
         views.add_profile_keywords_view,
         name="add_profile_keywords",

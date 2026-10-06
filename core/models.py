@@ -50,12 +50,6 @@ class InvestigationProfile(ForensicBaseModel):
         CLEARED = "CLEARED", "Cleared / Closed"
         FLAGGED = "FLAGGED", "High Risk / Flagged"
 
-    class RiskLevel(models.TextChoices):
-        LOW = "LOW", "Low Risk"
-        MEDIUM = "MEDIUM", "Medium Risk"
-        HIGH = "HIGH", "High Risk"
-        CRITICAL = "CRITICAL", "Critical Risk"
-
     full_name = models.CharField(
         max_length=255, db_index=True, help_text="Target / Auditee Full Name"
     )
@@ -80,10 +74,10 @@ class InvestigationProfile(ForensicBaseModel):
         default=Status.ACTIVE,
         db_index=True,
     )
-    risk_level = models.CharField(
-        max_length=20,
-        choices=RiskLevel.choices,
-        default=RiskLevel.MEDIUM,
+    is_substantiated = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Whether allegations/findings against this auditee/target are substantiated",
     )
     notes = models.TextField(
         blank=True,
@@ -146,7 +140,7 @@ class InvestigationProfile(ForensicBaseModel):
             "email": self.email,
             "phone": self.phone,
             "status": self.status,
-            "risk_level": self.risk_level,
+            "is_substantiated": self.is_substantiated,
             "initials": self.initials,
             "display_name": self.display_name,
             "avatar_color": self.avatar_color,

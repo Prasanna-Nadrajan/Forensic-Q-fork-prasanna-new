@@ -37,14 +37,18 @@ HEADER_STOPWORDS = {
 
 def extract_keywords_from_string(text: str) -> list[str]:
     """
-    Extracts clean, deduplicated keywords from comma, semicolon, or newline delimited string.
+    Extracts clean, deduplicated keywords from space, tab, comma, semicolon, or newline delimited string,
+    preserving multi-word phrases enclosed in double or single quotes (e.g. "shell company").
     """
     if not text:
         return []
-    raw_tokens = re.split(r"[,;\n\r]+", text)
+    # Match quoted strings OR non-delimiter tokens (delimited by space, tab, comma, semicolon, newline)
+    pattern = r'"([^"]+)"|\'([^\']+)\'|([^\s,;\t\r\n]+)'
+    matches = re.findall(pattern, text)
     seen = set()
     keywords = []
-    for token in raw_tokens:
+    for m in matches:
+        token = m[0] or m[1] or m[2]
         clean = token.strip()
         if clean and clean.lower() not in seen:
             seen.add(clean.lower())

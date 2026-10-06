@@ -53,7 +53,7 @@
                 name: '{{ prof.full_name|escapejs }}',
                 dept: '{{ prof.department|escapejs }}',
                 role: '{{ prof.designation|escapejs }}',
-                risk: '{{ prof.risk_level|escapejs }}',
+                is_substantiated: {{ prof.is_substantiated|yesno:"true,false" }},
                 initials: '{{ prof.initials|escapejs }}'
             }{% if not forloop.last %},{% endif %}
             {% endfor %}
@@ -160,8 +160,9 @@
                                 <div class="text-[10px] text-theme-muted truncate" x-show="p.dept" x-text="p.dept + (p.role ? ' • ' + p.role : '')"></div>
                             </div>
                         </div>
-                        <span class="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-theme-app border border-theme-border flex-shrink-0 ml-2"
-                            x-text="p.risk"></span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase bg-theme-app border flex-shrink-0 ml-2"
+                            :class="p.is_substantiated ? 'text-rose-400 border-rose-500/30' : 'text-zinc-400 border-theme-border'"
+                            x-text="p.is_substantiated ? 'Substantiated' : 'Unsubstantiated'"></span>
                     </button>
                 </template>
 

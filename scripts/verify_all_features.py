@@ -93,7 +93,7 @@ def run_verification():
         defaults={
             "department": "Strategic Sourcing",
             "designation": "General Manager",
-            "risk_level": "CRITICAL",
+            "is_substantiated": True,
         },
     )
     p2, _ = InvestigationProfile.objects.get_or_create(
@@ -101,7 +101,7 @@ def run_verification():
         defaults={
             "department": "Commercial Sourcing",
             "designation": "Deputy General Manager",
-            "risk_level": "HIGH",
+            "is_substantiated": False,
         },
     )
     p3, _ = InvestigationProfile.objects.get_or_create(
@@ -109,7 +109,7 @@ def run_verification():
         defaults={
             "department": "Procurement Operations",
             "designation": "Senior Manager",
-            "risk_level": "LOW",
+            "is_substantiated": False,
         },
     )
     check(

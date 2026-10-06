@@ -175,15 +175,19 @@ def extract_keywords_from_file(file_obj, filename: str = "") -> list[str]:
                         raw_keywords.append(c_clean)
             return _normalize_keywords(raw_keywords)
 
-    # Standard plain text parsing (supports newlines, tabs, semicolons, commas)
+    # Standard plain text parsing (supports space, tab, comma, newline, enter, semicolon as delimiters with quote preservation)
+    import re
+
     lines = text.splitlines()
     for line in lines:
         line_str = line.strip()
-        if not line_str:
+        if not line_str or line_str.startswith("#") or line_str.startswith("//"):
             continue
-        normalized_line = line_str.replace("\t", ",").replace(";", ",")
-        for p in normalized_line.split(","):
-            p_clean = p.strip()
+        pattern = r'"([^"]+)"|\'([^\']+)\'|([^\s,;\t\r\n]+)'
+        matches = re.findall(pattern, line_str)
+        for m in matches:
+            token = m[0] or m[1] or m[2]
+            p_clean = token.strip()
             if p_clean and p_clean.lower() not in ignored_headers:
                 raw_keywords.append(p_clean)
 
@@ -283,7 +287,7 @@ def create_investigation_profile(
     designation: str = "",
     email: str = "",
     phone: str = "",
-    risk_level: str = "MEDIUM",
+    is_substantiated: bool = False,
     status: str = "ACTIVE",
     notes: str = "",
     avatar_color: str = "indigo",
@@ -305,9 +309,7 @@ def create_investigation_profile(
         designation=designation.strip(),
         email=email.strip().lower(),
         phone=phone.strip(),
-        risk_level=risk_level
-        if risk_level in dict(InvestigationProfile.RiskLevel.choices)
-        else "MEDIUM",
+        is_substantiated=bool(is_substantiated),
         status=status if status in dict(InvestigationProfile.Status.choices) else "ACTIVE",
         notes=notes.strip(),
         avatar_color=avatar_color.strip() or "indigo",
@@ -332,6 +334,70 @@ def create_investigation_profile(
     except Exception as exc:
         logger.debug(f"Optional Q-Bank sync skipped: {exc}")
 
+    return profile
+
+
+def update_investigation_profile(
+    profile_id: str | uuid.UUID,
+    *,
+    full_name: str,
+    employee_id: str = "",
+    department: str = "",
+    designation: str = "",
+    email: str = "",
+    phone: str = "",
+    is_substantiated: bool = False,
+    status: str = "ACTIVE",
+    notes: str = "",
+    avatar_color: str = "",
+    keywords: list[str] | str | None = None,
+) -> InvestigationProfile:
+    """
+    Updates an existing investigation profile.
+    (Note: Deletion of investigation profiles is strictly prohibited).
+    """
+    profile = get_profile_by_id(profile_id)
+    if not profile:
+        raise ValueError(f"Investigation profile '{profile_id}' not found.")
+
+    clean_name = full_name.strip()
+    if not clean_name:
+        raise ValueError("Profile full name cannot be blank.")
+
+    profile.full_name = clean_name
+    profile.employee_id = employee_id.strip()
+    profile.department = department.strip()
+    profile.designation = designation.strip()
+    profile.email = email.strip().lower()
+    profile.phone = phone.strip()
+    profile.is_substantiated = bool(is_substantiated)
+    if status in dict(InvestigationProfile.Status.choices):
+        profile.status = status
+    profile.notes = notes.strip()
+    if avatar_color:
+        profile.avatar_color = avatar_color.strip()
+
+    if keywords is not None:
+        profile.keywords = _normalize_keywords(keywords)
+
+    profile.save()
+
+    # Sync to Q-Bank AuditedPerson if q_bank is available
+    try:
+        from q_bank.models import AuditedPerson
+
+        AuditedPerson.objects.filter(full_name=clean_name).update(
+            employee_id=profile.employee_id,
+            department=profile.department,
+            designation=profile.designation,
+            email=profile.email,
+            phone=profile.phone,
+            notes=profile.notes,
+        )
+    except Exception as exc:
+        logger.debug(f"Optional Q-Bank sync on update skipped: {exc}")
+
+    logger.info("Updated investigation profile ID {} ({})", profile.id, profile.full_name)
     return profile
 
 
@@ -460,7 +526,7 @@ def sync_all_existing_entities_to_profiles() -> int:
                     email=person.email,
                     phone=person.phone,
                     notes=person.notes,
-                    risk_level="HIGH" if "flagged" in person.notes.lower() else "MEDIUM",
+                    is_substantiated="flagged" in person.notes.lower(),
                     avatar_color="orange",
                 )
                 created_count += 1
@@ -481,7 +547,7 @@ def sync_all_existing_entities_to_profiles() -> int:
                     department="Strategic Sourcing & Logistics",
                     designation="Intercept Subject",
                     avatar_color="indigo",
-                    risk_level="HIGH" if rec.risk_score >= 50 else "MEDIUM",
+                    is_substantiated=rec.risk_score >= 50,
                 )
                 created_count += 1
     except Exception as exc:
