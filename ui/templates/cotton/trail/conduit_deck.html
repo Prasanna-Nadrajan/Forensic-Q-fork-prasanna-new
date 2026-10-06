@@ -1,6 +1,6 @@
 <c-vars
-    title="1-Hop Suspected Intermediary Conduits (Candidate X)"
-    subtitle="Matches where funds flowed from Person A to Intermediary X, and subsequently to Person B."
+    title="Suspected Middlemen Passing Money"
+    subtitle="Third parties who received money from one person and forwarded it to another."
 />
 
 <div class="bg-white dark:bg-zinc-900 rounded-xl p-5 border border-slate-200 dark:border-zinc-800 shadow-sm mb-8"
@@ -32,7 +32,7 @@
                     {{ title }}
                 </h3>
                 <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400"
-                      x-text="(window.conduitDeckData || []).length + ' Hops'"></span>
+                      x-text="(window.conduitDeckData || []).length + ' Middlemen'"></span>
             </div>
             <p class="text-xs text-slate-500 dark:text-zinc-400 mt-1">
                 {{ subtitle }}
@@ -41,21 +41,21 @@
 
         <!-- Priority Model Segmented Switcher -->
         <div class="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700/60 self-start md:self-auto text-xs font-semibold">
-            <span class="text-[11px] text-slate-400 dark:text-zinc-500 px-2 select-none">Priority:</span>
+            <span class="text-[11px] text-slate-400 dark:text-zinc-500 px-2 select-none">Sort By:</span>
             <button type="button" @click="priorityModel = 'composite'"
                     :class="priorityModel === 'composite' ? 'bg-white dark:bg-zinc-900 text-amber-500 shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'"
                     class="px-2.5 py-1 rounded-lg transition cursor-pointer">
-                Composite Risk
+                Overall Risk
             </button>
             <button type="button" @click="priorityModel = 'value'"
                     :class="priorityModel === 'value' ? 'bg-white dark:bg-zinc-900 text-amber-500 shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'"
                     class="px-2.5 py-1 rounded-lg transition cursor-pointer">
-                Retained Value
+                Highest Cut Kept
             </button>
             <button type="button" @click="priorityModel = 'velocity'"
                     :class="priorityModel === 'velocity' ? 'bg-white dark:bg-zinc-900 text-amber-500 shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'"
                     class="px-2.5 py-1 rounded-lg transition cursor-pointer">
-                Transit Velocity
+                Fastest Hand-off
             </button>
         </div>
     </div>

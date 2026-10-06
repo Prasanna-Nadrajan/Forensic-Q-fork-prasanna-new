@@ -69,7 +69,7 @@ def _resolve_profile_entity(profile_id: str | uuid.UUID) -> tuple[str, str]:
 def analyze_profiles_money_trail(
     profile_ids: list[str],
     *,
-    time_window_days: int = 3,
+    time_window_days: int = 0,
     case_title: str = "",
     lead_investigator: str = "",
     save_dossier: bool = False,

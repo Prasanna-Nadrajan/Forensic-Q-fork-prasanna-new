@@ -320,6 +320,21 @@ class QTrailIntermediateMatchingTests(TestCase):
         )
         self.assertNotIn("bobby@okaxis", res["Intermediary_Entity"].values)
 
+    def test_temporal_constraint_no_time_limit_zero(self):
+        # Change Inflow date to 9 days later (> standard window)
+        delayed_b = self.stmt_b.copy()
+        delayed_b.loc[0, "Date"] = "2026-03-10"
+
+        # With time_window_days=0 (No time limit), both should match
+        res = match_intermediate_transactions(
+            self.stmt_a,
+            delayed_b,
+            time_window_days=0,
+        )
+        self.assertEqual(len(res), 2)
+        self.assertIn("bobby@okaxis", res["Intermediary_Entity"].values)
+        self.assertIn("SHARMA ENTERPRISES", res["Intermediary_Entity"].values)
+
     def test_grouping_by_intermediary(self):
         res = match_intermediate_transactions(
             self.stmt_a,
@@ -700,7 +715,7 @@ class QTrailViewTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["time_window_days"], 3)
+        self.assertEqual(response.context["time_window_days"], 0)
 
     def test_analyze_api_view_form_data_and_invalid_payload(self):
         url = reverse("q_trail:analyze_api")

@@ -72,13 +72,13 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
             profiles_with_data if profiles_with_data else [p["id"] for p in available_profiles]
         )
         time_window_str = request.POST.get(
-            "time_window_days", request.GET.get("time_window_days", "3")
+            "time_window_days", request.GET.get("time_window_days", "0")
         )
         save_dossier = False
         case_title = ""
     elif request.method == "POST":
         profile_ids = request.POST.getlist("profile_ids")
-        time_window_str = request.POST.get("time_window_days", "3")
+        time_window_str = request.POST.get("time_window_days", "0")
         save_dossier = request.POST.get("save_dossier") == "on"
         case_title = request.POST.get("case_title", "").strip()
     else:
@@ -87,14 +87,14 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
             profile_ids = [
                 p.strip() for p in request.GET.get("profile_ids", "").split(",") if p.strip()
             ]
-        time_window_str = request.GET.get("time_window_days", "3")
+        time_window_str = request.GET.get("time_window_days", "0")
         save_dossier = False
         case_title = ""
 
     try:
-        time_window_days = max(1, min(30, int(time_window_str)))
+        time_window_days = max(0, min(365, int(time_window_str)))
     except (ValueError, TypeError):
-        time_window_days = 3
+        time_window_days = 0
 
     # Default auto-selection heuristic: select all profiles with available data
     if not profile_ids:
@@ -225,10 +225,10 @@ def analyze_api_view(request: HttpRequest) -> JsonResponse:
         if request.content_type == "application/json":
             payload = json.loads(request.body.decode("utf-8"))
             profile_ids = payload.get("profile_ids", [])
-            time_window_days = int(payload.get("time_window_days", 3))
+            time_window_days = int(payload.get("time_window_days", 0))
         else:
             profile_ids = request.POST.getlist("profile_ids")
-            time_window_days = int(request.POST.get("time_window_days", 3))
+            time_window_days = int(request.POST.get("time_window_days", 0))
     except Exception as e:
         logger.warning(f"Invalid API request payload to Q-Trail analyze: {e}")
         return JsonResponse({"status": "error", "message": "Invalid request payload."}, status=400)

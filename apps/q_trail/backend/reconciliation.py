@@ -472,7 +472,7 @@ def match_intermediate_transactions(
     statement_a: pd.DataFrame,
     statement_b: pd.DataFrame,
     *,
-    time_window_days: int = 3,
+    time_window_days: int = 0,
     direct_matched_utrs: set[str] | None = None,
     date_col: str | None = None,
     debit_col: str | None = None,
@@ -608,13 +608,16 @@ def match_intermediate_transactions(
     time_delta = (merged["Date_dt_inflow"] - merged["Date_dt_outflow"]).dt.total_seconds() / 86400.0
 
     # Vectorized filters:
-    # 1. Temporal window: 0 <= time_delta <= time_window_days
+    # 1. Temporal window: time_delta >= 0.0 (and <= time_window_days if time_window_days > 0)
     # 2. Value constraint: Amount passed to B <= Amount received from A
-    valid_mask = (
-        (time_delta >= 0.0)
-        & (time_delta <= float(time_window_days))
-        & (merged["Credit_inflow"] <= merged["Debit_outflow"])
-    )
+    if time_window_days and time_window_days > 0:
+        valid_mask = (
+            (time_delta >= 0.0)
+            & (time_delta <= float(time_window_days))
+            & (merged["Credit_inflow"] <= merged["Debit_outflow"])
+        )
+    else:
+        valid_mask = (time_delta >= 0.0) & (merged["Credit_inflow"] <= merged["Debit_outflow"])
 
     matched = merged[valid_mask].copy()
     if matched.empty:
@@ -687,7 +690,7 @@ def reconcile_and_match_network(
     person_b_name: str = "Person B",
     person_a_vpa: str = "",
     person_b_vpa: str = "",
-    time_window_days: int = 3,
+    time_window_days: int = 0,
     date_col: str | None = None,
     debit_col: str | None = None,
     credit_col: str | None = None,
