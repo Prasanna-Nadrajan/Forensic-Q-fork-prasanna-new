@@ -351,3 +351,15 @@ def get_top_matched_keywords(limit: int = 10) -> list[dict[str, Any]]:
         .order_by("-hit_count")[:limit]
     )
     return list(qs)
+
+
+def get_custodian_scanned_devices(custodian_name: str) -> QuerySet[ScannedDevice]:
+    """
+    Returns related scanned devices for a given custodian name.
+    """
+    clean_name = custodian_name.strip() if custodian_name else "unknown"
+    return (
+        ScannedDevice.objects.filter(custodian_name__iexact=clean_name)
+        .only("id", "hostname", "scan_title")
+        .order_by("-created_at")
+    )

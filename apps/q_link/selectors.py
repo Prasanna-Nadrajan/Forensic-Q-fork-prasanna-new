@@ -321,3 +321,40 @@ def get_graph_overview(
     ]
 
     return {"nodes": nodes, "edges": edges, "total_entities": entities.count()}
+
+
+def get_link_dashboard_metrics() -> dict[str, int]:
+    """
+    Returns global entity, relationship, evidence pointer, and unacknowledged alert counts.
+    """
+    return {
+        "total_entities": ForensicEntity.objects.count(),
+        "total_relationships": EntityRelationship.objects.count(),
+        "total_evidence": EvidencePointer.objects.count(),
+        "unack_alerts": RelationshipAlert.objects.filter(is_acknowledged=False).count(),
+    }
+
+
+def get_target_entities(
+    filter_names: list[str] | None = None, limit: int = 10
+) -> QuerySet[ForensicEntity]:
+    """
+    Retrieves prioritized target entities, scoping to active audit profile names if supplied,
+    or falling back to global marked target entities.
+    """
+    if filter_names:
+        audit_q = Q()
+        for name in filter_names:
+            audit_q |= Q(display_name__iexact=name)
+        audit_targets = ForensicEntity.objects.filter(audit_q).order_by("-risk_rating")
+        if audit_targets.exists():
+            return audit_targets[:limit]
+
+    return ForensicEntity.objects.filter(is_target=True).order_by("-risk_rating")[:limit]
+
+
+def get_high_risk_entities(min_risk: int = 50, limit: int = 15) -> QuerySet[ForensicEntity]:
+    """
+    Retrieves highest risk forensic entities above the risk threshold.
+    """
+    return ForensicEntity.objects.filter(risk_rating__gte=min_risk).order_by("-risk_rating")[:limit]

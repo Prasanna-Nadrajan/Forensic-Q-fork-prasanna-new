@@ -496,7 +496,9 @@ def get_all_custodian_profiles() -> list[dict[str, Any]]:
     """
     Aggregates mailbox investigations into a single list of unique custodian profiles.
     """
-    investigations = MailboxInvestigation.objects.prefetch_related("messages").all()
+    investigations = MailboxInvestigation.objects.annotate(
+        flagged_messages_count=Count("messages", filter=Q(messages__is_flagged=True))
+    ).all()
     profiles_dict = {}
 
     for inv in investigations:
@@ -520,12 +522,21 @@ def get_all_custodian_profiles() -> list[dict[str, Any]]:
         prof["total_cases"] += 1
         prof["total_emails"] += inv.processed_messages_count
         prof["total_attachments"] += inv.attachment_count
-
-        # Count flagged messages in python to avoid N+1 if prefetched
-        flagged_count = sum(1 for m in inv.messages.all() if m.is_flagged)
-        prof["flagged_emails"] += flagged_count
+        prof["flagged_emails"] += getattr(inv, "flagged_messages_count", 0)
 
     return list(profiles_dict.values())
+
+
+def get_custodian_investigations(auditee_name: str) -> QuerySet[MailboxInvestigation]:
+    """
+    Returns related mailbox investigations for a given auditee/custodian.
+    """
+    clean_name = auditee_name.strip() if auditee_name else "unknown"
+    return (
+        MailboxInvestigation.objects.filter(auditee_name__iexact=clean_name)
+        .only("id", "audit_ref", "audit_name")
+        .order_by("-created_at")
+    )
 
 
 def get_attachment_by_id(attachment_id: str | uuid.UUID) -> EmailAttachment:

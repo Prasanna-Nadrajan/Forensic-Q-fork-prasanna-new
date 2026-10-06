@@ -7,13 +7,11 @@ with an ultra-reliable deterministic fallback.
 from __future__ import annotations
 
 import json
-import logging
 import urllib.request
 from typing import Any
 
 from django.conf import settings
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def generate_loop_forensic_narrative(loop_data: dict[str, Any]) -> str:
@@ -92,6 +90,6 @@ def generate_loop_forensic_narrative(loop_data: dict[str, Any]) -> str:
                     if content:
                         return content
     except Exception as exc:
-        logger.debug(f"Local LLM synthesis bypassed ({exc}); using deterministic narrative.")
+        logger.debug("Local LLM synthesis bypassed ({}); using deterministic narrative.", exc)
 
     return fallback_narrative

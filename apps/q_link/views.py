@@ -17,19 +17,16 @@ from core.audits import get_active_audit
 
 from .backend.llm_agent import ForensicCopilotAgent
 from .backend.sync_all import sync_all_modules
-from .models import (
-    EntityRelationship,
-    EvidencePointer,
-    ForensicEntity,
-    RelationshipAlert,
-)
 from .selectors import (
     get_entity_by_id,
     get_entity_evidence,
     get_entity_network,
     get_entity_timeline,
     get_graph_overview,
+    get_high_risk_entities,
+    get_link_dashboard_metrics,
     get_recent_alerts,
+    get_target_entities,
 )
 from .services import acknowledge_alert
 
@@ -46,47 +43,27 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     if not scope:
         scope = "audit" if active_audit else "all"
 
-    # Key Metrics
-    total_entities = ForensicEntity.objects.count()
-    total_relationships = EntityRelationship.objects.count()
-    total_evidence = EvidencePointer.objects.count()
-    unack_alerts = RelationshipAlert.objects.filter(is_acknowledged=False).count()
-
-    # Alerts & Targets
+    # Key Metrics & Alerts
+    metrics = get_link_dashboard_metrics()
     alerts = get_recent_alerts(limit=10, unacknowledged_only=False)
 
     audit_profile_names: list[str] = []
     if active_audit:
         audit_profile_names = list(active_audit.profiles.values_list("full_name", flat=True))
 
-    if scope == "audit" and active_audit and audit_profile_names:
-        from django.db.models import Q
-
-        audit_q = Q()
-        for name in audit_profile_names:
-            audit_q |= Q(display_name__iexact=name)
-
-        audit_targets = ForensicEntity.objects.filter(audit_q).order_by("-risk_rating")
-        targets = (
-            audit_targets
-            if audit_targets.exists()
-            else ForensicEntity.objects.filter(is_target=True).order_by("-risk_rating")[:10]
-        )
-        initial_graph = get_graph_overview(max_nodes=120, filter_names=audit_profile_names)
-    else:
-        targets = ForensicEntity.objects.filter(is_target=True).order_by("-risk_rating")[:10]
-        initial_graph = get_graph_overview(max_nodes=120)
-
-    high_risk_entities = ForensicEntity.objects.filter(risk_rating__gte=50).order_by(
-        "-risk_rating"
-    )[:15]
+    filter_names = (
+        audit_profile_names if (scope == "audit" and active_audit and audit_profile_names) else None
+    )
+    targets = get_target_entities(filter_names=filter_names, limit=10)
+    initial_graph = get_graph_overview(max_nodes=120, filter_names=filter_names)
+    high_risk_entities = get_high_risk_entities(min_risk=50, limit=15)
 
     context = {
         "page_title": "Q-Link | Forensic Intelligence & Relationship Engine",
-        "total_entities": total_entities,
-        "total_relationships": total_relationships,
-        "total_evidence": total_evidence,
-        "unack_alerts": unack_alerts,
+        "total_entities": metrics["total_entities"],
+        "total_relationships": metrics["total_relationships"],
+        "total_evidence": metrics["total_evidence"],
+        "unack_alerts": metrics["unack_alerts"],
         "alerts": alerts,
         "targets": targets,
         "high_risk_entities": high_risk_entities,
@@ -122,8 +99,6 @@ def api_network_data(request: HttpRequest) -> JsonResponse:
         graph_data = get_graph_overview(max_nodes=150, filter_names=audit_names)
     else:
         graph_data = get_graph_overview(max_nodes=150)
-
-    return JsonResponse({"status": "success", **graph_data})
 
     return JsonResponse({"status": "success", **graph_data})
 

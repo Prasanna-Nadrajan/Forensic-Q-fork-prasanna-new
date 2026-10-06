@@ -15,6 +15,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .selectors import (
     get_all_custodian_profiles,
+    get_custodian_scanned_devices,
     get_evidence_hits_query,
     get_paginated_evidence_hits,
     get_scan_dashboard_metrics,
@@ -160,17 +161,7 @@ def device_detail_view(request: HttpRequest, device_id: str) -> HttpResponse:
 
     total_hits = device.hits.count()
 
-    from .models import ScannedDevice
-
-    custodian_devices = (
-        ScannedDevice.objects.filter(
-            custodian_name__iexact=device.custodian_name.strip()
-            if device.custodian_name
-            else "unknown"
-        )
-        .only("id", "hostname", "scan_title")
-        .order_by("-created_at")
-    )
+    custodian_devices = get_custodian_scanned_devices(device.custodian_name)
 
     return render(
         request,
@@ -215,6 +206,7 @@ def review_hit_api_view(request: HttpRequest, hit_id: str) -> JsonResponse:
         return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
 
+@require_GET
 def export_hits_csv_view(request: HttpRequest) -> HttpResponse:
     """
     Exports filtered evidence hits to a downloadable CSV file.
@@ -269,6 +261,7 @@ def export_hits_csv_view(request: HttpRequest) -> HttpResponse:
     return response
 
 
+@require_GET
 def download_tool_file_view(request: HttpRequest, filename: str) -> HttpResponse:
     """
     Serves portable scanner scripts (q_scan.py, config.json, build_exe.bat) to field auditors.

@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .audits import (
     create_audit,
@@ -26,6 +26,7 @@ from .profiles import (
 
 
 @csrf_protect
+@require_http_methods(["GET", "POST"])
 def portal_login_view(request):
     """
     Master Portal Password Login View.
@@ -64,6 +65,7 @@ def portal_login_view(request):
     )
 
 
+@require_http_methods(["GET", "POST"])
 def portal_logout_view(request):
     """
     Logout View to lock the workstation and clear session credentials.
@@ -72,6 +74,7 @@ def portal_logout_view(request):
     return redirect("/login/")
 
 
+@require_GET
 def landing_view(request: HttpRequest) -> HttpResponse:
     """
     ForensiQ Landing Page dynamically loading all modules from apps/ directory,
@@ -370,6 +373,7 @@ def set_active_audit_view(request: HttpRequest) -> HttpResponse:
     return redirect(next_url)
 
 
+@require_GET
 def profile_list_api_view(request: HttpRequest) -> JsonResponse:
     """
     JSON API returning all registered investigation profiles for client-side dropdowns and selectors.
@@ -495,6 +499,7 @@ def map_audit_profiles_view(request: HttpRequest, audit_id: str) -> JsonResponse
         return JsonResponse({"status": "error", "message": str(err)}, status=500)
 
 
+@require_GET
 def audit_list_api_view(request: HttpRequest) -> JsonResponse:
     """
     JSON API returning all registered audits and their mapped profiles.
@@ -509,6 +514,7 @@ def audit_list_api_view(request: HttpRequest) -> JsonResponse:
     )
 
 
+@require_GET
 def get_next_audit_name_api_view(request: HttpRequest) -> JsonResponse:
     """
     JSON API returning the next sequential auto-generated audit name (YYYY-WB-XX).

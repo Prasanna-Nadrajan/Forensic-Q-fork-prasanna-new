@@ -11,6 +11,7 @@ from django.contrib import messages
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from core.audits import get_active_audit
 from core.profiles import resolve_or_create_profile_from_request
@@ -33,6 +34,7 @@ from .services import (
 )
 
 
+@require_http_methods(["GET", "POST"])
 def dashboard_view(request: HttpRequest) -> HttpResponse:
     """
     Common Q-Voice Hub & Target Custodians Directory Dashboard.
@@ -101,6 +103,7 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     return render(request, "q_voice/dashboard.html", context)
 
 
+@require_http_methods(["GET", "POST"])
 def custodian_detail_view(request: HttpRequest, custodian_name: str) -> HttpResponse:
     """
     Forensic Profile Analysis Workspace for a specific Custodian.
@@ -154,6 +157,7 @@ def custodian_detail_view(request: HttpRequest, custodian_name: str) -> HttpResp
     return render(request, "q_voice/custodian_detail.html", context)
 
 
+@require_GET
 def recording_detail_view(request: HttpRequest, recording_id: uuid.UUID) -> HttpResponse:
     """
     Individual Audio Case Forensic Dossier View.
@@ -170,6 +174,7 @@ def recording_detail_view(request: HttpRequest, recording_id: uuid.UUID) -> Http
     return custodian_detail_view(request, custodian_name=custodian_name)
 
 
+@require_POST
 def delete_custodian_view(request: HttpRequest, custodian_name: str) -> HttpResponse:
     """
     Deletes all audio recordings for a custodian profile and returns to the dashboard.
@@ -185,6 +190,7 @@ def delete_custodian_view(request: HttpRequest, custodian_name: str) -> HttpResp
     return redirect("q_voice:dashboard")
 
 
+@require_http_methods(["GET", "POST"])
 def delete_recording_view(request: HttpRequest, recording_id: uuid.UUID) -> HttpResponse:
     """
     Deletes an audio recording and returns to the custodian profile or dashboard.

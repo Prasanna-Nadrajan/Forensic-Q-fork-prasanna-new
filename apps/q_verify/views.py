@@ -17,6 +17,7 @@ from .selectors import (
     get_all_custodian_profiles,
     get_case_risk_chart_html,
     get_case_summary_metrics,
+    get_custodian_verification_cases,
     get_paginated_verified_documents,
     get_verification_case,
     get_verified_document_detail,
@@ -113,15 +114,7 @@ def case_detail_view(request: HttpRequest, case_id: str) -> HttpResponse:
     if case.total_documents > 0:
         chart_html = get_case_risk_chart_html(summary["risk_distribution"])
 
-    from .models import VerificationCase
-
-    custodian_cases = (
-        VerificationCase.objects.filter(
-            custodian_name__iexact=case.custodian_name.strip() if case.custodian_name else "unknown"
-        )
-        .only("id", "case_ref", "case_title")
-        .order_by("-created_at")
-    )
+    custodian_cases = get_custodian_verification_cases(case.custodian_name)
 
     return render(
         request,

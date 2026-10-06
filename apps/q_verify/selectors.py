@@ -27,7 +27,7 @@ def get_all_custodian_profiles() -> list[dict[str, Any]]:
     Groups all verification cases by custodian name and returns aggregate
     forensic metrics per custodian for the profiles directory card grid.
     """
-    cases = VerificationCase.objects.prefetch_related("documents").all().order_by("-created_at")
+    cases = VerificationCase.objects.all().order_by("-created_at")
     custodian_map: dict[str, dict[str, Any]] = {}
 
     for case in cases:
@@ -298,3 +298,15 @@ def get_case_risk_chart_html(risk_dist: dict[str, int]) -> str:
         height=300,
     )
     return fig.to_html(full_html=False, include_plotlyjs=False)
+
+
+def get_custodian_verification_cases(custodian_name: str) -> QuerySet[VerificationCase]:
+    """
+    Returns related verification cases for a given custodian.
+    """
+    clean_name = custodian_name.strip() if custodian_name else "unknown"
+    return (
+        VerificationCase.objects.filter(custodian_name__iexact=clean_name)
+        .only("id", "case_ref", "case_title")
+        .order_by("-created_at")
+    )

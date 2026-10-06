@@ -17,6 +17,7 @@ from core.audits import get_active_audit
 from .selectors import (
     get_all_custodian_profiles,
     get_attachment_by_id,
+    get_custodian_investigations,
     get_email_detail,
     get_investigation_summary_metrics,
     get_mailbox_progress_state,
@@ -369,15 +370,7 @@ def investigation_detail_view(request: HttpRequest, mailbox_id: str) -> HttpResp
     summary = get_investigation_summary_metrics(mailbox_id)
     inv = summary["investigation"]
 
-    from .models import MailboxInvestigation
-
-    custodian_cases = (
-        MailboxInvestigation.objects.filter(
-            auditee_name__iexact=inv.auditee_name.strip() if inv.auditee_name else "unknown"
-        )
-        .only("id", "audit_ref", "audit_name")
-        .order_by("-created_at")
-    )
+    custodian_cases = get_custodian_investigations(inv.auditee_name)
 
     return render(
         request,
