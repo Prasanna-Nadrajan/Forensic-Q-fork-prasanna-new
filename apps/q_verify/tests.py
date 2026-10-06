@@ -576,7 +576,6 @@ class DocumentSearchTests(TestCase):
 
     def test_content_search_backends(self):
         import sys
-        from unittest.mock import MagicMock, patch
 
         from apps.q_verify.backend.content_search import (
             _extract_text_from_docx,
@@ -597,7 +596,7 @@ class DocumentSearchTests(TestCase):
         mock_pytesseract.image_to_string.return_value = "secret information inside pdf"
         mock_pdf2image = MagicMock()
         mock_pdf2image.convert_from_path.return_value = ["fake_image"]
-        
+
         sys.modules["pytesseract"] = mock_pytesseract
         sys.modules["pdf2image"] = mock_pdf2image
         try:
@@ -624,7 +623,7 @@ class DocumentSearchTests(TestCase):
         mock_pytesseract = MagicMock()
         mock_pytesseract.image_to_string.return_value = "image secret"
         mock_pil = MagicMock()
-        
+
         sys.modules["pytesseract"] = mock_pytesseract
         sys.modules["PIL"] = mock_pil
         try:
