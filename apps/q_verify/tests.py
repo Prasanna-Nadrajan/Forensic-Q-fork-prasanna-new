@@ -574,9 +574,9 @@ class DocumentSearchTests(TestCase):
         self.assertIn("information", data["matched_keywords"])
         self.assertIn("Secret", data["matched_keywords"])
 
-    @patch("pdf2image.convert_from_path")
-    @patch("pytesseract.image_to_string")
-    def test_content_search_backends(self, mock_image_to_string, mock_convert):
+    def test_content_search_backends(self):
+        import sys
+        from unittest.mock import MagicMock, patch
 
         from apps.q_verify.backend.content_search import (
             _extract_text_from_docx,
@@ -592,42 +592,71 @@ class DocumentSearchTests(TestCase):
         self.assertEqual(_extract_text_from_docx("non_existent.docx"), "")
         self.assertEqual(_extract_text_from_xlsx("non_existent.xlsx"), "")
 
-        # 2. Test PDF OCR success path via mock
-        mock_convert.return_value = ["fake_image"]
-        mock_image_to_string.return_value = "secret information inside pdf"
-        text = _extract_text_from_pdf_ocr("fake.pdf")
-        self.assertIn("secret information", text)
+        # 2. Test PDF OCR success path via sys.modules mock
+        mock_pytesseract = MagicMock()
+        mock_pytesseract.image_to_string.return_value = "secret information inside pdf"
+        mock_pdf2image = MagicMock()
+        mock_pdf2image.convert_from_path.return_value = ["fake_image"]
+        
+        sys.modules["pytesseract"] = mock_pytesseract
+        sys.modules["pdf2image"] = mock_pdf2image
+        try:
+            text = _extract_text_from_pdf_ocr("fake.pdf")
+            self.assertIn("secret information", text)
+        finally:
+            del sys.modules["pytesseract"]
+            del sys.modules["pdf2image"]
 
-        # 3. Test PDF PyPDF fallback success path via mock
-        mock_convert.side_effect = Exception("No poppler")
+        # 3. Test PDF PyPDF fallback success path via sys.modules
+        mock_pdf2image.convert_from_path.side_effect = Exception("No poppler")
+        sys.modules["pdf2image"] = mock_pdf2image
         with patch("pypdf.PdfReader") as mock_reader:
             mock_page = MagicMock()
             mock_page.extract_text.return_value = "fallback secret"
             mock_reader.return_value.pages = [mock_page]
-            text = _extract_text_from_pdf_ocr("fake.pdf")
-            self.assertIn("fallback secret", text)
+            try:
+                text = _extract_text_from_pdf_ocr("fake.pdf")
+                self.assertIn("fallback secret", text)
+            finally:
+                del sys.modules["pdf2image"]
 
         # 4. Test Image OCR success path
-        with patch("PIL.Image.open"):
-            mock_image_to_string.return_value = "image secret"
+        mock_pytesseract = MagicMock()
+        mock_pytesseract.image_to_string.return_value = "image secret"
+        mock_pil = MagicMock()
+        
+        sys.modules["pytesseract"] = mock_pytesseract
+        sys.modules["PIL"] = mock_pil
+        try:
             text = _extract_text_from_image_ocr("fake.jpg")
             self.assertIn("image secret", text)
+        finally:
+            del sys.modules["pytesseract"]
+            del sys.modules["PIL"]
 
         # 5. Test DOCX success path
-        with patch("docx.Document") as mock_doc:
-            mock_p = MagicMock()
-            mock_p.text = "docx secret"
-            mock_doc.return_value.paragraphs = [mock_p]
+        mock_docx = MagicMock()
+        mock_p = MagicMock()
+        mock_p.text = "docx secret"
+        mock_docx.Document.return_value.paragraphs = [mock_p]
+        sys.modules["docx"] = mock_docx
+        try:
             text = _extract_text_from_docx("fake.docx")
             self.assertEqual(text, "docx secret")
+        finally:
+            del sys.modules["docx"]
 
         # 6. Test XLSX success path
-        with patch("openpyxl.load_workbook") as mock_wb:
-            mock_sheet = MagicMock()
-            mock_sheet.iter_rows.return_value = [("xlsx", "secret")]
-            mock_wb.return_value.worksheets = [mock_sheet]
+        mock_openpyxl = MagicMock()
+        mock_sheet = MagicMock()
+        mock_sheet.iter_rows.return_value = [("xlsx", "secret")]
+        mock_openpyxl.load_workbook.return_value.worksheets = [mock_sheet]
+        sys.modules["openpyxl"] = mock_openpyxl
+        try:
             text = _extract_text_from_xlsx("fake.xlsx")
             self.assertEqual(text, "xlsx secret")
+        finally:
+            del sys.modules["openpyxl"]
 
         # 7. Test full pipeline success
         with patch(
