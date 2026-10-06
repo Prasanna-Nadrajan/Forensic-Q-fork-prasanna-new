@@ -198,6 +198,35 @@
                 </div>
             </div>
 
+            <!-- Document Content Keyword Search -->
+            <div class="space-y-2">
+                <h4 class="font-bold text-slate-800 dark:text-zinc-200 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-magnifying-glass text-rose-400"></i> Document Content Keyword Search</span>
+                </h4>
+                <div class="p-4 rounded-xl bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800/80 space-y-3">
+                    <div id="drawer-profile-keywords-section" class="hidden mb-3">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-500 mb-2">Profile Keywords</div>
+                        <div id="drawer-profile-keywords-list" class="flex flex-wrap gap-1.5">
+                            <!-- Profile Keywords populated here -->
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <input type="text" id="drawer-keyword-input" placeholder="Add custom keyword (optional)..." class="flex-1 px-3 py-1.5 text-[11px] bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 rounded-lg focus:outline-none focus:border-rose-500 transition">
+                        <button onclick="runDocumentSearch()" id="drawer-search-btn" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1">
+                            <i class="fa-solid fa-play"></i> Run Search
+                        </button>
+                    </div>
+                    
+                    <div id="drawer-search-results" class="hidden">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-500 mb-2 mt-3 border-t border-slate-200 dark:border-zinc-700 pt-3">Matched Keywords</div>
+                        <div id="drawer-keywords-list" class="flex flex-wrap gap-1.5">
+                            <!-- Keywords populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Detected Anomalies List -->
             <div id="drawer-anomalies-section" class="space-y-2 hidden">
                 <h4 class="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
@@ -406,6 +435,7 @@
         }
 
         async function openDocDrawer(docId) {
+            window.currentOpenDocId = docId;
             const drawer = document.getElementById('document-reader-drawer');
             const backdrop = document.getElementById('drawer-backdrop');
 
@@ -456,6 +486,48 @@
                 editTimeRow.classList.add('hidden');
             }
 
+            const profileKwSection = document.getElementById('drawer-profile-keywords-section');
+            const profileKwList = document.getElementById('drawer-profile-keywords-list');
+            profileKwList.innerHTML = '';
+            
+            if (data.profile_keywords && data.profile_keywords.length > 0) {
+                profileKwSection.classList.remove('hidden');
+                data.profile_keywords.forEach(kw => {
+                    const badge = document.createElement('span');
+                    badge.className = 'px-2 py-0.5 bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 border border-slate-300 dark:border-zinc-600 rounded-full font-bold shadow-sm';
+                    badge.innerText = kw;
+                    profileKwList.appendChild(badge);
+                });
+            } else {
+                profileKwSection.classList.add('hidden');
+            }
+
+            // Also populate matched keywords if they exist from previous runs
+            const matchedKwList = document.getElementById('drawer-keywords-list');
+            const searchResults = document.getElementById('drawer-search-results');
+            matchedKwList.innerHTML = '';
+
+            if (data.matched_keywords && Object.keys(data.matched_keywords).length > 0) {
+                searchResults.classList.remove('hidden');
+                for (const [kw, count] of Object.entries(data.matched_keywords)) {
+                    const badge = document.createElement('span');
+                    if (count > 0) {
+                        badge.className = 'px-2 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 rounded-full font-bold shadow-sm';
+                    } else {
+                        badge.className = 'px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 rounded-full font-bold shadow-sm italic';
+                    }
+                    badge.innerText = `${kw} (${count})`;
+                    matchedKwList.appendChild(badge);
+                }
+            } else {
+                searchResults.classList.add('hidden');
+            }
+
+            // Trigger background document search automatically if no matched keywords yet
+            if (!data.matched_keywords || Object.keys(data.matched_keywords).length === 0) {
+                runDocumentSearch(docId);
+            }
+
             // Anomalies List
             const anomSection = document.getElementById('drawer-anomalies-section');
             const anomList = document.getElementById('drawer-anomalies-list');
@@ -494,6 +566,57 @@
 
             backdrop.classList.remove('hidden');
             drawer.classList.remove('translate-x-full');
+        }
+
+        async function runDocumentSearch(forcedDocId = null) {
+            const docId = forcedDocId || window.currentOpenDocId;
+            if (!docId) return;
+            
+            const btn = document.getElementById('drawer-search-btn');
+            const keywordsList = document.getElementById('drawer-keywords-list');
+            const searchResults = document.getElementById('drawer-search-results');
+            const inputEl = document.getElementById('drawer-keyword-input');
+            
+            const customKw = inputEl ? inputEl.value.trim() : "";
+            const payload = customKw ? { custom_keywords: [customKw] } : {};
+            
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            
+            try {
+                const res = await fetch(`/verify/document/${docId}/search/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    keywordsList.innerHTML = '';
+                    
+                    if (data.matched_keywords && Object.keys(data.matched_keywords).length > 0) {
+                        searchResults.classList.remove('hidden');
+                        for (const [kw, count] of Object.entries(data.matched_keywords)) {
+                            const badge = document.createElement('span');
+                            if (count > 0) {
+                                badge.className = 'px-2 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 rounded-full font-bold shadow-sm';
+                            } else {
+                                badge.className = 'px-2 py-0.5 bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 rounded-full font-bold shadow-sm italic';
+                            }
+                            badge.innerText = `${kw} (${count})`;
+                            keywordsList.appendChild(badge);
+                        }
+                    } else {
+                        searchResults.classList.remove('hidden');
+                        keywordsList.innerHTML = '<span class="text-slate-400 italic">No matches found.</span>';
+                    }
+                    
+                    if (inputEl) inputEl.value = '';
+                }
+            } catch (err) {
+                console.error("Search failed:", err);
+            } finally {
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i> Run Search';
+            }
         }
 
         function closeDocDrawer() {

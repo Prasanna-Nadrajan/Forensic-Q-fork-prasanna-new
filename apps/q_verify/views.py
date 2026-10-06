@@ -22,7 +22,11 @@ from .selectors import (
     get_verification_case,
     get_verified_document_detail,
 )
-from .services import create_verification_case_with_profile, ingest_and_verify_document
+from .services import (
+    create_verification_case_with_profile,
+    ingest_and_verify_document,
+    perform_document_search,
+)
 
 
 @require_GET
@@ -215,6 +219,27 @@ def quick_scan_api_view(request: HttpRequest) -> JsonResponse:
     )
 
 
+@csrf_exempt
+@require_POST
+def document_search_api_view(request: HttpRequest, doc_id: str) -> JsonResponse:
+    try:
+        data = json.loads(request.body)
+        custom_keywords = data.get("custom_keywords", [])
+    except Exception:
+        custom_keywords = []
+
+    try:
+        doc = perform_document_search(doc_id, custom_keywords=custom_keywords)
+        return JsonResponse(
+            {
+                "success": True,
+                "matched_keywords": doc.matched_keywords,
+            }
+        )
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 @require_GET
 def documents_grid_api_view(request: HttpRequest, case_id: str) -> JsonResponse:
     """
@@ -258,6 +283,16 @@ def document_detail_api_view(request: HttpRequest, doc_id: str) -> JsonResponse:
     Returns full extracted metadata, anomaly tree, and timestamps for the reader drawer.
     """
     doc = get_verified_document_detail(doc_id)
+    profile_keywords = []
+    if doc.case and doc.case.custodian_name:
+        from core.models import InvestigationProfile
+
+        profile = InvestigationProfile.objects.filter(
+            full_name__iexact=doc.case.custodian_name
+        ).first()
+        if profile and profile.keywords:
+            profile_keywords = profile.keywords
+
     return JsonResponse(
         {
             "id": str(doc.id),
@@ -302,6 +337,8 @@ def document_detail_api_view(request: HttpRequest, doc_id: str) -> JsonResponse:
             "anomalies": doc.anomalies,
             "raw_metadata": doc.raw_metadata,
             "summary": doc.summary,
+            "profile_keywords": profile_keywords,
+            "matched_keywords": doc.matched_keywords or {},
             "has_file": bool(doc.storage_path and Path(doc.storage_path).exists()),
         }
     )
