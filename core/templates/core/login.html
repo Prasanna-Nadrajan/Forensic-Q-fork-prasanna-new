@@ -39,24 +39,22 @@
 
     <!-- Live Wallpaper Video Background (Vivid HUD Elements) -->
     <div class="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <video 
-            class="absolute inset-0 w-full h-full object-cover opacity-80 filter brightness-100 contrast-110"
-            autoplay 
-            loop 
-            muted 
-            playsinline>
+        <video class="absolute inset-0 w-full h-full object-cover opacity-80 filter brightness-100 contrast-110"
+            autoplay loop muted playsinline>
             <source src="{% static 'core/videos/hud-elements.mp4' %}" type="video/mp4">
         </video>
         <!-- Balanced Vignette to Keep Center Card Crystal Clear -->
-        <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(9,9,11,0.5)_0%,_rgba(9,9,11,0.15)_45%,_rgba(9,9,11,0.75)_100%)]"></div>
+        <div
+            class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(9,9,11,0.5)_0%,_rgba(9,9,11,0.15)_45%,_rgba(9,9,11,0.75)_100%)]">
+        </div>
     </div>
 
     <!-- Top Bar with Logo & Theme Toggle -->
     <header class="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
         <div class="flex items-center">
             <span
-                class="font-aptos text-xs sm:text-sm font-bold tracking-wide text-white/80 drop-shadow-sm select-none leading-tight">
-                AUDIT-PLANT<br>HYUNDAI MOTOR INDIA LIMITED
+                class="font-sans text-xs sm:text-sm font-bold tracking-wider text-white/80 drop-shadow-sm select-none leading-tight">
+                HYUNDAI MOTOR INDIA LIMITED<br>AUDIT-PLANT
             </span>
         </div>
 
