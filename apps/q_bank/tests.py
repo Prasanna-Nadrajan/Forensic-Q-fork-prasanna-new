@@ -645,3 +645,38 @@ class QBankServicesAndSelectorsTests(TestCase):
         self.assertGreaterEqual(fuzzy_data["total_matches"], 1)
         self.assertIn("matched_keyword", fuzzy_data["matches"][0])
         self.assertTrue(fuzzy_data["matches"][0]["matched_keyword"])
+
+    def test_dashboard_analysis_cards_metrics_and_period(self):
+        """
+        Verify that get_all_audited_persons and dashboard view expose In, Out, Balance,
+        and Period metrics (with statement label and per-statement dynamic data).
+        """
+        from .selectors import get_all_audited_persons
+
+        person = self.account.person
+        persons = get_all_audited_persons()
+        self.assertGreaterEqual(len(persons), 1)
+        target = next(p for p in persons if p["id"] == str(person.id))
+        self.assertIn("statement_period", target)
+        self.assertIn("closing_balance_formatted", target)
+        self.assertIn("accounts_data", target)
+        self.assertGreaterEqual(len(target["accounts_data"]), 1)
+
+        acc_data = target["accounts_data"][0]
+        self.assertIn("inflow", acc_data)
+        self.assertIn("outflow", acc_data)
+        self.assertIn("balance", acc_data)
+        self.assertIn("period", acc_data)
+        self.assertEqual(acc_data["period"], self.account.statement_label)
+
+        # Verify Dashboard View rendering
+        dash_url = reverse("q_bank:dashboard")
+        res = self.client.get(dash_url)
+        self.assertEqual(res.status_code, 200)
+        content = res.content.decode()
+        self.assertIn("Total Inflows", content)
+        self.assertIn("Total Outflows", content)
+        self.assertIn("Balance", content)
+        self.assertIn("Period", content)
+        self.assertIn(self.account.statement_label, content)
+        self.assertNotIn("records", content)

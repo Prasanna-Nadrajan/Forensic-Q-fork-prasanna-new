@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, OuterRef, Q, QuerySet, Subquery, Sum
+from django.db.models import Avg, Count, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Sum
 from django.http import HttpRequest
 
 from core.fuzzy import (
@@ -25,10 +25,21 @@ DEFAULT_BANK_INVESTIGATION_KEYWORDS = ["trust", "sarla"]
 
 def get_all_audited_persons() -> list[dict[str, Any]]:
     """
-    Retrieves all audited persons with aggregate statistics across all their bank statements.
+    Retrieves all audited persons with aggregate statistics across all their bank statements,
+    including statement periods, dynamic account stats, and closing balances.
     """
+    latest_balance_sub = (
+        BankTransaction.objects.filter(account=OuterRef("pk"))
+        .order_by("-txn_date", "-created_at")
+        .values("closing_balance")[:1]
+    )
+    accounts_qs = BankAccount.objects.annotate(
+        latest_closing=Subquery(latest_balance_sub),
+        min_txn_date=Min("transactions__txn_date"),
+        max_txn_date=Max("transactions__txn_date"),
+    )
     persons = (
-        AuditedPerson.objects.prefetch_related("bank_accounts__transactions")
+        AuditedPerson.objects.prefetch_related(Prefetch("bank_accounts", queryset=accounts_qs))
         .all()
         .order_by("-created_at")
     )
@@ -42,6 +53,56 @@ def get_all_audited_persons() -> list[dict[str, Any]]:
         hyundai_count = sum(a.hyundai_count for a in accounts)
         high_risk_count = sum(a.high_risk_count for a in accounts)
 
+        # Calculate closing balances and accounts_data for Alpine.js interaction
+        person_closing_balance = sum(
+            (a.latest_closing for a in accounts if a.latest_closing is not None),
+            Decimal("0.00"),
+        )
+
+        accounts_data = []
+        for a in accounts:
+            a_closing = a.latest_closing if a.latest_closing is not None else Decimal("0.00")
+            a_period = a.statement_label.strip() if a.statement_label else ""
+            if not a_period and a.min_txn_date and a.max_txn_date:
+                fmt = "%d %b %Y"
+                if a.min_txn_date == a.max_txn_date:
+                    a_period = a.min_txn_date.strftime(fmt)
+                else:
+                    a_period = f"{a.min_txn_date.strftime(fmt)} - {a.max_txn_date.strftime(fmt)}"
+            if not a_period:
+                a_period = "Statement Period"
+
+            accounts_data.append(
+                {
+                    "id": str(a.id),
+                    "bank_name": a.bank_name,
+                    "account_number": a.account_number,
+                    "inflow": format_inr(a.total_credit),
+                    "outflow": format_inr(a.total_debit),
+                    "balance": format_inr(a_closing),
+                    "period": a_period,
+                }
+            )
+
+        # Determine overall statement period for auditee
+        if not accounts:
+            statement_period = "No Statements"
+        elif len(accounts) == 1:
+            statement_period = accounts_data[0]["period"]
+        else:
+            valid_min_dates = [a.min_txn_date for a in accounts if a.min_txn_date]
+            valid_max_dates = [a.max_txn_date for a in accounts if a.max_txn_date]
+            if valid_min_dates and valid_max_dates:
+                overall_min = min(valid_min_dates)
+                overall_max = max(valid_max_dates)
+                fmt = "%d %b %Y"
+                if overall_min == overall_max:
+                    statement_period = overall_min.strftime(fmt)
+                else:
+                    statement_period = f"{overall_min.strftime(fmt)} - {overall_max.strftime(fmt)}"
+            else:
+                statement_period = "Combined Statements"
+
         results.append(
             {
                 "id": str(p.id),
@@ -52,6 +113,10 @@ def get_all_audited_persons() -> list[dict[str, Any]]:
                 "pan_number": p.pan_number,
                 "accounts_count": len(accounts),
                 "accounts": accounts,
+                "accounts_data": accounts_data,
+                "statement_period": statement_period,
+                "closing_balance": float(person_closing_balance),
+                "closing_balance_formatted": format_inr(person_closing_balance),
                 "total_transactions": total_txns,
                 "total_debit": float(total_debit),
                 "total_debit_formatted": format_inr(total_debit),
