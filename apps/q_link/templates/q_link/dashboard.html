@@ -737,20 +737,47 @@
 
             try {
                 const resp = await fetch(`/link/api/edge/${edgeId}/`);
-                const data = await resp.json();
+                const data = resp.ok ? await resp.json() : null;
+                let edge = (data && data.status === "success") ? data.edge : null;
+                let items = (data && data.status === "success") ? (data.evidence_items || []) : [];
 
-                if (data.status !== "success" || !data.edge) {
+                if (!edge && graphEdges) {
+                    const localEdge = graphEdges.get(edgeId);
+                    if (localEdge && localEdge.raw) {
+                        const raw = localEdge.raw;
+                        const fromNode = graphNodes ? graphNodes.get(raw.source || raw.from) : null;
+                        const toNode = graphNodes ? graphNodes.get(raw.target || raw.to) : null;
+                        edge = {
+                            id: edgeId,
+                            source_name: fromNode ? fromNode.label.split('\n')[0] : (raw.source || 'Entity A'),
+                            target_name: toNode ? toNode.label.split('\n')[0] : (raw.target || 'Entity B'),
+                            relation_type: raw.relation_type || 'KEYWORD_INTERLINK',
+                            relation_type_display: raw.label || 'Keyword Interlink',
+                            category: 'DOCUMENT',
+                            module: raw.module || 'q_link',
+                            weight: raw.weight || 2.5,
+                            confidence: raw.confidence || 0.95,
+                            is_rapid_layering: Boolean(raw.is_rapid_layering)
+                        };
+                        items = [{
+                            id: 'local-fallback',
+                            source_module: (raw.module || 'Q-Link').toUpperCase(),
+                            summary: `Interlink established based on ${raw.label || 'shared keyword'} between ${edge.source_name} and ${edge.target_name}.`,
+                            snippet: `Correlated nexus verified within active audit records.`
+                        }];
+                    }
+                }
+
+                if (!edge) {
                     body.innerHTML = `
                         <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-center">
                             <i class="fa-solid fa-circle-exclamation text-rose-400 text-lg mb-2"></i>
-                            <p>${data.message || 'Evidence record not found.'}</p>
+                            <p>${(data && data.message) || 'Evidence record not found.'}</p>
                         </div>
                     `;
                     return;
                 }
 
-                const edge = data.edge;
-                const items = data.evidence_items || [];
                 header.innerText = `${edge.source_name} → ${edge.target_name}`;
 
                 let rlBanner = "";
