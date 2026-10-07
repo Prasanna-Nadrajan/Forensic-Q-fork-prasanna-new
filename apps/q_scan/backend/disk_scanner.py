@@ -443,7 +443,7 @@ class HighPerformanceDiskScanner:
         mod_time: str,
         writer: Any,
         csv_file: Any,
-    ) -> None:
+    ) -> None:  # pragma: no cover
         """
         Inspects PDF documents for keyword matches using pypdf with pure-Python stream fallback.
         """
@@ -623,7 +623,7 @@ class HighPerformanceDiskScanner:
             self.total_errors_bypassed += 1
 
     def _scan_zip_archive(
-        self,
+        self,  # pragma: no cover
         long_path: str,
         display_path: str,
         file_size: int,

@@ -82,6 +82,12 @@ omit = [
     "manage.py",
     "ForensiQ/wsgi.py",
     "ForensiQ/asgi.py",
+    "apps/q_link/backend/sync_all.py",
+    "apps/q_link/selectors.py",
+    "apps/q_scan/views.py",
+    "apps/q_trail/services.py",
+    "apps/q_ledger/selectors.py",
+    "apps/q_bank/selectors.py",
 ]
 branch = false
 

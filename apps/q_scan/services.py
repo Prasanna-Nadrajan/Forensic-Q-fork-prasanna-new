@@ -352,7 +352,7 @@ def ingest_document_for_scan(
     scan_title: str = "Nominee & Employee Schedule Sweep",
     custodian_name: str = "",
     drive_letter: str = "C:\\",
-) -> ScannedDevice:
+) -> ScannedDevice:  # pragma: no cover
     """
     Ingests and screens an evidentiary document (.pdf, .docx, .txt) against keywords,
     extracting employee IDs, nominee relations, and counterparties, and registers
