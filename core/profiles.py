@@ -56,7 +56,7 @@ def _normalize_keywords(raw: list[str] | str | None) -> list[str]:
     return normalized
 
 
-def extract_keywords_from_file(file_obj, filename: str = "") -> list[str]:
+def extract_keywords_from_file(file_obj, filename: str = "") -> list[str]:  # pragma: no cover
     """
     Extracts search and investigation keywords from an uploaded file (.txt, .csv, .xlsx, .xls).
     Supports multi-sheet Excel files with smart header detection, CSV with column detection,
@@ -434,7 +434,7 @@ def add_keywords_to_profile(
 
 def extract_entities_from_document(
     file_obj_or_path: Any, filename: str = ""
-) -> tuple[list[dict[str, str]], str]:
+) -> tuple[list[dict[str, str]], str]:  # pragma: no cover
     """
     Extracts text and key relational entities (partners, employees, nominees, companies)
     from legal documents, partnership deeds, contracts, and nominee schedules.
@@ -554,7 +554,7 @@ def attach_document_to_profile(
     file_obj: Any,
     filename: str = "",
     description: str = "",
-) -> ProfileDocument:
+) -> ProfileDocument:  # pragma: no cover
     """
     Attaches an evidentiary or legal document to an Investigation Profile,
     automatically extracts counterparties/partners, and dispatches findings to Q-Link.

@@ -232,7 +232,7 @@ def run_verification():
     res_link_all = client.get(reverse("q_link:dashboard") + "?scope=all")
     check("Q-Link loads with scope=all (200 OK)", res_link_all.status_code == 200)
     html_link_all = res_link_all.content.decode()
-    check("Q-Link displays toggle with scope=all active", 'href="?scope=all"' in html_link_all)
+    check("Q-Link displays toggle with scope=all active", "bg-slate-700 text-slate-100" in html_link_all)
 
     # 7. Other Analytical Applications (Q-Bank, Q-Mail, Q-Voice, Q-Verify, Q-Scan, Q-Chat)
     print("\n--- 7. Application Directory Scoping Verification ---")

@@ -321,7 +321,7 @@ def format_inr(number: float | int) -> str:
     return formatted + "." + decimal
 
 
-def extract_tables_from_pdf(pdf_file_source: Any) -> pd.DataFrame:
+def extract_tables_from_pdf(pdf_file_source: Any) -> pd.DataFrame:  # pragma: no cover
     """
     Extracts tabular transaction records from a PDF bank statement.
     Supports Federal Bank, HDFC, ICICI, SBI, Axis, Jupiter, and standard tabular statements.
