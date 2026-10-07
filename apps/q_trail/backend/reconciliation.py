@@ -472,6 +472,9 @@ def match_intermediate_transactions(
     statement_a: pd.DataFrame,
     statement_b: pd.DataFrame,
     *,
+    person_a_name: str = "Person A",
+    person_b_name: str = "Person B",
+    bidirectional: bool = True,
     time_window_days: int = 0,
     direct_matched_utrs: set[str] | None = None,
     date_col: str | None = None,
@@ -482,27 +485,13 @@ def match_intermediate_transactions(
     """
     Executes Match Rule 2: Network Overlap Analysis to identify 1-hop suspected intermediaries (Person X).
 
-    Workflow:
-    - Step 1: Subsets Person A's Debits (Outflows to X) and Person B's Credits (Inflows from X).
-    - Step 2: Extracts counterparty identifiers (VPA handle or Entity Name) for both subsets.
-    - Step 3: Computes set intersection of counterparties present in both sets (Candidate_X).
-    - Step 4: Applies vectorized Temporal and Value constraints:
-        - Time Delta: 0 <= Date(X -> B) - Date(A -> X) <= time_window_days (default: 3 days).
-        - Amount Logic: Amount(X -> B) <= Amount(A -> X) (allows partial pass-through / fee retention).
-    - Step 5: Labels matched pairs as 'Intermediate_Transfer' and computes retention metrics.
+    Evaluates intermediate pass-through conduits:
+    - Direction A -> B: Person A debits to X, Person B credits from X.
+    - Direction B -> A (if bidirectional=True): Person B debits to X, Person A credits from X.
 
-    Args:
-        statement_a: Person A bank statement DataFrame.
-        statement_b: Person B bank statement DataFrame.
-        time_window_days: Max permissible elapsed days between outflow to X and inflow to B.
-        direct_matched_utrs: Optional set of UTRs already matched in Direct Transfer rule.
-        date_col: Optional date column override.
-        debit_col: Optional debit column override.
-        credit_col: Optional credit column override.
-        narration_col: Optional narration column override.
-
-    Returns:
-        pd.DataFrame: Matched intermediate transfer hops grouped by intermediary.
+    Applies Tiered Temporal Flagging:
+    - delta_hours <= 24: High Risk (Rapid Layering)
+    - 24 < delta_hours <= 72: Medium Risk (Delayed Pass-Through)
     """
     df_a = _prepare_statement_dataframe(
         statement_a,
@@ -521,10 +510,16 @@ def match_intermediate_transactions(
 
     empty_cols = [
         "Transfer_Type",
+        "Direction",
+        "Sender_Person",
+        "Recipient_Person",
         "Intermediary_Entity",
         "Outflow_Date",
         "Inflow_Date",
         "Time_Delta_Days",
+        "Time_Delta_Hours",
+        "Risk_Level",
+        "Layering_Type",
         "Outflow_Amount",
         "Inflow_Amount",
         "Retention_Amount",
@@ -546,19 +541,13 @@ def match_intermediate_transactions(
         str(u).strip().upper() for u in (direct_matched_utrs or set()) if str(u).strip()
     }
 
-    # Step 1: Create subsets of Person A Debits (A -> X) and Person B Credits (X -> B)
-    a_debits = df_a[df_a["Debit"] > 0].copy()
-    b_credits = df_b[df_b["Credit"] > 0].copy()
+    # Evaluate directions
+    transfer_scenarios = [
+        ("A_TO_B", df_a, df_b, person_a_name, person_b_name),
+    ]
+    if bidirectional:
+        transfer_scenarios.append(("B_TO_A", df_b, df_a, person_b_name, person_a_name))
 
-    # Exclude direct transfers already identified
-    if direct_matched_utrs:
-        a_debits = a_debits[~a_debits["UTR"].isin(direct_matched_utrs)]
-        b_credits = b_credits[~b_credits["UTR"].isin(direct_matched_utrs)]
-
-    if a_debits.empty or b_credits.empty:
-        return pd.DataFrame(columns=empty_cols)
-
-    # Step 2: Establish robust Intermediary Identifier Key (VPA preferred, Name fallback)
     def derive_counterparty_key(row: pd.Series) -> str | None:
         vpa = str(row.get("Counterparty_VPA") or "").strip().lower()
         if vpa and vpa != "none" and vpa != "nan" and "@" in vpa:
@@ -568,91 +557,122 @@ def match_intermediate_transactions(
             return name
         return None
 
-    a_debits["Intermediary_Key"] = a_debits.apply(derive_counterparty_key, axis=1)
-    b_credits["Intermediary_Key"] = b_credits.apply(derive_counterparty_key, axis=1)
+    matched_dfs: list[pd.DataFrame] = []
 
-    a_valid = a_debits[a_debits["Intermediary_Key"].notna()].copy()
-    b_valid = b_credits[b_credits["Intermediary_Key"].notna()].copy()
+    for direction, src_df, dst_df, src_person, dst_person in transfer_scenarios:
+        # Step 1: Subsets of Source Debits (src -> X) and Destination Credits (X -> dst)
+        src_debits = src_df[src_df["Debit"] > 0].copy()
+        dst_credits = dst_df[dst_df["Credit"] > 0].copy()
 
-    if a_valid.empty or b_valid.empty:
-        return pd.DataFrame(columns=empty_cols)
+        # Exclude direct transfers already identified
+        if direct_matched_utrs:
+            src_debits = src_debits[~src_debits["UTR"].isin(direct_matched_utrs)]
+            dst_credits = dst_credits[~dst_credits["UTR"].isin(direct_matched_utrs)]
 
-    # Step 3: Find intersection of counterparties present in both sets
-    counterparties_a = set(a_valid["Intermediary_Key"].unique())
-    counterparties_b = set(b_valid["Intermediary_Key"].unique())
-    candidate_x_set = counterparties_a.intersection(counterparties_b)
+        if src_debits.empty or dst_credits.empty:
+            continue
 
-    if not candidate_x_set:
-        return pd.DataFrame(columns=empty_cols)
+        # Step 2: Establish robust Intermediary Identifier Key
+        src_debits["Intermediary_Key"] = src_debits.apply(derive_counterparty_key, axis=1)
+        dst_credits["Intermediary_Key"] = dst_credits.apply(derive_counterparty_key, axis=1)
 
-    logger.info(
-        f"Identified {len(candidate_x_set)} candidate intermediary entities in network intersection: {candidate_x_set}"
-    )
+        src_valid = src_debits[src_debits["Intermediary_Key"].notna()].copy()
+        dst_valid = dst_credits[dst_credits["Intermediary_Key"].notna()].copy()
 
-    a_candidates = a_valid[a_valid["Intermediary_Key"].isin(candidate_x_set)].copy()
-    b_candidates = b_valid[b_valid["Intermediary_Key"].isin(candidate_x_set)].copy()
+        if src_valid.empty or dst_valid.empty:
+            continue
 
-    # Step 4: Vectorized Temporal & Value Constraint Matching
-    merged = pd.merge(
-        a_candidates,
-        b_candidates,
-        on="Intermediary_Key",
-        suffixes=("_outflow", "_inflow"),
-    )
+        # Step 3: Find intersection of counterparties present in both sets
+        counterparties_src = set(src_valid["Intermediary_Key"].unique())
+        counterparties_dst = set(dst_valid["Intermediary_Key"].unique())
+        candidate_x_set = counterparties_src.intersection(counterparties_dst)
 
-    if merged.empty:
-        return pd.DataFrame(columns=empty_cols)
+        if not candidate_x_set:
+            continue
 
-    # Compute time delta in fractional days
-    # Inflow to B must occur on or after Outflow from A (Date_inflow >= Date_outflow)
-    time_delta = (merged["Date_dt_inflow"] - merged["Date_dt_outflow"]).dt.total_seconds() / 86400.0
-
-    # Vectorized filters:
-    # 1. Temporal window: time_delta >= 0.0 (and <= time_window_days if time_window_days > 0)
-    # 2. Value constraint: Amount passed to B <= Amount received from A
-    if time_window_days and time_window_days > 0:
-        valid_mask = (
-            (time_delta >= 0.0)
-            & (time_delta <= float(time_window_days))
-            & (merged["Credit_inflow"] <= merged["Debit_outflow"])
+        logger.info(
+            f"Direction {direction}: Identified {len(candidate_x_set)} candidate intermediary entities: {candidate_x_set}"
         )
-    else:
-        valid_mask = (time_delta >= 0.0) & (merged["Credit_inflow"] <= merged["Debit_outflow"])
 
-    matched = merged[valid_mask].copy()
-    if matched.empty:
+        src_candidates = src_valid[src_valid["Intermediary_Key"].isin(candidate_x_set)].copy()
+        dst_candidates = dst_valid[dst_valid["Intermediary_Key"].isin(candidate_x_set)].copy()
+
+        # Step 4: Vectorized Temporal & Value Constraint Matching
+        merged = pd.merge(
+            src_candidates,
+            dst_candidates,
+            on="Intermediary_Key",
+            suffixes=("_outflow", "_inflow"),
+        )
+
+        if merged.empty:
+            continue
+
+        # Inflow to dst must occur on or after Outflow from src
+        time_delta = (
+            merged["Date_dt_inflow"] - merged["Date_dt_outflow"]
+        ).dt.total_seconds() / 86400.0
+
+        if time_window_days and time_window_days > 0:
+            valid_mask = (
+                (time_delta >= 0.0)
+                & (time_delta <= float(time_window_days))
+                & (merged["Credit_inflow"] <= merged["Debit_outflow"])
+            )
+        else:
+            valid_mask = (time_delta >= 0.0) & (merged["Credit_inflow"] <= merged["Debit_outflow"])
+
+        matched = merged[valid_mask].copy()
+        if matched.empty:
+            continue
+
+        # Build standardized output schema with tiered temporal flags
+        matched["Transfer_Type"] = "Intermediate_Transfer"
+        matched["Direction"] = direction
+        matched["Sender_Person"] = src_person
+        matched["Recipient_Person"] = dst_person
+        matched["Intermediary_Entity"] = matched["Intermediary_Key"]
+        matched["Outflow_Date"] = matched["Date_outflow"]
+        matched["Inflow_Date"] = matched["Date_inflow"]
+        matched["Time_Delta_Days"] = time_delta[valid_mask].round(2)
+        delta_hours = (time_delta[valid_mask] * 24.0).round(1)
+        matched["Time_Delta_Hours"] = delta_hours
+        matched["Risk_Level"] = np.where(delta_hours <= 24.0, "HIGH", "MEDIUM")
+        matched["Layering_Type"] = np.where(
+            delta_hours <= 24.0, "RAPID_LAYERING", "DELAYED_PASS_THROUGH"
+        )
+        matched["Outflow_Amount"] = matched["Debit_outflow"].astype(float)
+        matched["Inflow_Amount"] = matched["Credit_inflow"].astype(float)
+        matched["Retention_Amount"] = (matched["Outflow_Amount"] - matched["Inflow_Amount"]).round(
+            2
+        )
+        matched["Retention_Pct"] = (
+            np.where(
+                matched["Outflow_Amount"] > 0,
+                (matched["Retention_Amount"] / matched["Outflow_Amount"]) * 100.0,
+                0.0,
+            )
+        ).round(2)
+
+        matched["Outflow_UTR"] = matched["UTR_outflow"].fillna("N/A")
+        matched["Inflow_UTR"] = matched["UTR_inflow"].fillna("N/A")
+        matched["Outflow_Narration"] = matched["Narration_outflow"]
+        matched["Inflow_Narration"] = matched["Narration_inflow"]
+        matched["Outflow_VPA"] = matched["Counterparty_VPA_outflow"]
+        matched["Inflow_VPA"] = matched["Counterparty_VPA_inflow"]
+        matched["Outflow_Account"] = matched["Counterparty_Account_outflow"]
+        matched["Inflow_Account"] = matched["Counterparty_Account_inflow"]
+
+        matched_dfs.append(matched[empty_cols])
+
+    if not matched_dfs:
         return pd.DataFrame(columns=empty_cols)
 
-    # Build standardized output schema
-    matched["Transfer_Type"] = "Intermediate_Transfer"
-    matched["Intermediary_Entity"] = matched["Intermediary_Key"]
-    matched["Outflow_Date"] = matched["Date_outflow"]
-    matched["Inflow_Date"] = matched["Date_inflow"]
-    matched["Time_Delta_Days"] = time_delta[valid_mask].round(2)
-    matched["Outflow_Amount"] = matched["Debit_outflow"].astype(float)
-    matched["Inflow_Amount"] = matched["Credit_inflow"].astype(float)
-    matched["Retention_Amount"] = (matched["Outflow_Amount"] - matched["Inflow_Amount"]).round(2)
-    matched["Retention_Pct"] = (
-        np.where(
-            matched["Outflow_Amount"] > 0,
-            (matched["Retention_Amount"] / matched["Outflow_Amount"]) * 100.0,
-            0.0,
-        )
-    ).round(2)
-
-    matched["Outflow_UTR"] = matched["UTR_outflow"].fillna("N/A")
-    matched["Inflow_UTR"] = matched["UTR_inflow"].fillna("N/A")
-    matched["Outflow_Narration"] = matched["Narration_outflow"]
-    matched["Inflow_Narration"] = matched["Narration_inflow"]
-    matched["Outflow_VPA"] = matched["Counterparty_VPA_outflow"]
-    matched["Inflow_VPA"] = matched["Counterparty_VPA_inflow"]
-    matched["Outflow_Account"] = matched["Counterparty_Account_outflow"]
-    matched["Inflow_Account"] = matched["Counterparty_Account_inflow"]
-
-    # Sort chronologically by outflow date and group by intermediary
-    matched = matched.sort_values(by=["Intermediary_Entity", "Date_dt_outflow", "Date_dt_inflow"])
-
-    return matched[empty_cols].reset_index(drop=True)
+    final_df = pd.concat(matched_dfs, ignore_index=True)
+    final_df = final_df.sort_values(
+        by=["Intermediary_Entity", "Outflow_Date", "Inflow_Date"]
+    ).reset_index(drop=True)
+    return final_df
 
 
 def group_intermediate_transfers_by_intermediary(
@@ -726,10 +746,13 @@ def reconcile_and_match_network(
             str(u).strip().upper() for u in direct_df["UTR"] if str(u).strip() and str(u) != "N/A"
         }
 
-    # 2. Match Intermediate Transactions (Rule 2)
+    # 2. Match Intermediate Transactions (Rule 2 - Bidirectional)
     intermediate_df = match_intermediate_transactions(
         statement_a,
         statement_b,
+        person_a_name=person_a_name,
+        person_b_name=person_b_name,
+        bidirectional=True,
         time_window_days=time_window_days,
         direct_matched_utrs=direct_utrs,
         date_col=date_col,

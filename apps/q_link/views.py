@@ -40,7 +40,7 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     and initializes the interactive Vis.js network graph canvas with 3 Operational Modes.
     """
     active_audit = get_active_audit(request)
-    mode = request.GET.get("mode", "audit").strip().lower()
+    mode = request.GET.get("mode", "keyword").strip().lower()
     keyword = request.GET.get("keyword", "").strip()
 
     scope = request.GET.get("scope")
@@ -100,7 +100,7 @@ def api_network_data(request: HttpRequest) -> JsonResponse:
     max_hops = int(request.GET.get("max_hops", 2))
     min_confidence = float(request.GET.get("min_confidence", 0.0))
 
-    mode = request.GET.get("mode", "audit").strip().lower()
+    mode = request.GET.get("mode", "keyword").strip().lower()
     keyword = request.GET.get("keyword", "").strip()
 
     active_audit = get_active_audit(request)

@@ -347,6 +347,64 @@ class QTrailIntermediateMatchingTests(TestCase):
         self.assertEqual(len(grouped["bobby@okaxis"]), 1)
         self.assertEqual(len(grouped["SHARMA ENTERPRISES"]), 1)
 
+    def test_bidirectional_intermediate_matching(self):
+        # Stmt A: A -> X (Debit 100k on 03-01), Y -> A (Credit 48k on 03-05)
+        stmt_a = pd.DataFrame(
+            {
+                "Date": ["2026-03-01", "2026-03-05"],
+                "Narration": [
+                    "UPI-BOBBY TRADERS-bobby@okaxis-AXIS0000001-112233445566",
+                    "UPI-CONDUIT Y-conduity@okaxis-AXIS0000001-998877665544",
+                ],
+                "Debit": [100000.0, 0.0],
+                "Credit": [0.0, 48000.0],
+            }
+        )
+        # Stmt B: X -> B (Credit 95k on 03-02), B -> Y (Debit 50k on 03-04)
+        stmt_b = pd.DataFrame(
+            {
+                "Date": ["2026-03-02", "2026-03-04"],
+                "Narration": [
+                    "UPI-BOBBY TRADERS-bobby@okaxis-AXIS0000001-112233445566",
+                    "UPI-CONDUIT Y-conduity@okaxis-AXIS0000001-998877665544",
+                ],
+                "Debit": [0.0, 50000.0],
+                "Credit": [95000.0, 0.0],
+            }
+        )
+
+        res = match_intermediate_transactions(
+            stmt_a,
+            stmt_b,
+            person_a_name="Alice",
+            person_b_name="Bob",
+            bidirectional=True,
+            time_window_days=3,
+        )
+
+        # Both directions must be detected
+        self.assertEqual(len(res), 2)
+        directions = set(res["Direction"].values)
+        self.assertEqual(directions, {"A_TO_B", "B_TO_A"})
+
+        # Check A_TO_B (Alice -> bobby -> Bob)
+        a_to_b = res[res["Direction"] == "A_TO_B"].iloc[0]
+        self.assertEqual(a_to_b["Sender_Person"], "Alice")
+        self.assertEqual(a_to_b["Recipient_Person"], "Bob")
+        self.assertEqual(a_to_b["Intermediary_Entity"], "bobby@okaxis")
+        self.assertEqual(a_to_b["Outflow_Amount"], 100000.0)
+        self.assertEqual(a_to_b["Inflow_Amount"], 95000.0)
+
+        # Check B_TO_A (Bob -> conduity -> Alice)
+        b_to_a = res[res["Direction"] == "B_TO_A"].iloc[0]
+        self.assertEqual(b_to_a["Sender_Person"], "Bob")
+        self.assertEqual(b_to_a["Recipient_Person"], "Alice")
+        self.assertEqual(b_to_a["Intermediary_Entity"], "conduity@okaxis")
+        self.assertEqual(b_to_a["Outflow_Amount"], 50000.0)
+        self.assertEqual(b_to_a["Inflow_Amount"], 48000.0)
+        self.assertIn("Risk_Level", b_to_a)
+        self.assertIn("Layering_Type", b_to_a)
+
 
 class QTrailMasterReconciliationOrchestratorTests(TestCase):
     """Tests for the master end-to-end reconciliation orchestrator function."""

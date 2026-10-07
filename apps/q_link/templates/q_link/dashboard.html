@@ -16,8 +16,8 @@
                 <div class="inline-flex p-0.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs">
                     <button type="button" onclick="switchOperationalMode('keyword')" id="mode-btn-keyword"
                         class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'keyword' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %} cursor-pointer">
-                        <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
-                        <span>Mode 1: Keyword Network</span>
+                        <i class="fa-solid fa-link text-[10px]"></i>
+                        <span>Mode 1: Interlinks based on keywords</span>
                     </button>
                     <button type="button" onclick="switchOperationalMode('audit')" id="mode-btn-audit"
                         class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'audit' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %} cursor-pointer">
@@ -86,7 +86,7 @@
                         <!-- Active Mode Badge -->
                         <span id="active-mode-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-mono font-bold">
                             <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                            <span id="active-mode-label">{% if mode == 'keyword' %}MODE 1: KEYWORD NETWORK{% elif mode == 'global' %}MODE 3: GLOBAL VAULT MATCH{% else %}MODE 2: FULL AUDIT TOPOLOGY{% endif %}</span>
+                            <span id="active-mode-label">{% if mode == 'keyword' %}MODE 1: INTERLINKS BASED ON KEYWORDS{% elif mode == 'global' %}MODE 3: GLOBAL VAULT MATCH{% else %}MODE 2: FULL AUDIT TOPOLOGY{% endif %}</span>
                         </span>
 
                         <!-- Mode 1 / General Keyword Search Input -->
@@ -120,6 +120,19 @@
                             <i class="fa-solid fa-atom mr-1 text-cyan-400"></i><span id="text-physics">Freeze</span>
                         </button>
                     </div>
+                </div>
+
+                <!-- Active Mode Information & Interlinks Status Banner -->
+                <div id="mode-status-banner" class="px-3.5 py-2 bg-slate-950/90 border-b border-slate-800/80 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-link text-amber-400 text-xs" id="mode-status-icon"></i>
+                        <span class="font-bold text-amber-400 font-mono tracking-wide" id="mode-status-title">Interlinks based on keywords</span>
+                        <span class="text-slate-600 hidden sm:inline">•</span>
+                        <span class="text-slate-400 text-[11px] hidden sm:inline" id="mode-status-desc">Correlating cross-module entities and auditees sharing common forensic keywords</span>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700" id="mode-status-count">
+                        Discovering Interlinks...
+                    </span>
                 </div>
 
                 <!-- Vis.js Graph Rendering Container -->
@@ -369,7 +382,7 @@
     <script type="text/javascript">
         // Initial Graph Data passed from view
         const initialGraphData = JSON.parse('{{ initial_graph_json|escapejs }}');
-        let currentOperationalMode = "{{ mode|default:'audit' }}";
+        let currentOperationalMode = "{{ mode|default:'keyword' }}";
 
         let networkInstance = null;
         let graphNodes = null;
@@ -535,6 +548,7 @@
             };
 
             networkInstance = new vis.Network(container, { nodes: graphNodes, edges: graphEdges }, options);
+            updateModeBanner(data);
 
             // Click Events:
             // - Node click: Highlight 1st and 2nd degree path, dim unrelated nodes, open Inspector
@@ -554,6 +568,36 @@
             });
         }
 
+        // Update Active Mode Information Banner
+        function updateModeBanner(data) {
+            const bannerTitle = document.getElementById("mode-status-title");
+            const bannerDesc = document.getElementById("mode-status-desc");
+            const bannerCount = document.getElementById("mode-status-count");
+            const bannerIcon = document.getElementById("mode-status-icon");
+
+            const nLen = (data && data.nodes) ? data.nodes.length : 0;
+            const eLen = (data && data.edges) ? data.edges.length : 0;
+
+            if (bannerTitle) {
+                if (currentOperationalMode === 'keyword') {
+                    bannerTitle.innerText = (data && data.title) ? data.title : "Interlinks based on keywords";
+                    bannerDesc.innerText = (data && data.message) ? data.message : "Correlating cross-module entities and auditees sharing common forensic keywords";
+                    if (bannerIcon) bannerIcon.className = "fa-solid fa-link text-amber-400 text-xs";
+                } else if (currentOperationalMode === 'global') {
+                    bannerTitle.innerText = "Mode 3: Global Vault Match";
+                    bannerDesc.innerText = "Cross-audit entity resolution matching internal profiles with external repository";
+                    if (bannerIcon) bannerIcon.className = "fa-solid fa-vault text-amber-400 text-xs";
+                } else {
+                    bannerTitle.innerText = "Mode 2: Full Audit Topology";
+                    bannerDesc.innerText = "Macro correlation network of all profiles, bank accounts, and entities in audit";
+                    if (bannerIcon) bannerIcon.className = "fa-solid fa-folder-tree text-amber-400 text-xs";
+                }
+            }
+            if (bannerCount) {
+                bannerCount.innerText = `${nLen} Entities | ${eLen} Connections`;
+            }
+        }
+
         // Update Network Graph with new dataset (used for Mode 1, Mode 2, Mode 3 switches)
         function updateNetworkGraph(data) {
             if (!networkInstance) {
@@ -566,6 +610,7 @@
             graphEdges.clear();
             graphNodes.add(formattedNodes);
             graphEdges.add(formattedEdges);
+            updateModeBanner(data);
             resetGraphView();
         }
 
@@ -889,7 +934,7 @@
 
             const badgeLabel = document.getElementById("active-mode-label");
             if (badgeLabel) {
-                if (newMode === 'keyword') badgeLabel.innerText = "MODE 1: KEYWORD NETWORK";
+                if (newMode === 'keyword') badgeLabel.innerText = "MODE 1: INTERLINKS BASED ON KEYWORDS";
                 else if (newMode === 'global') badgeLabel.innerText = "MODE 3: GLOBAL VAULT MATCH";
                 else badgeLabel.innerText = "MODE 2: FULL AUDIT TOPOLOGY";
             }

@@ -9,6 +9,7 @@ from typing import Any
 
 from django.core.exceptions import ValidationError
 from django.db.models import Q, QuerySet
+from loguru import logger
 
 from .models import (
     EntityRelationship,
@@ -74,6 +75,25 @@ def _format_node(
         for t in additional_tags:
             if t not in raw_tags:
                 raw_tags.append(t)
+
+    try:
+        from core.models import InvestigationProfile
+
+        prof = InvestigationProfile.objects.filter(full_name__iexact=entity.display_name).first()
+        if prof:
+            if prof.is_substantiated and "Substantiated" not in raw_tags:
+                raw_tags.append("Substantiated")
+            for kw in prof.keywords or []:
+                clean_kw = str(kw).strip()
+                if (
+                    clean_kw
+                    and len(clean_kw) >= 2
+                    and clean_kw not in raw_tags
+                    and clean_kw.upper() not in ("UPI", "TFR", "OUT", "INR", "TRANSFER", "PAYMENT")
+                ):
+                    raw_tags.append(clean_kw)
+    except Exception as exc:
+        logger.debug(f"Profile enrichment bypassed: {exc}")
 
     node_type = (
         str(entity.entity_type).lower() if hasattr(entity.entity_type, "lower") else "profile"
@@ -420,28 +440,108 @@ def get_mode1_keyword_graph(
     max_nodes: int = 120,
 ) -> dict[str, Any]:
     """
-    Mode 1: Keyword-Centric Network Diagram
+    Mode 1: Interlinks based on keywords
     Queries all uploaded files, parsed documents, bank narrations, and profiles within the active audit.
-    Emits Nodes for any profile or document containing that keyword.
-    Emits Edges between entities if both reference or share that keyword (or direct relationship).
-    Edge thickness scales with frequency or transaction count of the keyword match.
+    Emits Nodes for profiles/documents sharing keywords.
+    Emits Edges representing interlinks based on keywords.
     """
     from core.audits import get_audit_by_id
     from core.models import InvestigationProfile, ProfileDocument
 
+    audit = get_audit_by_id(audit_id) if audit_id else None
+    audit_profile_names = list(audit.profiles.values_list("full_name", flat=True)) if audit else []
+    target_profs = (
+        list(audit.profiles.all()) if audit else list(InvestigationProfile.objects.all()[:50])
+    )
+
     kw = (keyword or "").strip()
     if not kw:
+        # No specific keyword provided: Discover all active Interlinks based on keywords across the audit
+        kw_to_entities: dict[str, list[ForensicEntity]] = {}
+        for p in target_profs:
+            fe = ForensicEntity.objects.filter(display_name__iexact=p.full_name).first()
+            if not fe:
+                continue
+            for k in p.keywords or []:
+                clean_k = str(k).strip()
+                if (
+                    clean_k
+                    and len(clean_k) >= 3
+                    and clean_k.upper() not in ("UPI", "TFR", "OUT", "INR", "TRANSFER", "PAYMENT")
+                ):
+                    kw_to_entities.setdefault(clean_k, []).append(fe)
+
+        matching_entities_dict: dict[str, ForensicEntity] = {}
+        interlink_edges: list[dict[str, Any]] = []
+        edge_set = set()
+
+        for k_term, ents in kw_to_entities.items():
+            if len(ents) >= 2:
+                for i in range(len(ents)):
+                    for j in range(i + 1, len(ents)):
+                        ea, eb = ents[i], ents[j]
+                        matching_entities_dict[str(ea.id)] = ea
+                        matching_entities_dict[str(eb.id)] = eb
+                        pair_key = tuple(sorted([str(ea.id), str(eb.id)]))
+                        if pair_key not in edge_set:
+                            edge_set.add(pair_key)
+                            interlink_edges.append(
+                                {
+                                    "id": f"kw-{str(ea.id)[:6]}-{str(eb.id)[:6]}-{k_term[:6].lower()}",
+                                    "source": str(ea.id),
+                                    "target": str(eb.id),
+                                    "from": str(ea.id),
+                                    "to": str(eb.id),
+                                    "relation_type": "KEYWORD_INTERLINK",
+                                    "label": f"Keyword: {k_term}",
+                                    "weight": 2.5,
+                                    "confidence": 0.95,
+                                    "module": "q_link",
+                                    "is_direct": False,
+                                    "is_rapid_layering": False,
+                                    "is_external": False,
+                                    "evidence": {
+                                        "source_module": "Q-Link",
+                                        "snippet": f"Interlink based on keyword '{k_term}' between '{ea.display_name}' and '{eb.display_name}'",
+                                    },
+                                    "evidence_count": 1,
+                                }
+                            )
+
+        # Pull existing relationships between these entities
+        if matching_entities_dict:
+            existing_rels = (
+                EntityRelationship.objects.filter(
+                    source_entity_id__in=matching_entities_dict.keys(),
+                    target_entity_id__in=matching_entities_dict.keys(),
+                )
+                .select_related("source_entity", "target_entity")
+                .prefetch_related("evidence_pointers")
+            )
+            for r in existing_rels:
+                pair_key = tuple(sorted([str(r.source_entity_id), str(r.target_entity_id)]))
+                if pair_key not in edge_set:
+                    edge_set.add(pair_key)
+                    interlink_edges.append(_format_edge(r))
+
+        # If still no interlinks found, fall back to core target profile entities
+        if not matching_entities_dict:
+            for p in target_profs[:12]:
+                fe = ForensicEntity.objects.filter(display_name__iexact=p.full_name).first()
+                if fe:
+                    matching_entities_dict[str(fe.id)] = fe
+
+        nodes = [_format_node(e) for e in matching_entities_dict.values()]
         return {
             "mode": "keyword",
             "keyword": "",
-            "nodes": [],
-            "edges": [],
-            "total_entities": 0,
-            "message": "Enter a keyword (e.g. 'Metec', 'Palani', 'Substantiated', or an invoice ID) to trace its network.",
+            "title": "Interlinks based on keywords",
+            "nodes": nodes,
+            "edges": interlink_edges,
+            "total_entities": len(nodes),
+            "message": f"Showing {len(interlink_edges)} interlink(s) based on keywords across {len(nodes)} profile entities.",
         }
 
-    audit = get_audit_by_id(audit_id) if audit_id else None
-    audit_profile_names = list(audit.profiles.values_list("full_name", flat=True)) if audit else []
     kw_lower = kw.lower()
 
     # 1. Matching Entities directly (by display_name, identifier, or alias)
@@ -469,7 +569,6 @@ def get_mode1_keyword_graph(
             entity_dict[str(fe.id)] = fe
 
     # Also check if keyword is in profile.keywords
-    target_profs = audit.profiles.all() if audit else InvestigationProfile.objects.all()[:50]
     for p in target_profs:
         if any(kw_lower in str(k).lower() for k in (p.keywords or [])):
             fe = ForensicEntity.objects.filter(display_name__iexact=p.full_name).first()
@@ -513,9 +612,6 @@ def get_mode1_keyword_graph(
                 entity_ids.add(str(e.id))
                 entity_dict[str(e.id)] = e
 
-    # Format nodes
-    nodes = [_format_node(e) for e in matching_entities]
-
     # Fetch existing relationships connecting these entities
     existing_rels = list(
         EntityRelationship.objects.filter(
@@ -526,12 +622,35 @@ def get_mode1_keyword_graph(
         .prefetch_related("evidence_pointers")
     )
 
+    # If single or isolated matches in the audit, include connected audit profiles to visualize the interlink
+    if (len(matching_entities) == 1 or len(existing_rels) == 0) and matching_entities:
+        neighbor_rels = list(
+            EntityRelationship.objects.filter(
+                Q(source_entity_id__in=entity_ids) | Q(target_entity_id__in=entity_ids)
+            )
+            .select_related("source_entity", "target_entity")
+            .prefetch_related("evidence_pointers")[:20]
+        )
+        for nr in neighbor_rels:
+            other = nr.target_entity if str(nr.source_entity_id) in entity_ids else nr.source_entity
+            if audit_profile_names and other.display_name not in audit_profile_names:
+                continue
+            if str(other.id) not in entity_ids and len(matching_entities) < max_nodes:
+                matching_entities.append(other)
+                entity_ids.add(str(other.id))
+                entity_dict[str(other.id)] = other
+            if nr not in existing_rels:
+                existing_rels.append(nr)
+
+    # Format nodes
+    nodes = [_format_node(e) for e in matching_entities]
+
     edges = [_format_edge(r) for r in existing_rels]
     connected_pairs = {(e["source"], e["target"]) for e in edges} | {
         (e["target"], e["source"]) for e in edges
     }
 
-    # Synthesize co-occurrence keyword edges between matching entities if disconnected
+    # Synthesize interlink keyword edges between matching entities if disconnected
     if len(matching_entities) >= 2 and len(edges) < len(matching_entities):
         node_ids_list = list(entity_ids)
         for i in range(len(node_ids_list)):
@@ -547,7 +666,7 @@ def get_mode1_keyword_graph(
                             "target": id_b,
                             "from": id_a,
                             "to": id_b,
-                            "relation_type": "KEYWORD_CO_OCCURRENCE",
+                            "relation_type": "KEYWORD_INTERLINK",
                             "label": f"Keyword: {kw}",
                             "weight": 2.0,
                             "confidence": 0.9,
@@ -557,7 +676,7 @@ def get_mode1_keyword_graph(
                             "is_external": False,
                             "evidence": {
                                 "source_module": "Q-Link",
-                                "snippet": f"Both '{ent_a.display_name}' and '{ent_b.display_name}' reference investigation keyword '{kw}'",
+                                "snippet": f"Interlink based on keyword '{kw}' between '{ent_a.display_name}' and '{ent_b.display_name}'",
                             },
                             "evidence_count": 1,
                         }
@@ -567,6 +686,7 @@ def get_mode1_keyword_graph(
     return {
         "mode": "keyword",
         "keyword": kw,
+        "title": f"Interlinks based on keywords: {kw}",
         "nodes": nodes,
         "edges": edges,
         "total_entities": len(nodes),

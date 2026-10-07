@@ -371,8 +371,9 @@ def build_topology_graph(
     interactive Multi-Hop Topology Canvas (`NetGraph`).
     """
     W = 1060
-    H = 580
-    R = 18
+    R = 16
+    plate_w = 205
+    plate_h = 54
 
     # Categorize nodes into 3 columns:
     # Col 0 (x=160): Origins / Senders
@@ -406,14 +407,21 @@ def build_topology_graph(
     conduit_list = sorted(conduits_set)
     beneficiary_list = sorted(beneficiaries_set)
 
+    # Dynamic Canvas Height calculation based on max column item count
+    max_col_count = max(len(origin_list), len(conduit_list), len(beneficiary_list), 1)
+    pitch = 84.0
+    H = int(max(580.0, 130.0 + (max_col_count * pitch)))
+
     node_dict: dict[str, dict[str, Any]] = {}
 
     def _distribute_y(items: list[str], col_x: float) -> None:
         count = len(items)
         if count == 0:
             return
-        step = (H - 180) / max(count, 1)
-        start_y = 110 + (step / 2 if count > 1 else 100)
+        # Calculate comfortable vertical pitch and vertically center the column
+        step = min(94.0, (H - 160.0) / max(count, 1))
+        total_col_h = (count - 1) * step
+        start_y = 80.0 + ((H - 120.0) - total_col_h) / 2.0
         for i, name in enumerate(items):
             if name in node_dict:
                 continue
@@ -427,6 +435,8 @@ def build_topology_graph(
                 "letter": initial,
                 "x": col_x,
                 "y": round(y, 1),
+                "w": plate_w,
+                "h": plate_h,
                 "kind": "conduit" if col_x == 530 else "entity",
             }
 
@@ -456,8 +466,9 @@ def build_topology_graph(
 
     edges: list[dict[str, Any]] = []
     edge_idx = 1
+    half_w = plate_w / 2.0
 
-    # Add direct edges
+    # Add direct edges (dock from Origin right edge to Beneficiary left edge)
     if not direct_df.empty:
         for _, row in direct_df.iterrows():
             s_name = _clean_str(row.get("Sender_Person"))
@@ -467,8 +478,8 @@ def build_topology_graph(
             s_node = _find_node(s_name)
             t_node = _find_node(t_name)
             if s_node and t_node:
-                x1, y1 = s_node["x"], s_node["y"]
-                x2, y2 = t_node["x"], t_node["y"]
+                x1, y1 = s_node["x"] + half_w, s_node["y"]
+                x2, y2 = t_node["x"] - half_w, t_node["y"]
                 cx1 = x1 + (x2 - x1) * 0.45
                 cx2 = x1 + (x2 - x1) * 0.55
                 d = f"M {x1} {y1} C {cx1} {y1}, {cx2} {y2}, {x2} {y2}"
@@ -509,10 +520,10 @@ def build_topology_graph(
             c_node = _find_node(c_name)
             t_node = _find_node(t_name)
 
-            # Leg 1: Sender -> Conduit
+            # Leg 1: Sender right edge -> Conduit left edge
             if s_node and c_node:
-                x1, y1 = s_node["x"], s_node["y"]
-                x2, y2 = c_node["x"], c_node["y"]
+                x1, y1 = s_node["x"] + half_w, s_node["y"]
+                x2, y2 = c_node["x"] - half_w, c_node["y"]
                 cx1 = x1 + (x2 - x1) * 0.5
                 cx2 = x1 + (x2 - x1) * 0.5
                 d = f"M {x1} {y1} C {cx1} {y1}, {cx2} {y2}, {x2} {y2}"
@@ -537,10 +548,10 @@ def build_topology_graph(
                 )
                 edge_idx += 1
 
-            # Leg 2: Conduit -> Recipient
+            # Leg 2: Conduit right edge -> Recipient left edge
             if c_node and t_node:
-                x1, y1 = c_node["x"], c_node["y"]
-                x2, y2 = t_node["x"], t_node["y"]
+                x1, y1 = c_node["x"] + half_w, c_node["y"]
+                x2, y2 = t_node["x"] - half_w, t_node["y"]
                 cx1 = x1 + (x2 - x1) * 0.5
                 cx2 = x1 + (x2 - x1) * 0.5
                 d = f"M {x1} {y1} C {cx1} {y1}, {cx2} {y2}, {x2} {y2}"
@@ -573,10 +584,10 @@ def build_topology_graph(
         orig_node = node_by_name.get(orig)
         cpty_node = node_by_name.get(cpty)
         if orig_node and cpty_node and ret_amt > 0:
-            x1, y1 = cpty_node["x"], cpty_node["y"]
-            x2, y2 = orig_node["x"], orig_node["y"]
+            x1, y1 = cpty_node["x"], cpty_node["y"] + (plate_h / 2.0)
+            x2, y2 = orig_node["x"], orig_node["y"] + (plate_h / 2.0)
             # Curve backwards under the entire diagram
-            sweep_y = H - 40
+            sweep_y = H - 35
             d = f"M {x1} {y1} C {x1} {sweep_y}, {x2} {sweep_y}, {x2} {y2}"
             edges.append(
                 {
@@ -599,22 +610,22 @@ def build_topology_graph(
             )
             edge_idx += 1
 
-    # HTML label plates
+    # HTML label plates (centered exactly on node coordinates)
     plates: list[dict[str, Any]] = []
     for n in nodes:
         is_conduit = n["kind"] == "conduit"
-        plate_w = 180
-        plate_h = 50
         plates.append(
             {
                 "id": n["id"],
                 "name": n["name"],
-                "x": round(n["x"] - (plate_w / 2), 1),
-                "y": round(n["y"] + R + 14, 1),
+                "letter": n["letter"],
+                "x": round(n["x"] - half_w, 1),
+                "y": round(n["y"] - (plate_h / 2.0), 1),
                 "w": plate_w,
                 "h": plate_h,
                 "meta": {
                     "kind": n["kind"],
+                    "letter": n["letter"],
                     "label": n["name"],
                     "sub": "Conduit Intermediary" if is_conduit else "Auditee Profile",
                     "foot": "Unlinked VPA/Entity" if is_conduit else "Ledger Linked",

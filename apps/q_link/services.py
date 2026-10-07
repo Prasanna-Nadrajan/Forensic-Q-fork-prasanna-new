@@ -109,9 +109,18 @@ def resolve_or_create_entity(
     # 1. Exact canonical identifier lookup
     exact_entity = ForensicEntity.objects.filter(identifier=canonical_id).first()
     if exact_entity:
+        updated_fields = []
         if is_target and not exact_entity.is_target:
             exact_entity.is_target = True
-            exact_entity.save(update_fields=["is_target", "updated_at"])
+            updated_fields.append("is_target")
+        if metadata:
+            curr_meta = dict(exact_entity.metadata or {})
+            curr_meta.update(metadata)
+            exact_entity.metadata = curr_meta
+            updated_fields.append("metadata")
+        if updated_fields:
+            updated_fields.append("updated_at")
+            exact_entity.save(update_fields=updated_fields)
         # Record variant as alias if display names differ
         if exact_entity.display_name.lower().strip() != display_name.lower().strip():
             EntityAlias.objects.get_or_create(

@@ -104,20 +104,22 @@
                  html += `</g>`;
              });
 
-             // 3. Nodes
+             // 3. Connection Docking Pins on SVG layer
              (g.nodes || []).forEach(n => {
                  const on = this.isNodeActive(n.id);
-                 const op = this.isFocused ? (on ? 1 : 0.15) : 1;
+                 const op = this.isFocused ? (on ? 1 : 0.2) : 0.8;
                  const fill = (n.kind === 'conduit') ? '#38bdf8' : '#f59e0b';
-                 const glowOp = on ? 0.25 : 0.08;
+                 const halfW = (n.w || 205) / 2;
 
-                 html += `<g opacity='${op}' style='transition: opacity .2s; cursor:pointer' data-node-id='${n.id}'>`;
-                 html += `<circle cx='${n.x}' cy='${n.y}' r='${g.R + 6}' fill='${fill}' opacity='${glowOp}' />`;
-                 html += `<circle cx='${n.x}' cy='${n.y}' r='${g.R}' fill='${fill}' stroke='#09090b' stroke-width='2.5' />`;
-                 if (n.kind === 'conduit') {
-                     html += `<circle cx='${n.x}' cy='${n.y}' r='${g.R + 4}' fill='none' stroke='#38bdf8' stroke-width='1.2' stroke-dasharray='3 3' opacity='0.85' />`;
+                 html += `<g opacity='${op}' style='transition: opacity .2s' data-node-id='${n.id}'>`;
+                 // Left dock pin (incoming)
+                 if (n.kind === 'conduit' || n.x > 500) {
+                     html += `<circle cx='${n.x - halfW}' cy='${n.y}' r='3.5' fill='${fill}' stroke='#09090b' stroke-width='1.5' />`;
                  }
-                 html += `<text x='${n.x}' y='${n.y + 5}' text-anchor='middle' font-size='14' font-weight='bold' fill='#09090b' pointer-events='none'>${n.letter}</text>`;
+                 // Right dock pin (outgoing)
+                 if (n.kind === 'conduit' || n.x < 500) {
+                     html += `<circle cx='${n.x + halfW}' cy='${n.y}' r='3.5' fill='${fill}' stroke='#09090b' stroke-width='1.5' />`;
+                 }
                  html += `</g>`;
              });
 
@@ -179,7 +181,7 @@
 
     <!-- Dual-Layer Canvas Container (SVG edges + HTML node plates) -->
     <div class="relative w-full overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950 select-none"
-         style="aspect-ratio: 1060 / 580;">
+         :style="'aspect-ratio: ' + (graph.W || 1060) + ' / ' + (graph.H || 580) + ';'">
 
         <!-- 1. SVG Layer (Grid, column guides, vector curves, arrows, node circles) -->
         <svg class="w-full h-full absolute inset-0"
@@ -233,20 +235,37 @@
             <g x-ref="svgDynamics"></g>
         </svg>
 
-        <!-- 2. HTML Layer (Crisp clickable label plates) -->
+        <!-- 2. HTML Layer (Integrated Node Cards with Embedded Avatar) -->
         <div class="absolute inset-0 pointer-events-none">
             <template x-for="p in (graph.plates || [])" :key="p.id">
-                <div class="absolute pointer-events-auto transition-opacity duration-200"
+                <div class="absolute pointer-events-auto transition-all duration-200"
                      :style="'left: ' + ((p.x / (graph.W || 1060)) * 100) + '%; top: ' + ((p.y / (graph.H || 580)) * 100) + '%; width: ' + ((p.w / (graph.W || 1060)) * 100) + '%; height: ' + ((p.h / (graph.H || 580)) * 100) + '%;'"
-                     :class="isFocused ? (isNodeActive(p.id) ? 'opacity-100 scale-105' : 'opacity-20') : 'opacity-100'">
+                     :class="isFocused ? (isNodeActive(p.id) ? 'opacity-100 scale-[1.02] z-10' : 'opacity-20') : 'opacity-100'">
                     <button type="button" @click="selectNode(p.id)"
                             @mouseenter="hoveredNode = p.id" @mouseleave="hoveredNode = null"
-                            class="w-full h-full px-2.5 py-1.5 rounded-lg border text-left flex flex-col justify-between transition shadow-sm cursor-pointer overflow-hidden leading-tight"
-                            :class="(p.meta && p.meta.kind === 'conduit') ? 'bg-sky-950/85 border-sky-500/40 text-sky-200 hover:border-sky-400' : 'bg-zinc-900/90 border-zinc-700/80 text-zinc-200 hover:border-amber-500/50'">
-                        <span class="font-bold text-[11px] truncate text-white block" x-text="p.meta ? p.meta.label : p.name"></span>
-                        <div class="flex items-center justify-between text-[9px] text-zinc-400 font-mono gap-1 mt-0.5">
-                            <span class="truncate" x-text="p.meta ? p.meta.sub : ''"></span>
-                            <span class="shrink-0 font-medium" :class="(p.meta && p.meta.kind === 'conduit') ? 'text-sky-400' : 'text-emerald-400'" x-text="p.meta ? p.meta.foot : ''"></span>
+                            class="w-full h-full px-2.5 py-1.5 rounded-lg border text-left flex items-center gap-2.5 transition shadow-sm cursor-pointer overflow-hidden group select-none"
+                            :class="(p.meta && p.meta.kind === 'conduit')
+                                ? 'bg-sky-950/85 hover:bg-sky-900/90 border-sky-500/40 hover:border-sky-400 text-sky-200'
+                                : 'bg-zinc-900/90 hover:bg-zinc-850 border-zinc-700/80 hover:border-amber-500/60 text-zinc-200'">
+
+                        <!-- Left: Circular Letter Avatar Badge -->
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none shadow"
+                             :class="(p.meta && p.meta.kind === 'conduit')
+                                 ? 'bg-sky-500/20 border border-sky-400 text-sky-300 ring-2 ring-sky-500/20'
+                                 : 'bg-amber-500/20 border border-amber-400 text-amber-300 ring-2 ring-amber-500/20'">
+                            <span x-text="p.meta ? p.meta.letter : (p.name ? p.name[0].toUpperCase() : 'N')"></span>
+                        </div>
+
+                        <!-- Right: Profile Info -->
+                        <div class="flex-1 min-w-0 flex flex-col justify-center leading-tight">
+                            <span class="font-bold text-xs truncate text-white block tracking-tight"
+                                  x-text="p.meta ? p.meta.label : p.name"></span>
+                            <div class="flex items-center justify-between text-[10px] text-zinc-400 font-mono gap-1 mt-0.5">
+                                <span class="truncate text-zinc-400" x-text="p.meta ? p.meta.sub : ''"></span>
+                                <span class="shrink-0 font-medium text-[9px]"
+                                      :class="(p.meta && p.meta.kind === 'conduit') ? 'text-sky-400' : 'text-emerald-400'"
+                                      x-text="p.meta ? p.meta.foot : ''"></span>
+                            </div>
                         </div>
                     </button>
                 </div>

@@ -20,6 +20,7 @@ from typing import Any
 
 import pandas as pd
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from loguru import logger
 from q_bank.models import AuditedPerson
@@ -294,10 +295,7 @@ def analyze_profiles_money_trail(
 
                 i_df = res.get("intermediate_transfers")
                 if isinstance(i_df, pd.DataFrame) and not i_df.empty:
-                    annotated_i_df = i_df.copy()
-                    annotated_i_df["Sender_Person"] = name_a
-                    annotated_i_df["Recipient_Person"] = name_b
-                    intermediate_records_list.append(annotated_i_df)
+                    intermediate_records_list.append(i_df)
             elif not df_a.empty and df_b.empty:
                 # Profile B has no statement uploaded, but Profile A's statement may have direct transactions with Profile B
                 from .backend.reconciliation import _prepare_statement_dataframe
@@ -439,6 +437,117 @@ def analyze_profiles_money_trail(
         else:
             combined_intermediate["Matched_Keywords"] = ""
             combined_intermediate["Keyword_Hit"] = False
+
+    # 4b. Cross-Module Evidence Corroboration (Q-Scan, Q-Voice, Q-Chat, Substantiated Profiles)
+    def _corroborate_party(party_name: str) -> dict[str, Any]:
+        party_clean = str(party_name or "").strip().lower()
+        if (
+            not party_clean
+            or len(party_clean) < 3
+            or party_clean in ("unknown", "none", "nan", "account holder")
+        ):
+            return {"modules": [], "snippets": []}
+        modules = []
+        snippets = []
+
+        # 1. Q-Scan Document Check
+        try:
+            from q_scan.models import FileEvidenceHit
+
+            qscan_hits = FileEvidenceHit.objects.filter(
+                Q(snippet__icontains=party_clean) | Q(matched_keyword__icontains=party_clean)
+            )[:2]
+            if qscan_hits.exists():
+                modules.append("Q-Scan")
+                for h in qscan_hits:
+                    if h.snippet:
+                        snippets.append(f"[Q-Scan: {h.filename}] {h.snippet[:110]}")
+        except Exception as exc:
+            logger.debug(f"Q-Scan corroboration lookup bypassed: {exc}")
+
+        # 2. Q-Voice Audio Intercept Check
+        try:
+            from q_voice.models import TranscriptSegment
+
+            v_hits = TranscriptSegment.objects.filter(
+                Q(text_content__icontains=party_clean) | Q(speaker_tag__icontains=party_clean)
+            )[:2]
+            if v_hits.exists():
+                modules.append("Q-Voice")
+                for vh in v_hits:
+                    if vh.text_content:
+                        snippets.append(f"[Q-Voice: {vh.speaker_tag}] {vh.text_content[:110]}")
+        except Exception as exc:
+            logger.debug(f"Q-Voice corroboration lookup bypassed: {exc}")
+
+        # 3. Q-Chat Message Check
+        try:
+            from q_chat.models import ChatMessage
+
+            c_hits = ChatMessage.objects.filter(
+                Q(message_text__icontains=party_clean) | Q(sender_name__icontains=party_clean)
+            )[:2]
+            if c_hits.exists():
+                modules.append("Q-Chat")
+                for ch in c_hits:
+                    if ch.message_text:
+                        snippets.append(f"[Q-Chat: {ch.sender_name}] {ch.message_text[:110]}")
+        except Exception as exc:
+            logger.debug(f"Q-Chat corroboration lookup bypassed: {exc}")
+
+        # 4. Substantiated Profile Check
+        try:
+            from core.models import InvestigationProfile
+
+            prof = InvestigationProfile.objects.filter(full_name__icontains=party_clean).first()
+            if prof and prof.is_substantiated:
+                modules.append("Substantiated Profile")
+                snippets.append(f"[Profile: {prof.full_name}] Flagged Substantiated Nexus")
+        except Exception as exc:
+            logger.debug(f"Profile corroboration lookup bypassed: {exc}")
+
+        return {"modules": modules, "snippets": snippets}
+
+    def _corroborate_dataframe_rows(df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty:
+            return df
+        is_corroborated_col = []
+        modules_col = []
+        badge_col = []
+        snippet_col = []
+        for _, row in df.iterrows():
+            parties = [str(row.get("Sender_Person", "")), str(row.get("Recipient_Person", ""))]
+            if "Intermediary_Entity" in row and pd.notna(row["Intermediary_Entity"]):
+                parties.append(str(row["Intermediary_Entity"]))
+            row_mods = []
+            row_snips = []
+            for p in parties:
+                res = _corroborate_party(p)
+                for m in res["modules"]:
+                    if m not in row_mods:
+                        row_mods.append(m)
+                row_snips.extend(res["snippets"])
+            is_corrob = len(row_mods) > 0
+            badge = (
+                "Multi-Source Corroborated"
+                if len(row_mods) >= 2
+                else (", ".join(row_mods) if row_mods else "")
+            )
+            is_corroborated_col.append(is_corrob)
+            modules_col.append(row_mods)
+            badge_col.append(badge)
+            snippet_col.append(" | ".join(row_snips[:2]))
+        df_out = df.copy()
+        df_out["Is_Corroborated"] = is_corroborated_col
+        df_out["Corroborated_Modules"] = modules_col
+        df_out["Corroborated_Badge"] = badge_col
+        df_out["Evidence_Snippet"] = snippet_col
+        return df_out
+
+    if not combined_direct.empty:
+        combined_direct = _corroborate_dataframe_rows(combined_direct)
+    if not combined_intermediate.empty:
+        combined_intermediate = _corroborate_dataframe_rows(combined_intermediate)
 
     # 5. Group intermediate transfers by candidate intermediary entity
     grouped_intermediaries = group_intermediate_transfers_by_intermediary(combined_intermediate)
