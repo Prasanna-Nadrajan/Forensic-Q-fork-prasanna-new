@@ -7,7 +7,7 @@
 
     <!-- Page Header -->
     <c-page_header title="Q-Link"
-        subtitle="Automated Forensic Relationship & Intelligence Engine correlating cross-tool evidence, multi-hop syndicates, and real-time alerts."
+        subtitle="Automated Forensic Relationship & Intelligence Engine correlating cross-tool evidence, and real-time alerts."
         icon="fa-solid fa-diagram-project" icon_color="text-amber-400" back_url="/">
 
         <c-slot name="actions">
@@ -63,12 +63,12 @@
 
     <!-- Top Forensic Intelligence Metrics -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <c-stat_card title="Indexed Entities" value="{{ total_entities }}" icon="fa-solid fa-users-rays"
+        <c-stat_card title="Entities" value="{{ total_entities }}" icon="fa-solid fa-users-rays"
             color="amber" subtitle="Auditees, Vendors, Accounts, Documents" />
         <c-stat_card title="Correlated Edges" value="{{ total_relationships }}" icon="fa-solid fa-share-nodes"
             color="indigo" subtitle="Multi-Tool Directed Relationships" />
         <c-stat_card title="Evidence Citations" value="{{ total_evidence }}" icon="fa-solid fa-fingerprint"
-            color="emerald" subtitle="Granular Source Pointers" />
+            color="emerald" subtitle="Source Pointers" />
         <c-stat_card title="Active Alerts" value="{{ unack_alerts }}" icon="fa-solid fa-triangle-exclamation"
             color="rose" subtitle="High-Risk Synergies & Resurfacings" />
     </div>
@@ -155,7 +155,7 @@
                 <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2.5">
                     <div class="flex items-center gap-2">
                         <i class="fa-solid fa-timeline text-amber-400 text-sm"></i>
-                        <h4 class="font-bold text-sm text-slate-200">Reconstructed Chronological Sequence</h4>
+                        <h4 class="font-bold text-sm text-slate-200">Reconstructed Timeline Sequence</h4>
                     </div>
                     <span class="text-xs text-slate-500 font-mono" id="timeline-count-badge">Select a node or view recent</span>
                 </div>
@@ -337,7 +337,7 @@
                         {% empty %}
                             <div class="text-center py-10 text-slate-500 text-xs">
                                 <i class="fa-solid fa-circle-check text-xl text-slate-600 mb-1"></i>
-                                <p>No active critical alerts. Repository is clean.</p>
+                                <p>No active critical alerts. No suspicious items found.</p>
                             </div>
                         {% endfor %}
                     </div>

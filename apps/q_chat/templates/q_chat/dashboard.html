@@ -3,7 +3,7 @@
     <!-- Page Header -->
     <c-page_header 
         title="Q-Chat" 
-        subtitle="Forensic thread reconstruction across WhatsApp, Microsoft Teams, Slack, and Telegram with automated collusion keyword screening." 
+        subtitle="Track conversations across WhatsApp, Teams, Slack, and Telegram, with automatic alerts for suspicious keywords." 
         icon="fa-solid fa-comments"
         icon_color="text-sky-400"
         back_url="/">
@@ -29,7 +29,7 @@
         <c-stat_card 
             title="Total Messages" 
             value="{{ metrics.total_messages }}" 
-            subtitle="Ingested Message Records" 
+            subtitle="Messages Found" 
             icon="fa-solid fa-message" 
             variant="teal" />
             
@@ -41,7 +41,7 @@
             variant="rose" />
             
         <c-stat_card 
-            title="Deleted Artifacts" 
+            title="Deleted Messages" 
             value="{{ metrics.deleted_messages }}" 
             subtitle="{{ metrics.media_messages }} Media Attachments" 
             icon="fa-solid fa-trash-can-arrow-up" 
