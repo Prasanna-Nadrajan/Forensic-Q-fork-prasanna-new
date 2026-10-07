@@ -53,7 +53,20 @@ def sync_all_modules() -> dict[str, int]:
                 )
                 stats["q_bank"] += 1
 
-            # Sync transactions
+            # Collect registered profile keywords and target names for selective linking
+            from core.models import InvestigationProfile
+
+            registered_keywords = set()
+            for prof in InvestigationProfile.objects.all():
+                for kw in prof.keywords or []:
+                    if kw.strip():
+                        registered_keywords.add(kw.strip().lower())
+                registered_keywords.add(prof.full_name.strip().lower())
+
+            for person in AuditedPerson.objects.all():
+                registered_keywords.add(person.full_name.strip().lower())
+
+            # Sync transactions (selective forensic linking only)
             for txn in BankTransaction.objects.select_related("account", "account__person")[:500]:
                 account_holder = txn.account.account_holder if txn.account else "Unknown Account"
                 person_name = (
@@ -67,6 +80,30 @@ def sync_all_modules() -> dict[str, int]:
                     amt = txn.debit_amount or txn.credit_amount or Decimal("1.00")
 
                 party_clean = txn.party_name.strip() if txn.party_name else "Unknown Counterparty"
+                party_lower = party_clean.lower()
+                narr_lower = (txn.narration or "").lower()
+
+                # Selective Filtering: Only link if keyword match, risk flagged, high value, or known profile
+                is_selective_match = False
+                if any(
+                    kw in party_lower or kw in narr_lower
+                    for kw in registered_keywords
+                    if len(kw) >= 3
+                ):
+                    is_selective_match = True
+                elif getattr(txn, "risk_score", 0) >= 50 or txn.risk_level in [
+                    "MEDIUM",
+                    "HIGH",
+                    "CRITICAL",
+                ]:
+                    is_selective_match = True
+                elif txn.is_cash_deposit or txn.is_hyundai_related or bool(txn.flag_reason):
+                    is_selective_match = True
+                elif amt >= Decimal("50000.00"):
+                    is_selective_match = True
+
+                if not is_selective_match:
+                    continue
 
                 emit_forensic_finding(
                     source_module="q_bank",
@@ -405,6 +442,57 @@ def sync_all_modules() -> dict[str, int]:
                             if any(
                                 s.get("metadata", {}).get("is_substantiated") for s in sec_entities
                             )
+                            else "WARNING",
+                        )
+            # Cross-profile direct keyword linking (Profiles linked via shared/matched keywords)
+            all_profiles = list(InvestigationProfile.objects.all())
+            for i in range(len(all_profiles)):
+                prof_a = all_profiles[i]
+                kws_a = {k.lower() for k in (prof_a.keywords or []) if len(k) >= 3}
+                for j in range(i + 1, len(all_profiles)):
+                    prof_b = all_profiles[j]
+                    kws_b = {k.lower() for k in (prof_b.keywords or []) if len(k) >= 3}
+                    shared = kws_a & kws_b
+                    name_b_lower = prof_b.full_name.lower()
+                    name_a_lower = prof_a.full_name.lower()
+
+                    matched_name = (name_b_lower in kws_a) or (name_a_lower in kws_b)
+                    if matched_name or shared:
+                        rel_type = (
+                            "PARTNER"
+                            if (prof_a.is_substantiated or prof_b.is_substantiated)
+                            else "ASSOCIATE"
+                        )
+                        emit_forensic_finding(
+                            source_module="core",
+                            event_type="PROFILE_KEYWORD_NEXUS",
+                            primary_entity_data={
+                                "name": prof_a.full_name,
+                                "type": ForensicEntity.EntityType.EMPLOYEE,
+                                "is_target": True,
+                            },
+                            secondary_entities_data=[
+                                {
+                                    "name": prof_b.full_name,
+                                    "type": ForensicEntity.EntityType.EMPLOYEE,
+                                    "relation_type": rel_type,
+                                    "direction": "out",
+                                    "metadata": {
+                                        "shared_keywords": list(shared),
+                                        "name_nexus": matched_name,
+                                    },
+                                }
+                            ],
+                            evidence_data={
+                                "source_module": "core",
+                                "source_model": "InvestigationProfile",
+                                "source_record_id": str(prof_a.id),
+                                "summary_snippet": f"Direct Keyword Nexus: {prof_a.full_name} <-> {prof_b.full_name}",
+                            },
+                            timeline_title=f"Profile Nexus: {prof_a.full_name} & {prof_b.full_name}",
+                            timeline_description=f"Direct link established through matching investigation keywords: {', '.join(shared or [prof_b.full_name])}",
+                            severity="CRITICAL"
+                            if (prof_a.is_substantiated or prof_b.is_substantiated)
                             else "WARNING",
                         )
             stats["core_profiles"] = stats.get("core_profiles", 0) + 1

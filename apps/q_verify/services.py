@@ -252,20 +252,26 @@ def perform_document_search(
     new_keywords = [k for k in all_keywords if k not in existing_matches]
 
     if new_keywords:
-        from .backend.content_search import search_keywords_in_file
+        from .backend.content_search import search_keywords_with_pages
 
-        new_results = search_keywords_in_file(
+        new_results, new_pages = search_keywords_with_pages(
             storage_path=doc.storage_path, mime_type=doc.mime_type, keywords=new_keywords
         )
 
-        # In case the file text couldn't be extracted, it might return empty dict
-        # So we ensure the new keywords are at least recorded with 0
         for kw in new_keywords:
             if kw not in new_results:
                 new_results[kw] = 0
+                new_pages[kw] = []
 
         existing_matches.update(new_results)
         doc.matched_keywords = existing_matches
-        doc.save(update_fields=["matched_keywords"])
+
+        raw_meta = dict(doc.raw_metadata or {})
+        existing_pages = dict(raw_meta.get("keyword_pages", {}))
+        existing_pages.update(new_pages)
+        raw_meta["keyword_pages"] = existing_pages
+        doc.raw_metadata = raw_meta
+
+        doc.save(update_fields=["matched_keywords", "raw_metadata"])
 
     return doc

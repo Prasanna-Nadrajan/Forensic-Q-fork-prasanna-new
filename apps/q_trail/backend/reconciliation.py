@@ -855,14 +855,19 @@ def detect_rapid_layering_for_profile(
             is_temporal_match = False
             delta_hours = 0.0
 
-            if in_date_str and out_date_str and in_date_str == out_date_str:
+            if pd.notna(in_date_dt) and pd.notna(out_date_dt):
+                delta_sec = (out_date_dt - in_date_dt).total_seconds()
+                if time_window_days and time_window_days > 0:
+                    if 0 <= delta_sec <= (time_window_days * 86400):
+                        is_temporal_match = True
+                        delta_hours = round(max(0.1, delta_sec / 3600.0), 1)
+                else:
+                    if delta_sec >= 0:
+                        is_temporal_match = True
+                        delta_hours = round(max(0.1, delta_sec / 3600.0), 1)
+            elif in_date_str and out_date_str and in_date_str == out_date_str:
                 is_temporal_match = True
                 delta_hours = 0.5
-            elif pd.notna(in_date_dt) and pd.notna(out_date_dt):
-                delta_sec = (out_date_dt - in_date_dt).total_seconds()
-                if 0 <= delta_sec <= (time_window_days * 86400):
-                    is_temporal_match = True
-                    delta_hours = round(max(0.1, delta_sec / 3600.0), 1)
 
             if is_temporal_match:
                 retention_amt = max(0.0, in_amt - out_amt)

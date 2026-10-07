@@ -234,6 +234,7 @@ def document_search_api_view(request: HttpRequest, doc_id: str) -> JsonResponse:
             {
                 "success": True,
                 "matched_keywords": doc.matched_keywords,
+                "keyword_pages": (doc.raw_metadata or {}).get("keyword_pages", {}),
             }
         )
     except Exception as e:
@@ -339,6 +340,7 @@ def document_detail_api_view(request: HttpRequest, doc_id: str) -> JsonResponse:
             "summary": doc.summary,
             "profile_keywords": profile_keywords,
             "matched_keywords": doc.matched_keywords or {},
+            "keyword_pages": (doc.raw_metadata or {}).get("keyword_pages", {}),
             "has_file": bool(doc.storage_path and Path(doc.storage_path).exists()),
         }
     )

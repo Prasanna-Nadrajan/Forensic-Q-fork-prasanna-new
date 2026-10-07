@@ -83,13 +83,17 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
         case_title = request.POST.get("case_title", "").strip()
     else:
         profile_ids = request.GET.getlist("profile_ids")
-        if not profile_ids and request.GET.get("profile_ids"):
-            profile_ids = [
-                p.strip() for p in request.GET.get("profile_ids", "").split(",") if p.strip()
-            ]
         time_window_str = request.GET.get("time_window_days", "0")
         save_dossier = False
         case_title = ""
+
+    flat_ids = []
+    for item in profile_ids:
+        if "," in item:
+            flat_ids.extend([x.strip() for x in item.split(",") if x.strip()])
+        elif item.strip():
+            flat_ids.append(item.strip())
+    profile_ids = flat_ids
 
     try:
         time_window_days = max(0, min(365, int(time_window_str)))

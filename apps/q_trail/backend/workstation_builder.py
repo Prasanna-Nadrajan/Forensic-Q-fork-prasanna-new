@@ -10,6 +10,7 @@ Transforms reconciled money trail data into interactive forensic workstation str
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
 
@@ -84,7 +85,14 @@ def build_chronological_beats(
             ret_pct = float(row.get("Retention_Pct", 0.0))
             out_date = _clean_str(row.get("Outflow_Date", ""))
             in_date = _clean_str(row.get("Inflow_Date", ""))
-            delta_days = float(row.get("Time_Delta_Days", 0.0))
+            raw_delta = row.get("Time_Delta_Days", 0.0)
+            try:
+                delta_days = 0.0 if pd.isna(raw_delta) else float(raw_delta)
+            except Exception:
+                delta_days = 0.0
+            int_delta = (
+                int(delta_days) if not (math.isnan(delta_days) or math.isinf(delta_days)) else 0
+            )
 
             # Leg 1: Sender -> Conduit
             raw_events.append(
@@ -115,7 +123,7 @@ def build_chronological_beats(
                     "via": conduit,
                     "cap": (
                         f"Conduit '{conduit}' forwarded ₹{in_amt:,.2f} to {recipient} "
-                        f"after {int(delta_days)}d (withholding ₹{ret_amt:,.2f} / {ret_pct:.1f}% fee)."
+                        f"after {int_delta}d (withholding ₹{ret_amt:,.2f} / {ret_pct:.1f}% fee)."
                     ),
                     "title": f"{conduit} → {recipient}",
                 }
@@ -276,10 +284,14 @@ def build_conduit_deck(
             primary_sender = details[0].get("Sender", "Auditee A") if details else "Auditee A"
             primary_recipient = details[0].get("Recipient", "Auditee B") if details else "Auditee B"
             out_date = details[0].get("Outflow_Date", "") if details else ""
-            in_date = details[0].get("Inflow_Date", "") if details else ""
-            delta_days = float(details[0].get("Time_Delta_Days", 1.0)) if details else 1.0
-        else:
-            continue
+            delta_days = details[0].get("Time_Delta_Days", 1.0) if details else 1.0
+
+        try:
+            delta_days = float(delta_days) if not pd.isna(delta_days) else 1.0
+            if math.isnan(delta_days) or math.isinf(delta_days):
+                delta_days = 1.0
+        except Exception:
+            delta_days = 1.0
 
         is_loop = (
             slug_id in loop_entities
@@ -379,6 +391,11 @@ def build_topology_graph(
         conduits_set.update(intermediate_df["Intermediary_Entity"].dropna().unique())
         beneficiaries_set.update(intermediate_df["Recipient_Person"].dropna().unique())
 
+    # Ensure conduits are distinct so 3-column topology flows left-to-right
+    if conduits_set:
+        origins_set = origins_set - conduits_set
+        beneficiaries_set = beneficiaries_set - conduits_set
+
     # Fallback if empty
     if not origins_set and analyzed_profiles:
         origins_set = {analyzed_profiles[0]["name"]}
@@ -421,6 +438,22 @@ def build_topology_graph(
     node_by_name = {n["name"]: n for n in nodes}
     node_by_id = {n["id"]: n for n in nodes}
 
+    def _find_node(target_name: str) -> dict[str, Any] | None:
+        if not target_name:
+            return None
+        t_clean = _clean_str(target_name)
+        if t_clean in node_by_name:
+            return node_by_name[t_clean]
+        t_lower = t_clean.lower()
+        t_id = re.sub(r"[^a-zA-Z0-9]+", "_", t_lower).strip("_")
+        if t_id in node_by_id:
+            return node_by_id[t_id]
+        for n_name, n_obj in node_by_name.items():
+            n_lower = n_name.lower()
+            if t_lower and n_lower and (t_lower in n_lower or n_lower in t_lower):
+                return n_obj
+        return None
+
     edges: list[dict[str, Any]] = []
     edge_idx = 1
 
@@ -431,8 +464,8 @@ def build_topology_graph(
             t_name = _clean_str(row.get("Recipient_Person"))
             amt = float(row.get("Amount", 0.0))
             utr = _clean_str(row.get("UTR", ""))
-            s_node = node_by_name.get(s_name)
-            t_node = node_by_name.get(t_name)
+            s_node = _find_node(s_name)
+            t_node = _find_node(t_name)
             if s_node and t_node:
                 x1, y1 = s_node["x"], s_node["y"]
                 x2, y2 = t_node["x"], t_node["y"]
@@ -472,9 +505,9 @@ def build_topology_graph(
             in_amt = float(row.get("Inflow_Amount", 0.0))
             ret_amt = float(row.get("Retention_Amount", 0.0))
 
-            s_node = node_by_name.get(s_name)
-            c_node = node_by_name.get(c_name)
-            t_node = node_by_name.get(t_name)
+            s_node = _find_node(s_name)
+            c_node = _find_node(c_name)
+            t_node = _find_node(t_name)
 
             # Leg 1: Sender -> Conduit
             if s_node and c_node:

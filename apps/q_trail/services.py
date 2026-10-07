@@ -13,6 +13,7 @@ Orchestrates multi-profile money trail analysis across banking institutions:
 from __future__ import annotations
 
 import itertools
+import re
 import uuid
 from decimal import Decimal
 from typing import Any
@@ -93,9 +94,13 @@ def analyze_profiles_money_trail(
     Returns:
         dict[str, Any]: Comprehensive dossier containing DataFrames, metrics, and network graph data.
     """
-    unique_profile_ids = list(
-        dict.fromkeys([str(p).strip() for p in profile_ids if str(p).strip()])
-    )
+    raw_ids = []
+    for p in profile_ids:
+        if isinstance(p, str) and "," in p:
+            raw_ids.extend([x.strip() for x in p.split(",") if x.strip()])
+        elif p:
+            raw_ids.append(str(p).strip())
+    unique_profile_ids = list(dict.fromkeys(raw_ids))
 
     empty_result = {
         "status": "success",
@@ -166,7 +171,56 @@ def analyze_profiles_money_trail(
     intermediate_records_list: list[pd.DataFrame] = []
 
     # Rapid Layering (Immediate Hop Pass-Throughs per profile)
+    from core.profiles import add_keywords_to_profile
+
     from .backend.reconciliation import detect_rapid_layering_for_profile
+
+    def _extract_counterparty_keywords(raw_val: Any) -> list[str]:
+        if not raw_val:
+            return []
+        s = str(raw_val).strip()
+        if not s or s.upper() in ("UNKNOWN", "NONE", "NAN", "OUT", "IN", "TFR", "UPI"):
+            return []
+        found = []
+        for term in [
+            "palani",
+            "shanthi",
+            "silviya",
+            "kumar",
+            "sathees",
+            "indhumathi",
+            "dhanasekaran",
+            "maharajan",
+            "metec",
+        ]:
+            if term in s.lower():
+                found.append(term.title())
+        if "@" in s:
+            user_part = s.split("@")[0].strip()
+            clean_u = re.sub(r"\d+", "", user_part).strip()
+            if len(clean_u) >= 3:
+                found.append(clean_u.title())
+        clean_name = re.sub(
+            r"^(?:Mr\.|Mrs\.|Ms\.|Shri\.|Smt\.|UPI/\d+/)\s*", "", s, flags=re.IGNORECASE
+        )
+        tokens = [
+            t.strip().title()
+            for t in re.split(r"[\s/_]+", clean_name)
+            if len(t.strip()) >= 3 and not t.strip().isdigit()
+        ]
+        for t in tokens:
+            if t.upper() not in (
+                "UPI",
+                "TFR",
+                "OUT",
+                "INR",
+                "TRANSFER",
+                "PAYMENT",
+                "LIMITED",
+                "LTD",
+            ):
+                found.append(t)
+        return list(dict.fromkeys(found))
 
     for pid, df in profile_dfs.items():
         if df.empty:
@@ -178,36 +232,136 @@ def analyze_profiles_money_trail(
             time_window_days=time_window_days,
         )
         if not lay_df.empty:
+            # Normalize counterparties against known profile names
+            for other_p in profile_metadata:
+                other_name = other_p["name"]
+                if other_name.lower() == p_name.lower():
+                    continue
+                # Normalize Sender if matches other profile
+                lay_df["Sender_Person"] = lay_df["Sender_Person"].apply(
+                    lambda s, name=other_name: (
+                        name
+                        if (name.lower() in str(s).lower() or str(s).lower() in name.lower())
+                        else s
+                    )
+                )
+                # Normalize Recipient if matches other profile
+                lay_df["Recipient_Person"] = lay_df["Recipient_Person"].apply(
+                    lambda r, name=other_name: (
+                        name
+                        if (name.lower() in str(r).lower() or str(r).lower() in name.lower())
+                        else r
+                    )
+                )
+
+            # Auto-propagate candidate keywords from money trail to profile keywords
+            discovered_kws = []
+            for s_val in lay_df["Sender_Person"].dropna():
+                discovered_kws.extend(_extract_counterparty_keywords(s_val))
+            for r_val in lay_df["Recipient_Person"].dropna():
+                discovered_kws.extend(_extract_counterparty_keywords(r_val))
+
+            if discovered_kws:
+                try:
+                    add_keywords_to_profile(pid, discovered_kws)
+                except Exception as exc:
+                    logger.debug(f"Auto-keyword propagation to profile {pid} bypassed: {exc}")
+
             intermediate_records_list.append(lay_df)
 
     # Iterate over all ordered pairs (A, B) where A != B (multi-profile network)
     if len(unique_profile_ids) >= 2:
         for (pid_a, df_a), (pid_b, df_b) in itertools.permutations(profile_dfs.items(), 2):
-            if df_a.empty or df_b.empty:
-                continue
-
             name_a = next((p["name"] for p in profile_metadata if p["id"] == pid_a), "Person A")
             name_b = next((p["name"] for p in profile_metadata if p["id"] == pid_b), "Person B")
 
-            # Reconcile pair
-            res = reconcile_and_match_network(
-                statement_a=df_a,
-                statement_b=df_b,
-                person_a_name=name_a,
-                person_b_name=name_b,
-                time_window_days=time_window_days,
-            )
+            if df_a.empty and df_b.empty:
+                continue
 
-            d_df = res.get("direct_transfers")
-            if isinstance(d_df, pd.DataFrame) and not d_df.empty:
-                direct_records_list.append(d_df)
+            # Standard pairwise reconciliation when both statements are present
+            if not df_a.empty and not df_b.empty:
+                res = reconcile_and_match_network(
+                    statement_a=df_a,
+                    statement_b=df_b,
+                    person_a_name=name_a,
+                    person_b_name=name_b,
+                    time_window_days=time_window_days,
+                )
 
-            i_df = res.get("intermediate_transfers")
-            if isinstance(i_df, pd.DataFrame) and not i_df.empty:
-                annotated_i_df = i_df.copy()
-                annotated_i_df["Sender_Person"] = name_a
-                annotated_i_df["Recipient_Person"] = name_b
-                intermediate_records_list.append(annotated_i_df)
+                d_df = res.get("direct_transfers")
+                if isinstance(d_df, pd.DataFrame) and not d_df.empty:
+                    direct_records_list.append(d_df)
+
+                i_df = res.get("intermediate_transfers")
+                if isinstance(i_df, pd.DataFrame) and not i_df.empty:
+                    annotated_i_df = i_df.copy()
+                    annotated_i_df["Sender_Person"] = name_a
+                    annotated_i_df["Recipient_Person"] = name_b
+                    intermediate_records_list.append(annotated_i_df)
+            elif not df_a.empty and df_b.empty:
+                # Profile B has no statement uploaded, but Profile A's statement may have direct transactions with Profile B
+                from .backend.reconciliation import _prepare_statement_dataframe
+
+                prep_a = _prepare_statement_dataframe(df_a)
+                b_pat = name_b.lower()
+
+                # Case 1: Inflow into A from B (B -> A)
+                b_inflows = prep_a[
+                    (prep_a["Credit"] > 0)
+                    & (
+                        prep_a["Narration"].str.lower().str.contains(b_pat, na=False)
+                        | prep_a["Counterparty_Name"].str.lower().str.contains(b_pat, na=False)
+                    )
+                ]
+                if not b_inflows.empty:
+                    synth_in = pd.DataFrame(
+                        {
+                            "Transfer_Type": "Direct_Transfer",
+                            "Direction": "IN",
+                            "Match_Method": "STATEMENT_CROSS_COUNTERPARTY",
+                            "UTR": b_inflows.get("UTR", ""),
+                            "Amount": b_inflows["Credit"].astype(float),
+                            "Transfer_Date": b_inflows["Date"].astype(str),
+                            "Sender_Person": name_b,
+                            "Recipient_Person": name_a,
+                            "Sender_Narration": b_inflows["Narration"],
+                            "Recipient_Narration": b_inflows["Narration"],
+                            "Sender_VPA": b_inflows.get("Counterparty_VPA", ""),
+                            "Recipient_VPA": "",
+                            "Sender_Account": b_inflows.get("Counterparty_Account", ""),
+                            "Recipient_Account": "",
+                        }
+                    )
+                    direct_records_list.append(synth_in)
+
+                # Case 2: Outflow from A to B (A -> B)
+                b_outflows = prep_a[
+                    (prep_a["Debit"] > 0)
+                    & (
+                        prep_a["Narration"].str.lower().str.contains(b_pat, na=False)
+                        | prep_a["Counterparty_Name"].str.lower().str.contains(b_pat, na=False)
+                    )
+                ]
+                if not b_outflows.empty:
+                    synth_out = pd.DataFrame(
+                        {
+                            "Transfer_Type": "Direct_Transfer",
+                            "Direction": "OUT",
+                            "Match_Method": "STATEMENT_CROSS_COUNTERPARTY",
+                            "UTR": b_outflows.get("UTR", ""),
+                            "Amount": b_outflows["Debit"].astype(float),
+                            "Transfer_Date": b_outflows["Date"].astype(str),
+                            "Sender_Person": name_a,
+                            "Recipient_Person": name_b,
+                            "Sender_Narration": b_outflows["Narration"],
+                            "Recipient_Narration": b_outflows["Narration"],
+                            "Sender_VPA": "",
+                            "Recipient_VPA": b_outflows.get("Counterparty_VPA", ""),
+                            "Sender_Account": "",
+                            "Recipient_Account": b_outflows.get("Counterparty_Account", ""),
+                        }
+                    )
+                    direct_records_list.append(synth_out)
 
     # 3. Concatenate and Deduplicate Across Permutations
     if direct_records_list:

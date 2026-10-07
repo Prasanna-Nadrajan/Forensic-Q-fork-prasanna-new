@@ -592,6 +592,14 @@ def attach_document_to_profile(
         extracted_entities=entities,
     )
 
+    # Auto-extract and propagate keywords (proper nouns, firm names) to profile keywords
+    extracted_names = [e["name"] for e in entities if e.get("name") and len(e["name"]) >= 3]
+    if extracted_names:
+        try:
+            add_keywords_to_profile(profile.id, extracted_names)
+        except Exception as exc:
+            logger.debug(f"Auto-keyword propagation to profile {profile.id} bypassed: {exc}")
+
     # Dispatch to Q-Link so relationships are immediately reflected in knowledge graph
     try:
         from q_link.backend.dispatcher import emit_forensic_finding
@@ -600,13 +608,18 @@ def attach_document_to_profile(
         secondaries = []
         for ent in entities:
             if ent["name"].lower() != profile.full_name.lower():
+                rel = (
+                    "PARTNER"
+                    if ent.get("role") == "PARTNER"
+                    else ("DIRECTOR_OF" if ent.get("role") == "COMPANY" else "ASSOCIATE")
+                )
                 secondaries.append(
                     {
                         "name": ent["name"],
                         "type": ForensicEntity.EntityType.COMPANY
                         if ent["role"] == "COMPANY"
                         else ForensicEntity.EntityType.EMPLOYEE,
-                        "relation_type": "DIRECTOR_OF" if ent["role"] == "COMPANY" else "ASSOCIATE",
+                        "relation_type": rel,
                         "weight": 1.0,
                         "direction": "out",
                     }
