@@ -216,7 +216,7 @@
 
             <!-- Duration & Segments -->
             <c-stat_card
-                title="Acoustic Segments"
+                title="Audio Cuts"
                 value="{{ metrics.total_segments }}"
                 badge="{{ metrics.duration_formatted }}"
                 badge_type="neutral"
@@ -232,8 +232,8 @@
             <div class="flex items-center justify-between flex-wrap gap-3">
                 <div class="flex items-center gap-2">
                     <i class="fa-solid fa-timeline text-indigo-400"></i>
-                    <h3 class="text-sm font-bold text-theme-text">Forensic Timeline Resolution Track</h3>
-                    <span class="text-xs text-theme-muted">&bull; Click node pillars to focus verbatim acoustic frames &amp; play &plusmn;10s evidence audio</span>
+                    <h3 class="text-sm font-bold text-theme-text">Audio Timeline View</h3>
+                    <span class="text-xs text-theme-muted">&bull; Click a node to read that specific text segment &amp; play &plusmn;10s evidence audio</span>
                 </div>
 
                 <div class="flex items-center gap-3">
@@ -394,7 +394,7 @@
                         <tr>
                             <th class="py-2.5 px-3 font-bold uppercase tracking-wider text-[11px] text-theme-muted whitespace-nowrap">Timeline Range</th>
                             <th class="py-2.5 px-3 font-bold uppercase tracking-wider text-[11px] text-theme-muted whitespace-nowrap">Speaker</th>
-                            <th class="py-2.5 px-3 font-bold uppercase tracking-wider text-[11px] text-theme-muted">Acoustic Verbatim Text</th>
+                            <th class="py-2.5 px-3 font-bold uppercase tracking-wider text-[11px] text-theme-muted">Transcribed Text</th>
                             <th class="py-2.5 px-3 font-bold uppercase tracking-wider text-[11px] text-theme-muted whitespace-nowrap">Extracted Hot-Words</th>
                         </tr>
                     </thead>

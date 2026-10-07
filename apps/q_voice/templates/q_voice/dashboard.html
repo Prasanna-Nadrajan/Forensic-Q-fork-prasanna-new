@@ -7,7 +7,7 @@
         <!-- ============================================================ -->
         <c-page_header
             title="Q-Voice"
-            subtitle="Voice transcript intelligence analyzer, acoustic verbatim timeline extraction, and intent detection."
+            subtitle="Transcribe audio, extract clear timelines, and automatically detect critical keywords."
             icon="fa-solid fa-microphone-lines"
             icon_color="text-indigo-400"
             back_url="/">
@@ -50,9 +50,9 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             
             <c-stat_card
-                title="Ingested Recordings"
+                title="Uploaded Recordings"
                 value="{{ global_metrics.total_recordings }}"
-                subtitle="Monitored Intercepts"
+                subtitle="Monitored Recordings"
                 icon="fa-solid fa-file-audio"
                 variant="slate" />
 
@@ -66,7 +66,7 @@
             <c-stat_card
                 title="Spoken Segments"
                 value="{{ global_metrics.total_segments }}"
-                subtitle="Diarized Utterances"
+                subtitle="Sentences Spoken"
                 icon="fa-solid fa-bars-staggered"
                 variant="indigo" />
 
@@ -166,7 +166,7 @@
                             </div>
                         </div>
 
-                        <!-- Linked Voice Intercepts Preview -->
+                        <!-- LINKED RECORDINGS Preview -->
                         <div class="mb-4">
                             <span class="text-[10px] uppercase tracking-wider text-theme-muted block mb-1 font-semibold">Linked Intercepts:</span>
                             <div class="flex flex-wrap gap-1.5">
