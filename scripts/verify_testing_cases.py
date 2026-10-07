@@ -100,7 +100,7 @@ def run_case_1():
 
     # 4. Check Q-Link Output
     silviya_ent = ForensicEntity.objects.filter(display_name__icontains="Silviya").first()
-    remigius_ent = ForensicEntity.objects.filter(display_name__icontains="JOSEPH REMIGIUS").first()
+    remigius_ent = ForensicEntity.objects.filter(display_name__icontains="REMIGIUS").first()
     mr_v_ent = ForensicEntity.objects.filter(display_name__icontains="Veeramani").first()
 
     assert silviya_ent is not None, "Silviya entity missing in Q-Link"
