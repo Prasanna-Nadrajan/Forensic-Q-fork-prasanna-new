@@ -565,3 +565,174 @@ class QLinkAuditScopingTests(TestCase):
         res_all = self.client.get(reverse("q_link:dashboard") + "?scope=all")
         self.assertEqual(res_all.status_code, 200)
         self.assertEqual(res_all.context["scope"], "all")
+
+
+class QLinkThreeOperationalModesTests(TestCase):
+    """
+    Tests for the 3 Operational Modes:
+    - Mode 1: Keyword Network
+    - Mode 2: Full Audit Topology
+    - Mode 3: Global Vault Match
+    """
+
+    def setUp(self):
+        from core.audits import create_audit
+        from core.models import InvestigationProfile
+
+        self.prof_a = InvestigationProfile.objects.create(
+            full_name="Maharajan",
+            keywords=["Partnership", "Contract", "Chennai"],
+            is_substantiated=False,
+        )
+        self.prof_b = InvestigationProfile.objects.create(
+            full_name="Dhanasekaran",
+            keywords=["Associate", "Substantiated"],
+            is_substantiated=True,
+        )
+        self.audit = create_audit(
+            title="Forensic Audit Beta",
+            profile_ids=[str(self.prof_a.id), str(self.prof_b.id)],
+        )
+
+        self.ent_a, _ = resolve_or_create_entity(
+            "Maharajan", ForensicEntity.EntityType.EMPLOYEE, is_target=True
+        )
+        self.ent_b, _ = resolve_or_create_entity(
+            "Dhanasekaran",
+            ForensicEntity.EntityType.EMPLOYEE,
+            is_target=True,
+            metadata={"is_substantiated": True},
+        )
+        self.ent_ext, _ = resolve_or_create_entity(
+            "Metec Global Outside Audit",
+            ForensicEntity.EntityType.COMPANY,
+            is_target=False,
+        )
+
+        # Connect internal entities
+        self.rel, _ = create_or_update_relationship(
+            self.ent_a,
+            self.ent_b,
+            relation_type="PARTNER",
+            weight=100000.0,
+            source_module="core",
+        )
+        record_timeline_event(
+            self.ent_a,
+            "Partnership Deed Signatory",
+            "Dhanasekaran identified as Partner in deed",
+            timezone.now(),
+            "q_scan",
+            relationship=self.rel,
+        )
+
+    def test_mode1_keyword_graph(self):
+        from .selectors import get_mode1_keyword_graph
+
+        res = get_mode1_keyword_graph(audit_id=str(self.audit.id), keyword="Partnership")
+        self.assertEqual(res["mode"], "keyword")
+        self.assertEqual(res["keyword"], "Partnership")
+        self.assertGreaterEqual(len(res["nodes"]), 1)
+        node_labels = [n["label"] for n in res["nodes"]]
+        self.assertIn("Maharajan", node_labels)
+
+    def test_mode2_audit_graph(self):
+        from .selectors import get_mode2_audit_graph
+
+        res = get_mode2_audit_graph(audit_id=str(self.audit.id))
+        self.assertEqual(res["mode"], "audit")
+        node_labels = [n["label"] for n in res["nodes"]]
+        self.assertIn("Maharajan", node_labels)
+        self.assertIn("Dhanasekaran", node_labels)
+
+        # Verify Dhanasekaran has Substantiated tag
+        dhan_node = next(n for n in res["nodes"] if n["label"] == "Dhanasekaran")
+        self.assertIn("Substantiated", dhan_node["tags"])
+
+        # Check edge
+        self.assertGreaterEqual(len(res["edges"]), 1)
+        first_edge = res["edges"][0]
+        self.assertIn("from", first_edge)
+        self.assertIn("to", first_edge)
+        self.assertIn("source", first_edge)
+        self.assertIn("target", first_edge)
+
+    def test_mode3_global_graph(self):
+        from .selectors import get_mode3_global_graph
+
+        res = get_mode3_global_graph(audit_id=str(self.audit.id), query="Metec")
+        self.assertEqual(res["mode"], "global")
+        # Check that external entity exists and is marked is_external
+        ext_nodes = [n for n in res["nodes"] if n["is_external"]]
+        self.assertGreaterEqual(len(ext_nodes), 1)
+        self.assertTrue(ext_nodes[0]["is_external"])
+        self.assertIn("External Vault", ext_nodes[0]["tags"])
+
+
+class QLinkEdgeEvidenceAndDrawerTests(TestCase):
+    """
+    Tests for granular edge evidence retrieval and interactive drawer API.
+    """
+
+    def setUp(self):
+        self.e1, _ = resolve_or_create_entity("Mr. V", ForensicEntity.EntityType.EMPLOYEE)
+        self.e2, _ = resolve_or_create_entity("Palani", ForensicEntity.EntityType.VENDOR)
+        self.rel, _ = create_or_update_relationship(
+            self.e1,
+            self.e2,
+            relation_type="RAPID_LAYERING",
+            weight=250000.0,
+            source_module="q_trail",
+        )
+        self.rel.metadata = {
+            "is_rapid_layering": True,
+            "turnaround": "3h 45m (< 24h)",
+            "inflow_ref": "IMPS/9812",
+            "outflow_ref": "NEFT/1102",
+        }
+        self.rel.save()
+
+        self.ev_ptr = EvidencePointer.objects.create(
+            relationship=self.rel,
+            source_module="q_trail",
+            source_model="MoneyTrailHop",
+            source_record_id="HOP-001",
+            summary_snippet="Rapid turnaround layering transfer from Mr. V to Palani",
+            metadata={
+                "amount": 250000.0,
+                "narration": "IMPS Palani Turnaround",
+                "ref_no": "IMPS/9812",
+                "turnaround": "3h 45m (< 24h)",
+                "is_rapid_layering": True,
+            },
+        )
+
+    def test_get_edge_evidence_selector(self):
+        from .selectors import get_edge_evidence
+
+        ev = get_edge_evidence(str(self.rel.id))
+        self.assertEqual(ev["status"], "success")
+        self.assertEqual(ev["edge"]["source_name"], "Mr. V")
+        self.assertEqual(ev["edge"]["target_name"], "Palani")
+        self.assertTrue(ev["edge"]["is_rapid_layering"])
+        self.assertEqual(len(ev["evidence_items"]), 1)
+        item = ev["evidence_items"][0]
+        self.assertEqual(item["amount"], 250000.0)
+        self.assertEqual(item["turnaround"], "3h 45m (< 24h)")
+        self.assertEqual(item["ref_no"], "IMPS/9812")
+
+    def test_api_edge_detail_endpoint(self):
+        from django.urls import reverse
+
+        session = self.client.session
+        session["portal_authenticated"] = True
+        session.save()
+
+        url = reverse("q_link:api_edge_detail", kwargs={"edge_id": str(self.rel.id)})
+        res = self.client.get(url)
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["edge"]["source_name"], "Mr. V")
+        self.assertEqual(data["edge"]["target_name"], "Palani")
+        self.assertTrue(data["edge"]["is_rapid_layering"])

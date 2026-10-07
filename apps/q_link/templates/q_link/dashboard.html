@@ -12,18 +12,37 @@
 
         <c-slot name="actions">
             <div class="flex flex-wrap items-center gap-2.5">
+                <!-- 3 Operational Modes Switcher Bar -->
+                <div class="inline-flex p-0.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs">
+                    <button type="button" onclick="switchOperationalMode('keyword')" id="mode-btn-keyword"
+                        class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'keyword' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %} cursor-pointer">
+                        <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+                        <span>Mode 1: Keyword Network</span>
+                    </button>
+                    <button type="button" onclick="switchOperationalMode('audit')" id="mode-btn-audit"
+                        class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'audit' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %} cursor-pointer">
+                        <i class="fa-solid fa-folder-tree text-[10px]"></i>
+                        <span>Mode 2: Full Audit Topology</span>
+                    </button>
+                    <button type="button" onclick="switchOperationalMode('global')" id="mode-btn-global"
+                        class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'global' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %} cursor-pointer">
+                        <i class="fa-solid fa-vault text-[10px]"></i>
+                        <span>Mode 3: Global Vault Match</span>
+                    </button>
+                </div>
+
                 {% if active_audit %}
                 <!-- Audit vs All Profiles Toggle Switch -->
                 <div class="inline-flex p-0.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs">
-                    <a href="?scope=audit"
-                       class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope != 'all' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %}">
+                    <a href="?mode={{ mode }}&scope=audit{% if keyword %}&keyword={{ keyword }}{% endif %}"
+                       class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope != 'all' %}bg-slate-700 text-slate-100 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %}">
                         <i class="fa-solid fa-folder-tree text-[10px]"></i>
                         <span>Audit: {{ active_audit.name }} ({{ audit_profiles_count }})</span>
                     </a>
-                    <a href="?scope=all"
-                       class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope == 'all' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %}">
+                    <a href="?mode={{ mode }}&scope=all{% if keyword %}&keyword={{ keyword }}{% endif %}"
+                       class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope == 'all' %}bg-slate-700 text-slate-100 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %}">
                         <i class="fa-solid fa-globe text-[10px]"></i>
-                        <span>All Profiles ({{ total_profiles_count }})</span>
+                        <span>All Profiles ({{ total_entities }})</span>
                     </a>
                 </div>
                 {% endif %}
@@ -63,16 +82,31 @@
                 
                 <!-- Canvas Top Bar Controls -->
                 <div class="p-3.5 bg-slate-950/70 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
-                    <div class="flex items-center gap-2">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-mono font-bold">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <!-- Active Mode Badge -->
+                        <span id="active-mode-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-mono font-bold">
                             <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                            GRAPH ENGINE ACTIVE
+                            <span id="active-mode-label">{% if mode == 'keyword' %}MODE 1: KEYWORD NETWORK{% elif mode == 'global' %}MODE 3: GLOBAL VAULT MATCH{% else %}MODE 2: FULL AUDIT TOPOLOGY{% endif %}</span>
                         </span>
-                        <div class="relative">
+
+                        <!-- Mode 1 / General Keyword Search Input -->
+                        <div class="relative flex items-center" id="keyword-search-container">
                             <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
-                            <input type="text" id="entity-search-input" placeholder="Search node in graph..."
+                            <input type="text" id="mode1-keyword-search" value="{{ keyword }}" placeholder="Search keyword (e.g. Metec, Palani, Substantiated)..."
+                                onkeydown="if(event.key==='Enter'){ executeKeywordSearch(); }"
+                                class="bg-slate-900 border border-slate-700 text-xs text-slate-200 pl-8 pr-16 py-1.5 rounded-lg focus:outline-none focus:border-amber-400 transition w-56 sm:w-72" />
+                            <button type="button" onclick="executeKeywordSearch()"
+                                class="absolute right-1 top-1 px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-bold transition cursor-pointer">
+                                Search
+                            </button>
+                        </div>
+
+                        <!-- Canvas In-View Quick Filter -->
+                        <div class="relative hidden xl:block">
+                            <i class="fa-solid fa-filter absolute left-2.5 top-2.5 text-xs text-slate-500"></i>
+                            <input type="text" id="entity-search-input" placeholder="Find node in view..."
                                 oninput="filterGraphNodes(this.value)"
-                                class="bg-slate-900 border border-slate-700 text-xs text-slate-200 pl-8 pr-3 py-1.5 rounded-lg focus:outline-none focus:border-amber-400 transition w-48 sm:w-64" />
+                                class="bg-slate-900 border border-slate-800 text-xs text-slate-300 pl-7 pr-2.5 py-1.5 rounded-lg focus:outline-none focus:border-amber-400 transition w-36" />
                         </div>
                     </div>
 
@@ -92,12 +126,14 @@
                 <div id="qlink-canvas" class="w-full h-[580px] bg-radial from-slate-900 to-slate-950 relative"></div>
 
                 <!-- Floating Canvas Legend -->
-                <div class="absolute bottom-3 left-3 bg-slate-950/80 backdrop-blur border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-400 flex items-center gap-3 pointer-events-none">
+                <div class="absolute bottom-3 left-3 bg-slate-950/85 backdrop-blur border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-400 flex flex-wrap items-center gap-3 pointer-events-none">
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> Employee</span>
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Vendor</span>
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Bank Account</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span> PO / Invoice</span>
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span> Document</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-emerald-300"></span> Substantiated</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-xs bg-slate-800 border border-dashed border-slate-400"></span> External Node</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3.5 h-0.5 border-t-2 border-dashed border-rose-500"></span> Rapid Layering</span>
                 </div>
             </div>
 
@@ -223,6 +259,11 @@
                                 <span class="text-slate-500">Aliases / Variants:</span>
                                 <div id="inspect-aliases" class="flex flex-wrap gap-1 mt-1"></div>
                             </div>
+
+                            <div id="inspect-tags-box" class="mt-2 pt-2 border-t border-slate-800/80 text-[11px]">
+                                <span class="text-slate-500 block mb-1">Forensic Flags & Tags:</span>
+                                <div id="inspect-tags-list" class="flex flex-wrap gap-1 mt-1"></div>
+                            </div>
                         </div>
 
                         <!-- Direct Connections -->
@@ -294,24 +335,59 @@
 
     </div>
 
+    <!-- Slide-out Side Drawer: Audit Evidence Trail -->
+    <div id="evidence-trail-drawer"
+        class="fixed inset-y-0 right-0 z-50 w-full sm:w-[460px] bg-slate-950 border-l border-slate-800 shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+        <!-- Drawer Header -->
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90 backdrop-blur">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                    <i class="fa-solid fa-fingerprint text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-sm text-white">Audit Evidence Trail</h3>
+                    <p class="text-[11px] text-slate-400 font-mono" id="drawer-edge-header">Connecting Edge Evidence</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeEvidenceDrawer()"
+                class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <!-- Drawer Content Body -->
+        <div id="evidence-drawer-body" class="p-4 space-y-4 overflow-y-auto flex-1 text-xs">
+            <!-- Populated dynamically via inspectEdge(edgeId) -->
+        </div>
+    </div>
+
+    <!-- Backdrop for Drawer -->
+    <div id="drawer-backdrop" onclick="closeEvidenceDrawer()"
+        class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-40 hidden transition-opacity"></div>
+
     <!-- Interactive Vis.js & Copilot Integration Script -->
     <script type="text/javascript">
         // Initial Graph Data passed from view
         const initialGraphData = JSON.parse('{{ initial_graph_json|escapejs }}');
-        
+        let currentOperationalMode = "{{ mode|default:'audit' }}";
+
         let networkInstance = null;
         let graphNodes = null;
         let graphEdges = null;
         let isPhysicsEnabled = true;
 
-        // Initialize Vis.js Canvas
-        function initNetworkGraph(data) {
-            const container = document.getElementById("qlink-canvas");
-
-            // Format nodes with styled colors
-            const formattedNodes = data.nodes.map(n => {
-                let colorBg = "#38bdf8"; // Default blue
+        // Format nodes with forensic styling (Substantiated badge, External dashed border, colors)
+        function formatNodes(nodes) {
+            return nodes.map(n => {
+                let colorBg = "#38bdf8"; // Default cyan/blue for employees
                 let borderCol = "#0284c7";
+                let isSubstantiated = false;
+                let isExternal = Boolean(n.is_external);
+
+                const tags = n.tags || (n.metadata && n.metadata.tags) || [];
+                if (tags.some(t => String(t).toLowerCase() === "substantiated") || (n.metadata && n.metadata.is_substantiated)) {
+                    isSubstantiated = true;
+                }
 
                 if (n.type === "VENDOR") {
                     colorBg = "#f59e0b"; // Amber
@@ -325,37 +401,110 @@
                 } else if (n.type === "BANK_ACCOUNT") {
                     colorBg = "#10b981"; // Emerald
                     borderCol = "#059669";
+                } else if (n.type === "COMPANY") {
+                    colorBg = "#6366f1"; // Indigo
+                    borderCol = "#4f46e5";
                 }
 
-                return {
+                if (isExternal) {
+                    colorBg = "#1e293b";
+                    borderCol = "#64748b";
+                }
+
+                let labelText = n.label;
+                if (isSubstantiated) {
+                    labelText += "\n✓ [Substantiated]";
+                    borderCol = "#10b981";
+                }
+                if (isExternal) {
+                    labelText += "\n[External Vault]";
+                }
+
+                const nodeObj = {
                     id: n.id,
-                    label: n.label,
-                    shape: n.is_target ? "diamond" : "dot",
+                    label: labelText,
+                    shape: n.is_target ? "diamond" : (isExternal ? "box" : "dot"),
                     size: n.is_target ? 24 : 16,
                     color: {
                         background: colorBg,
-                        border: n.is_target ? "#ffffff" : borderCol,
-                        highlight: { background: "#ffffff", border: colorBg }
+                        border: isSubstantiated ? "#10b981" : (n.is_target ? "#ffffff" : borderCol),
+                        highlight: { background: "#ffffff", border: borderCol }
                     },
-                    font: { color: "#e2e8f0", size: 11, face: "Inter, sans-serif" },
-                    borderWidth: n.is_target ? 3 : 1.5,
+                    font: {
+                        color: isSubstantiated ? "#34d399" : (isExternal ? "#94a3b8" : "#e2e8f0"),
+                        size: 11,
+                        face: "Inter, sans-serif",
+                        bold: isSubstantiated
+                    },
+                    borderWidth: isSubstantiated ? 3 : (n.is_target ? 3 : 1.5),
+                    originalColor: {
+                        background: colorBg,
+                        border: isSubstantiated ? "#10b981" : (n.is_target ? "#ffffff" : borderCol),
+                    },
+                    originalFont: {
+                        color: isSubstantiated ? "#34d399" : (isExternal ? "#94a3b8" : "#e2e8f0"),
+                        size: 11,
+                        face: "Inter, sans-serif",
+                        bold: isSubstantiated
+                    },
                     raw: n
                 };
-            });
 
-            // Format edges
-            const formattedEdges = data.edges.map(e => ({
-                id: e.id,
-                from: e.from,
-                to: e.to,
-                label: e.label,
-                arrows: "to",
-                color: { color: "#475569", highlight: "#f59e0b" },
-                font: { color: "#94a3b8", size: 9, align: "middle" },
-                width: Math.min(Math.max(e.weight ? Math.log10(e.weight + 1) : 1, 1), 5),
-                dashes: !e.is_direct,
-                raw: e
-            }));
+                if (isExternal) {
+                    nodeObj.shapeProperties = { borderDashes: [5, 5] };
+                }
+
+                return nodeObj;
+            });
+        }
+
+        // Format edges with forensic styling (Rapid layering red dashed, External dashed)
+        function formatEdges(edges) {
+            return edges.map(e => {
+                const isRapidLayering = Boolean(e.is_rapid_layering || (e.relation_type === "RAPID_LAYERING"));
+                const isExternal = Boolean(e.is_external);
+
+                let edgeColor = "#475569";
+                let highlightColor = "#f59e0b";
+                let edgeDashes = !e.is_direct;
+                let edgeWidth = Math.min(Math.max(e.weight ? Math.log10(e.weight + 1) : 1, 1), 5);
+                let fontColor = "#94a3b8";
+
+                if (isRapidLayering) {
+                    edgeColor = "#ef4444"; // Red for rapid layering
+                    highlightColor = "#f43f5e";
+                    edgeDashes = [6, 4];
+                    edgeWidth = 3;
+                    fontColor = "#f87171";
+                } else if (isExternal) {
+                    edgeColor = "#64748b";
+                    edgeDashes = [4, 4];
+                    fontColor = "#94a3b8";
+                }
+
+                return {
+                    id: e.id,
+                    from: e.from || e.source,
+                    to: e.to || e.target,
+                    label: e.label,
+                    arrows: "to",
+                    color: { color: edgeColor, highlight: highlightColor },
+                    font: { color: fontColor, size: 9, align: "middle", strokeWidth: 2, strokeColor: "#0f172a" },
+                    width: edgeWidth,
+                    dashes: edgeDashes,
+                    originalColor: { color: edgeColor, highlight: highlightColor },
+                    originalFont: { color: fontColor, size: 9, align: "middle", strokeWidth: 2, strokeColor: "#0f172a" },
+                    raw: e
+                };
+            });
+        }
+
+        // Initialize Vis.js Canvas
+        function initNetworkGraph(data) {
+            const container = document.getElementById("qlink-canvas");
+
+            const formattedNodes = formatNodes(data.nodes || []);
+            const formattedEdges = formatEdges(data.edges || []);
 
             graphNodes = new vis.DataSet(formattedNodes);
             graphEdges = new vis.DataSet(formattedEdges);
@@ -387,13 +536,404 @@
 
             networkInstance = new vis.Network(container, { nodes: graphNodes, edges: graphEdges }, options);
 
-            // Handle Node Click -> Open Inspector
+            // Click Events:
+            // - Node click: Highlight 1st and 2nd degree path, dim unrelated nodes, open Inspector
+            // - Edge click: Open Audit Evidence Trail drawer
+            // - Blank canvas click: Reset dimming and restore graph
             networkInstance.on("click", function(params) {
                 if (params.nodes.length > 0) {
                     const nodeId = params.nodes[0];
+                    highlightNodeNetwork(nodeId);
                     inspectEntity(nodeId);
+                } else if (params.edges.length > 0) {
+                    const edgeId = params.edges[0];
+                    inspectEdge(edgeId);
+                } else {
+                    resetNetworkHighlight();
                 }
             });
+        }
+
+        // Update Network Graph with new dataset (used for Mode 1, Mode 2, Mode 3 switches)
+        function updateNetworkGraph(data) {
+            if (!networkInstance) {
+                initNetworkGraph(data);
+                return;
+            }
+            const formattedNodes = formatNodes(data.nodes || []);
+            const formattedEdges = formatEdges(data.edges || []);
+            graphNodes.clear();
+            graphEdges.clear();
+            graphNodes.add(formattedNodes);
+            graphEdges.add(formattedEdges);
+            resetGraphView();
+        }
+
+        // Highlight 1st and 2nd degree connected paths and dim unrelated nodes
+        function highlightNodeNetwork(nodeId) {
+            if (!networkInstance || !graphNodes || !graphEdges) return;
+
+            const firstDegree = networkInstance.getConnectedNodes(nodeId);
+            const highlightedNodeIds = new Set([nodeId, ...firstDegree]);
+
+            firstDegree.forEach(fn => {
+                const secondDegree = networkInstance.getConnectedNodes(fn);
+                secondDegree.forEach(sn => highlightedNodeIds.add(sn));
+            });
+
+            // Dim unrelated nodes
+            const nodeUpdates = [];
+            graphNodes.forEach(node => {
+                if (highlightedNodeIds.has(node.id)) {
+                    nodeUpdates.push({
+                        id: node.id,
+                        color: node.originalColor,
+                        font: node.originalFont,
+                        opacity: 1.0
+                    });
+                } else {
+                    nodeUpdates.push({
+                        id: node.id,
+                        color: { background: "rgba(30, 41, 59, 0.2)", border: "rgba(51, 65, 85, 0.2)" },
+                        font: { color: "rgba(100, 116, 139, 0.25)" },
+                        opacity: 0.2
+                    });
+                }
+            });
+            graphNodes.update(nodeUpdates);
+
+            // Dim unrelated edges
+            const edgeUpdates = [];
+            graphEdges.forEach(edge => {
+                if (highlightedNodeIds.has(edge.from) && highlightedNodeIds.has(edge.to)) {
+                    edgeUpdates.push({
+                        id: edge.id,
+                        color: edge.originalColor,
+                        font: edge.originalFont,
+                        hidden: false
+                    });
+                } else {
+                    edgeUpdates.push({
+                        id: edge.id,
+                        color: { color: "rgba(30, 41, 59, 0.15)" },
+                        font: { color: "transparent", strokeWidth: 0 },
+                        hidden: false
+                    });
+                }
+            });
+            graphEdges.update(edgeUpdates);
+        }
+
+        // Reset network highlighting to original visibility
+        function resetNetworkHighlight() {
+            if (!graphNodes || !graphEdges) return;
+
+            const nodeUpdates = [];
+            graphNodes.forEach(node => {
+                nodeUpdates.push({
+                    id: node.id,
+                    color: node.originalColor,
+                    font: node.originalFont,
+                    opacity: 1.0
+                });
+            });
+            graphNodes.update(nodeUpdates);
+
+            const edgeUpdates = [];
+            graphEdges.forEach(edge => {
+                edgeUpdates.push({
+                    id: edge.id,
+                    color: edge.originalColor,
+                    font: edge.originalFont,
+                    hidden: false
+                });
+            });
+            graphEdges.update(edgeUpdates);
+        }
+
+        // Open Evidence Drawer
+        function openEvidenceDrawer() {
+            const drawer = document.getElementById("evidence-trail-drawer");
+            const backdrop = document.getElementById("drawer-backdrop");
+            if (drawer) {
+                drawer.classList.remove("translate-x-full");
+                drawer.classList.add("translate-x-0");
+            }
+            if (backdrop) {
+                backdrop.classList.remove("hidden");
+            }
+        }
+
+        // Close Evidence Drawer
+        function closeEvidenceDrawer() {
+            const drawer = document.getElementById("evidence-trail-drawer");
+            const backdrop = document.getElementById("drawer-backdrop");
+            if (drawer) {
+                drawer.classList.remove("translate-x-0");
+                drawer.classList.add("translate-x-full");
+            }
+            if (backdrop) {
+                backdrop.classList.add("hidden");
+            }
+        }
+
+        // Inspect Edge: Slide out Evidence Trail Drawer and fetch citations
+        async function inspectEdge(edgeId) {
+            openEvidenceDrawer();
+            const body = document.getElementById("evidence-drawer-body");
+            const header = document.getElementById("drawer-edge-header");
+
+            body.innerHTML = `
+                <div class="py-12 text-center text-slate-400 space-y-2">
+                    <i class="fa-solid fa-spinner fa-spin text-xl text-amber-400"></i>
+                    <p>Retrieving forensic evidence citation trail...</p>
+                </div>
+            `;
+
+            try {
+                const resp = await fetch(`/link/api/edge/${edgeId}/`);
+                const data = await resp.json();
+
+                if (data.status !== "success" || !data.edge) {
+                    body.innerHTML = `
+                        <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-center">
+                            <i class="fa-solid fa-circle-exclamation text-rose-400 text-lg mb-2"></i>
+                            <p>${data.message || 'Evidence record not found.'}</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const edge = data.edge;
+                const items = data.evidence_items || [];
+                header.innerText = `${edge.source_name} → ${edge.target_name}`;
+
+                let rlBanner = "";
+                if (edge.is_rapid_layering) {
+                    rlBanner = `
+                        <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 space-y-1">
+                            <div class="flex items-center gap-1.5 font-bold text-rose-400">
+                                <i class="fa-solid fa-bolt-lightning animate-pulse"></i>
+                                <span>RAPID LAYERING DETECTED (&lt; 24h Turnaround)</span>
+                            </div>
+                            <p class="text-[11px] text-slate-300">
+                                Funds received were dispersed to the downstream counterparty in rapid succession, characteristic of illicit intermediary layering.
+                            </p>
+                        </div>
+                    `;
+                }
+
+                let html = `
+                    ${rlBanner}
+
+                    <!-- Edge Summary Card -->
+                    <div class="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                ${edge.relation_type_display || edge.relation_type}
+                            </span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">
+                                [${(edge.module || 'LINK').toUpperCase()}]
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-xs pt-1">
+                            <span class="text-slate-400">Weight / Amount:</span>
+                            <span class="font-mono font-bold text-amber-400">₹${Number(edge.weight || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-slate-400">Confidence Score:</span>
+                            <span class="font-mono text-emerald-400 font-semibold">${Math.round((edge.confidence || 1.0) * 100)}%</span>
+                        </div>
+                    </div>
+
+                    <!-- Granular Evidence Records -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between text-xs font-bold text-slate-300 border-b border-slate-800 pb-1.5">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-fingerprint text-emerald-400"></i> Evidence Records (${items.length})
+                            </span>
+                            <span class="text-[10px] text-slate-500 font-mono uppercase">${edge.category}</span>
+                        </div>
+                `;
+
+                if (items.length === 0) {
+                    html += `<div class="text-slate-500 text-center py-4">No granular source citations recorded.</div>`;
+                } else {
+                    items.forEach((ev, idx) => {
+                        let specificFields = "";
+
+                        if (edge.category === "FINANCIAL" || ev.narration || ev.debit_amount || ev.credit_amount) {
+                            specificFields = `
+                                <div class="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-800/60 font-mono">
+                                    ${ev.date ? `<div><span class="text-slate-500 block text-[10px]">Date</span><span class="text-slate-300">${ev.date}</span></div>` : ''}
+                                    ${ev.ref_no ? `<div><span class="text-slate-500 block text-[10px]">Ref / UTR</span><span class="text-slate-300">${ev.ref_no}</span></div>` : ''}
+                                    ${ev.account_no ? `<div><span class="text-slate-500 block text-[10px]">Source Account</span><span class="text-slate-300">${ev.account_no}</span></div>` : ''}
+                                    ${ev.turnaround ? `<div><span class="text-slate-500 block text-[10px]">Turnaround</span><span class="text-rose-400 font-bold">${ev.turnaround}</span></div>` : ''}
+                                </div>
+                                ${ev.narration ? `
+                                    <div class="mt-2 text-[11px]">
+                                        <span class="text-slate-500 block text-[10px]">Transaction Narration</span>
+                                        <div class="p-2 rounded bg-slate-900 border border-slate-800 text-slate-200 font-mono text-[11px] break-all">
+                                            ${ev.narration}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            `;
+                        }
+
+                        if (ev.file_name || ev.page_number || edge.category === "DOCUMENT") {
+                            specificFields += `
+                                <div class="space-y-1.5 pt-1 border-t border-slate-800/60 text-[11px]">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-400 flex items-center gap-1 font-mono">
+                                            <i class="fa-solid fa-file-pdf text-rose-400"></i> ${ev.file_name || 'Document'}
+                                        </span>
+                                        ${ev.page_number ? `<span class="px-1.5 py-0.2 rounded bg-slate-800 text-amber-300 text-[10px] font-mono">Page ${ev.page_number}</span>` : ''}
+                                    </div>
+                                    ${ev.snippet ? `
+                                        <div class="p-2 rounded bg-slate-900/90 border-l-2 border-amber-400 text-slate-200 text-[11px] leading-relaxed">
+                                            "${ev.snippet}"
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }
+
+                        if (edge.category === "VOICE" || ev.audio_file || ev.audio_timestamp) {
+                            specificFields += `
+                                <div class="space-y-1.5 pt-1 border-t border-slate-800/60 text-[11px]">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-400 flex items-center gap-1 font-mono">
+                                            <i class="fa-solid fa-waveform-lines text-cyan-400"></i> ${ev.audio_file || 'Voice Recording'}
+                                        </span>
+                                        <span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono font-bold text-[10px]">
+                                            ⏱ ${ev.audio_timestamp || '00:00'}
+                                        </span>
+                                    </div>
+                                    ${(ev.transcript_snippet || ev.snippet) ? `
+                                        <div class="p-2 rounded bg-slate-900/90 border-l-2 border-cyan-400 text-slate-200 text-[11px] leading-relaxed">
+                                            "${ev.transcript_snippet || ev.snippet}"
+                                        </div>
+                                    ` : ''}
+                                    ${ev.audio_url ? `
+                                        <div class="mt-2">
+                                            <audio controls class="w-full h-8" src="${ev.audio_url}"></audio>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }
+
+                        if (edge.category === "CHAT") {
+                            specificFields += `
+                                <div class="space-y-1.5 pt-1 border-t border-slate-800/60 text-[11px]">
+                                    <div class="text-slate-400 flex items-center gap-1 font-mono">
+                                        <i class="fa-brands fa-whatsapp text-emerald-400"></i> ${ev.file_name || 'Chat Export'}
+                                    </div>
+                                    ${ev.snippet ? `
+                                        <div class="p-2 rounded bg-slate-900/90 border-l-2 border-emerald-400 text-slate-200 text-[11px] leading-relaxed">
+                                            "${ev.snippet}"
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }
+
+                        html += `
+                            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                                <div class="flex items-center justify-between text-[11px]">
+                                    <span class="font-bold text-cyan-400 font-mono uppercase">[${ev.source_module}] ${ev.source_model || ''}</span>
+                                    ${ev.occurred_at ? `<span class="text-slate-500 font-mono text-[10px]">${ev.occurred_at}</span>` : ''}
+                                </div>
+                                <p class="text-slate-300 text-xs">${ev.summary || ''}</p>
+                                ${specificFields}
+                                ${ev.evidence_url ? `
+                                    <div class="pt-1.5">
+                                        <a href="${ev.evidence_url}" target="_blank" class="inline-flex items-center gap-1 text-amber-400 hover:underline text-[10px] font-semibold">
+                                            <span>Drill Down into Source Record</span>
+                                            <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                                        </a>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `</div>`;
+                body.innerHTML = html;
+
+            } catch (err) {
+                body.innerHTML = `
+                    <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-rose-400 text-center text-xs">
+                        <i class="fa-solid fa-triangle-exclamation text-base mb-1 block"></i>
+                        Error fetching evidence trail: ${err}
+                    </div>
+                `;
+            }
+        }
+
+        // Operational Mode Switcher
+        function switchOperationalMode(newMode) {
+            currentOperationalMode = newMode;
+
+            ['keyword', 'audit', 'global'].forEach(m => {
+                const btn = document.getElementById(`mode-btn-${m}`);
+                if (!btn) return;
+                if (m === newMode) {
+                    btn.className = "px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 bg-amber-500 text-slate-950 font-bold shadow-xs cursor-pointer";
+                } else {
+                    btn.className = "px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 text-slate-400 hover:text-white cursor-pointer";
+                }
+            });
+
+            const badgeLabel = document.getElementById("active-mode-label");
+            if (badgeLabel) {
+                if (newMode === 'keyword') badgeLabel.innerText = "MODE 1: KEYWORD NETWORK";
+                else if (newMode === 'global') badgeLabel.innerText = "MODE 3: GLOBAL VAULT MATCH";
+                else badgeLabel.innerText = "MODE 2: FULL AUDIT TOPOLOGY";
+            }
+
+            const kwInput = document.getElementById("mode1-keyword-search");
+            const kw = kwInput ? kwInput.value.trim() : "";
+
+            if (newMode === 'keyword' && kwInput) {
+                kwInput.focus();
+            }
+
+            loadGraphData(newMode, kw);
+
+            const url = new URL(window.location.href);
+            url.searchParams.set("mode", newMode);
+            if (kw) url.searchParams.set("keyword", kw);
+            else url.searchParams.delete("keyword");
+            window.history.pushState({}, '', url.toString());
+        }
+
+        // Execute Keyword Search Filter
+        function executeKeywordSearch() {
+            const kwInput = document.getElementById("mode1-keyword-search");
+            const kw = kwInput ? kwInput.value.trim() : "";
+            switchOperationalMode('keyword');
+        }
+
+        // Load graph data asynchronously via API
+        async function loadGraphData(mode, keyword = "") {
+            try {
+                const activeAuditId = "{{ active_audit.id|default:'' }}";
+                const scope = "{{ scope|default:'audit' }}";
+                let url = `/link/api/network/?mode=${encodeURIComponent(mode)}&scope=${encodeURIComponent(scope)}`;
+                if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+                if (activeAuditId) url += `&audit_id=${encodeURIComponent(activeAuditId)}`;
+
+                const resp = await fetch(url);
+                const data = await resp.json();
+                if (data.status === "success") {
+                    updateNetworkGraph(data);
+                }
+            } catch (err) {
+                console.error("Failed to load graph data for mode", mode, err);
+            }
         }
 
         // Reset Graph View
@@ -424,6 +964,7 @@
             });
             if (matching.length > 0) {
                 networkInstance.focus(matching[0].id, { scale: 1.2, animation: true });
+                highlightNodeNetwork(matching[0].id);
                 inspectEntity(matching[0].id);
             }
         }
@@ -464,7 +1005,7 @@
                 document.getElementById("inspect-identifier").innerText = e.identifier;
                 document.getElementById("inspect-risk").innerText = `${e.risk_rating}/100`;
 
-                // Aliases
+                // Render Aliases
                 const aliasContainer = document.getElementById("inspect-aliases");
                 aliasContainer.innerHTML = "";
                 if (e.aliases && e.aliases.length > 0) {
@@ -478,14 +1019,46 @@
                     aliasContainer.innerHTML = "<span class='text-slate-500 text-[10px]'>None</span>";
                 }
 
-                // Relationships List
+                // Render Tags & Classifications (Substantiated badge, External, Rapid Layering)
+                const tagsContainer = document.getElementById("inspect-tags-list");
+                if (tagsContainer) {
+                    tagsContainer.innerHTML = "";
+                    const tags = [...(e.tags || (e.metadata && e.metadata.tags) || [])];
+                    if (e.metadata && e.metadata.is_substantiated) {
+                        if (!tags.includes("Substantiated")) tags.unshift("Substantiated");
+                    }
+                    if (tags && tags.length > 0) {
+                        tags.forEach(t => {
+                            const badge = document.createElement("span");
+                            if (t.toLowerCase() === "substantiated") {
+                                badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1";
+                                badge.innerHTML = `<i class="fa-solid fa-circle-check text-[9px]"></i> Substantiated`;
+                            } else if (t.toLowerCase().includes("external")) {
+                                badge.className = "px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700 border-dashed";
+                                badge.innerText = t;
+                            } else if (t.toLowerCase().includes("rapid layering")) {
+                                badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30";
+                                badge.innerText = t;
+                            } else {
+                                badge.className = "px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20";
+                                badge.innerText = t;
+                            }
+                            tagsContainer.appendChild(badge);
+                        });
+                    } else {
+                        tagsContainer.innerHTML = "<span class='text-slate-500 text-[10px]'>None</span>";
+                    }
+                }
+
+                // Direct Relationships
                 const relList = document.getElementById("inspect-relations-list");
                 relList.innerHTML = "";
                 const allRels = [...(data.outgoing_relationships || []), ...(data.incoming_relationships || [])];
                 if (allRels.length > 0) {
                     allRels.slice(0, 10).forEach(r => {
                         const item = document.createElement("div");
-                        item.className = "p-2 rounded bg-slate-950/70 border border-slate-800/80 flex items-center justify-between text-[11px]";
+                        item.className = "p-2 rounded bg-slate-950/70 border border-slate-800/80 flex items-center justify-between text-[11px] cursor-pointer hover:border-amber-500/50 transition";
+                        item.onclick = () => inspectEdge(r.id);
                         item.innerHTML = `
                             <div>
                                 <span class="font-bold text-slate-200">${r.target_name || r.source_name}</span>
@@ -499,7 +1072,7 @@
                     relList.innerHTML = "<div class='text-slate-500 text-[11px] py-1'>No direct relations recorded.</div>";
                 }
 
-                // Evidence Pointers with Clickable Deep Links
+                // Underlying Evidence Citations
                 const evList = document.getElementById("inspect-evidence-list");
                 evList.innerHTML = "";
                 if (data.evidence && data.evidence.length > 0) {
@@ -622,7 +1195,6 @@
                     </div>`;
                 }
 
-                // Convert simple markdown headings and bold to html
                 let formatted = text
                     .replace(/### (.*)/g, '<h4 class="font-bold text-sm text-amber-400 mt-2">$1</h4>')
                     .replace(/#### (.*)/g, '<h5 class="font-bold text-xs text-slate-200 mt-1.5">$1</h5>')

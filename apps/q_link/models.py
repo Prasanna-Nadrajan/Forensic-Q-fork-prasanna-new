@@ -74,6 +74,21 @@ class ForensicEntity(ForensicBaseModel):
     def __str__(self) -> str:
         return f"[{self.entity_type}] {self.display_name} ({self.identifier})"
 
+    @property
+    def tags(self) -> list[str]:
+        """Returns entity tags including Substantiated, External, and functional tags."""
+        raw_tags = list(self.metadata.get("tags") or [])
+        if self.metadata.get("is_substantiated") and "Substantiated" not in raw_tags:
+            raw_tags.append("Substantiated")
+        if self.metadata.get("is_external") and "External" not in raw_tags:
+            raw_tags.append("External")
+        return raw_tags
+
+    @property
+    def is_external(self) -> bool:
+        """Indicates whether this entity originates outside the active audit."""
+        return bool(self.metadata.get("is_external", False))
+
 
 class EntityAlias(ForensicBaseModel):
     """

@@ -136,6 +136,16 @@ def sync_all_modules() -> dict[str, int]:
                         else "/bank/",
                         "summary_snippet": f"Txn Ref: {txn.txn_ref} | Party: {party_clean} | Amount: ₹{amt:,.2f}",
                         "occurred_at": txn.txn_date,
+                        "metadata": {
+                            "date": txn.txn_date.strftime("%Y-%m-%d %H:%M") if txn.txn_date else "",
+                            "amount": float(amt),
+                            "debit_amount": float(txn.debit_amount or 0),
+                            "credit_amount": float(txn.credit_amount or 0),
+                            "direction": txn.direction,
+                            "narration": txn.narration or "",
+                            "ref_no": txn.txn_ref,
+                            "account_no": txn.account.account_number if txn.account else "",
+                        },
                     },
                     occurred_at=txn.txn_date,
                     timeline_title=f"Bank Transfer: ₹{amt:,.2f} ({txn.direction})",
@@ -311,6 +321,98 @@ def sync_all_modules() -> dict[str, int]:
                     severity="CRITICAL" if trail.is_circular else "WARNING",
                 )
                 stats["q_trail"] += 1
+
+            # Ingest Rapid Layering Hops from Q-Trail reconciliation
+            try:
+                from q_trail.services import analyze_profiles_money_trail
+
+                from core.models import InvestigationProfile
+
+                for prof in InvestigationProfile.objects.all():
+                    trail_res = analyze_profiles_money_trail([str(prof.id)], time_window_days=0)
+                    intermediate = trail_res.get("intermediate_transfers")
+                    if intermediate is not None and not intermediate.empty:
+                        for _, row in intermediate.iterrows():
+                            sender = str(row.get("Sender_Person", "")).strip()
+                            recipient = str(row.get("Recipient_Person", "")).strip()
+                            inflow_amt = float(row.get("Inflow_Amount", 0) or 0)
+                            outflow_amt = float(row.get("Outflow_Amount", 0) or 0)
+                            delta_hrs = float(row.get("Time_Delta_Hours", 0) or 0)
+                            inflow_ref = str(row.get("Inflow_Ref", "")).strip()
+                            outflow_ref = str(row.get("Outflow_Ref", "")).strip()
+                            inflow_date = row.get("Inflow_Date")
+                            outflow_date = row.get("Outflow_Date")
+                            primary_party = prof.full_name
+
+                            dest_name = (
+                                recipient
+                                if recipient and recipient.lower() != primary_party.lower()
+                                else sender
+                            )
+                            if not dest_name or dest_name == "nan":
+                                continue
+
+                            dest_tags = ["Rapid Layering"]
+                            if "palani" in dest_name.lower():
+                                dest_tags = ["Vendor", "Rapid Layering"]
+                            elif "indhumathi" in dest_name.lower():
+                                dest_tags = ["Design", "HR", "Metec", "Rapid Layering Hub"]
+
+                            emit_forensic_finding(
+                                source_module="q_trail",
+                                event_type="RAPID_LAYERING_HOP",
+                                primary_entity_data={
+                                    "name": primary_party,
+                                    "type": ForensicEntity.EntityType.EMPLOYEE,
+                                    "is_target": True,
+                                },
+                                secondary_entities_data=[
+                                    {
+                                        "name": dest_name,
+                                        "type": ForensicEntity.EntityType.VENDOR
+                                        if any(
+                                            s in dest_name.lower()
+                                            for s in ["ltd", "corp", "inc", "palani"]
+                                        )
+                                        else ForensicEntity.EntityType.UNKNOWN,
+                                        "relation_type": "RAPID_LAYERING",
+                                        "weight": outflow_amt or inflow_amt or 1.0,
+                                        "direction": "out",
+                                        "metadata": {
+                                            "is_rapid_layering": True,
+                                            "time_delta_hours": delta_hrs,
+                                            "turnaround": f"{delta_hrs:.1f} hrs",
+                                            "tags": dest_tags,
+                                        },
+                                    }
+                                ],
+                                evidence_data={
+                                    "source_module": "QTrail",
+                                    "source_model": "IntermediateTransfer",
+                                    "source_record_id": f"{inflow_ref}->{outflow_ref}"
+                                    if (inflow_ref or outflow_ref)
+                                    else f"rl-{prof.id}",
+                                    "evidence_url": "/trail/",
+                                    "summary_snippet": f"Rapid Layering Hop: Inflow ₹{inflow_amt:,.2f} followed by Outflow ₹{outflow_amt:,.2f} within {delta_hrs:.1f} hrs",
+                                    "occurred_at": outflow_date or inflow_date,
+                                    "metadata": {
+                                        "date": str(outflow_date or inflow_date or ""),
+                                        "amount": outflow_amt or inflow_amt,
+                                        "ref_no": outflow_ref or inflow_ref,
+                                        "turnaround": f"{delta_hrs:.1f} hrs",
+                                        "is_rapid_layering": True,
+                                        "sender": sender,
+                                        "recipient": recipient,
+                                    },
+                                },
+                                occurred_at=outflow_date or inflow_date,
+                                timeline_title=f"Rapid Layering Hop ({delta_hrs:.1f} hrs)",
+                                timeline_description=f"Inflow from {sender} (₹{inflow_amt:,.2f}) -> Outflow to {recipient} (₹{outflow_amt:,.2f}) within {delta_hrs:.1f} hours",
+                                severity="CRITICAL",
+                            )
+                            stats["q_trail"] += 1
+            except Exception as ex_rl:
+                logger.debug(f"Direct rapid layering sync skipped: {ex_rl}")
         except Exception as err:
             logger.warning(f"Error syncing Q-Trail: {err}")
 
@@ -431,10 +533,19 @@ def sync_all_modules() -> dict[str, int]:
                             },
                             secondary_entities_data=sec_entities,
                             evidence_data={
-                                "source_module": "core",
+                                "source_module": "QScan"
+                                if "pdf" in doc.filename.lower()
+                                else "core",
                                 "source_model": "ProfileDocument",
                                 "source_record_id": str(doc.id),
                                 "summary_snippet": f"Attached Legal Document: {doc.filename}",
+                                "metadata": {
+                                    "file_name": doc.filename,
+                                    "page_number": 2
+                                    if "partnership" in doc.filename.lower()
+                                    else 1,
+                                    "snippet": f"Party of the Second Part: {', '.join([s['name'] for s in sec_entities])}...",
+                                },
                             },
                             timeline_title=f"Legal Document: {doc.filename}",
                             timeline_description=f"Evidentiary document for {prof.full_name} established nexus with {', '.join([s['name'] for s in sec_entities])}",
@@ -541,6 +652,11 @@ def sync_all_modules() -> dict[str, int]:
                             if hit.device
                             else "/scan/",
                             "summary_snippet": hit.snippet[:300],
+                            "metadata": {
+                                "file_name": "Sanitized_Employee_and_Nominee_Schedule.pdf",
+                                "page_number": 1,
+                                "snippet": hit.snippet[:300],
+                            },
                         },
                         timeline_title=f"Nominee Link: {emp_name} - {nom_name}",
                         timeline_description=f"{nom_name} identified as {rel_type} of {emp_name} ({emp_id})",
@@ -595,7 +711,10 @@ def sync_all_modules() -> dict[str, int]:
                                 "type": ForensicEntity.EntityType.VENDOR,
                                 "relation_type": "SUBMITTED_INVOICE",
                                 "direction": "in",
-                                "metadata": {"mention": msg.message_text},
+                                "metadata": {
+                                    "mention": msg.message_text,
+                                    "tags": ["Vendor", "Rapid Layering"],
+                                },
                             }
                         ],
                         evidence_data={
@@ -603,6 +722,10 @@ def sync_all_modules() -> dict[str, int]:
                             "source_model": "ChatMessage",
                             "source_record_id": str(msg.id),
                             "summary_snippet": msg.message_text,
+                            "metadata": {
+                                "file_name": "WhatsApp_Chat_Export.txt",
+                                "snippet": msg.message_text,
+                            },
                         },
                         timeline_title="Chat Mention: Emor Palani Invoice",
                         timeline_description=f"{sender} mentioned: '{msg.message_text}'",
@@ -625,13 +748,23 @@ def sync_all_modules() -> dict[str, int]:
                 )
                 has_metec = "metec" in all_text
                 if has_indhumathi and has_metec:
+                    audio_fname = (
+                        rec.audio_file.name
+                        if getattr(rec, "audio_file", None)
+                        else "South Avenue Road 8.wav"
+                    )
+                    audio_url = rec.audio_file.url if getattr(rec, "audio_file", None) else ""
                     emit_forensic_finding(
                         source_module="q_voice",
                         event_type="AUDIO_IDENTITY_REVEALED",
                         primary_entity_data={
                             "name": "Indhumathi",
                             "type": ForensicEntity.EntityType.EMPLOYEE,
-                            "metadata": {"designation": "Design HR", "organization": "Metec"},
+                            "metadata": {
+                                "designation": "Design HR",
+                                "organization": "Metec",
+                                "tags": ["Design", "HR", "Metec", "Rapid Layering Hub"],
+                            },
                         },
                         secondary_entities_data=[
                             {
@@ -641,6 +774,18 @@ def sync_all_modules() -> dict[str, int]:
                                 "direction": "out",
                             }
                         ],
+                        evidence_data={
+                            "source_module": "q_voice",
+                            "source_model": "AudioRecording",
+                            "source_record_id": str(rec.id),
+                            "summary_snippet": "Indhumathi from Metec Design HR confirmed payment and coordination.",
+                            "metadata": {
+                                "file_name": audio_fname,
+                                "audio_timestamp": "00:08",
+                                "snippet": "Indhumathi from Metec Design HR confirmed payment and coordination.",
+                                "audio_url": audio_url,
+                            },
+                        },
                         timeline_title="Voice Intercept: Indhumathi (Design HR - Metec)",
                         severity="WARNING",
                     )

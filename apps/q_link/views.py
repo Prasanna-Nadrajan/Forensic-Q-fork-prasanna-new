@@ -18,6 +18,7 @@ from core.audits import get_active_audit
 from .backend.llm_agent import ForensicCopilotAgent
 from .backend.sync_all import sync_all_modules
 from .selectors import (
+    get_edge_evidence,
     get_entity_by_id,
     get_entity_evidence,
     get_entity_network,
@@ -36,9 +37,12 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     """
     Main Q-Link Investigative Workstation:
     Renders top summary metrics, live relationship alerts, active targets,
-    and initializes the interactive Vis.js network graph canvas.
+    and initializes the interactive Vis.js network graph canvas with 3 Operational Modes.
     """
     active_audit = get_active_audit(request)
+    mode = request.GET.get("mode", "audit").strip().lower()
+    keyword = request.GET.get("keyword", "").strip()
+
     scope = request.GET.get("scope")
     if not scope:
         scope = "audit" if active_audit else "all"
@@ -55,7 +59,15 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
         audit_profile_names if (scope == "audit" and active_audit and audit_profile_names) else None
     )
     targets = get_target_entities(filter_names=filter_names, limit=10)
-    initial_graph = get_graph_overview(max_nodes=120, filter_names=filter_names)
+
+    audit_id = str(active_audit.id) if active_audit else None
+    initial_graph = get_graph_overview(
+        mode=mode,
+        keyword=keyword,
+        audit_id=audit_id,
+        max_nodes=120,
+        filter_names=filter_names,
+    )
     high_risk_entities = get_high_risk_entities(min_risk=50, limit=15)
 
     context = {
@@ -70,6 +82,8 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
         "initial_graph_json": json.dumps(initial_graph),
         "active_audit": active_audit,
         "scope": scope,
+        "mode": mode,
+        "keyword": keyword,
         "audit_profiles_count": len(audit_profile_names),
     }
 
@@ -80,27 +94,53 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
 def api_network_data(request: HttpRequest) -> JsonResponse:
     """
     JSON API returning graph nodes and edges.
-    If entity_id is passed, traverses ego-network up to max_hops.
-    Otherwise returns the top-level global knowledge graph.
+    Supports ego-network (entity_id), Mode 1 (keyword), Mode 2 (audit topology), and Mode 3 (global vault).
     """
     entity_id = request.GET.get("entity_id")
     max_hops = int(request.GET.get("max_hops", 2))
     min_confidence = float(request.GET.get("min_confidence", 0.0))
 
+    mode = request.GET.get("mode", "audit").strip().lower()
+    keyword = request.GET.get("keyword", "").strip()
+
     active_audit = get_active_audit(request)
+    audit_id = request.GET.get("audit_id")
+    if not audit_id and active_audit:
+        audit_id = str(active_audit.id)
+
     scope = request.GET.get("scope")
     if not scope:
         scope = "audit" if active_audit else "all"
 
     if entity_id:
         graph_data = get_entity_network(entity_id, max_hops=max_hops, min_confidence=min_confidence)
-    elif scope == "audit" and active_audit:
-        audit_names = list(active_audit.profiles.values_list("full_name", flat=True))
-        graph_data = get_graph_overview(max_nodes=150, filter_names=audit_names)
     else:
-        graph_data = get_graph_overview(max_nodes=150)
+        audit_names = (
+            list(active_audit.profiles.values_list("full_name", flat=True))
+            if active_audit
+            else None
+        )
+        filter_names = audit_names if scope == "audit" else None
+        graph_data = get_graph_overview(
+            mode=mode,
+            keyword=keyword,
+            audit_id=audit_id,
+            max_nodes=150,
+            filter_names=filter_names,
+        )
 
     return JsonResponse({"status": "success", **graph_data})
+
+
+@require_GET
+def api_edge_detail(request: HttpRequest, edge_id: str) -> JsonResponse:
+    """
+    JSON API returning granular evidence citations for a relationship edge
+    to display inside the slide-out 'Audit Evidence Trail' side drawer.
+    """
+    data = get_edge_evidence(edge_id)
+    status_code = 200 if data.get("status") == "success" else 404
+    return JsonResponse(data, status=status_code)
 
 
 @require_GET

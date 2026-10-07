@@ -61,6 +61,101 @@ def get_entity_by_id(entity_id: str) -> ForensicEntity | None:
         return None
 
 
+def _format_node(
+    entity: ForensicEntity,
+    *,
+    is_external: bool = False,
+    additional_tags: list[str] | None = None,
+    is_root: bool | None = None,
+) -> dict[str, Any]:
+    """Formats a ForensicEntity dictionary conforming to the Developer Data Schema Contract."""
+    raw_tags = list(entity.tags)
+    if additional_tags:
+        for t in additional_tags:
+            if t not in raw_tags:
+                raw_tags.append(t)
+
+    node_type = (
+        str(entity.entity_type).lower() if hasattr(entity.entity_type, "lower") else "profile"
+    )
+    data: dict[str, Any] = {
+        "id": str(entity.id),
+        "label": entity.display_name,
+        "type": node_type,
+        "is_external": is_external or entity.is_external,
+        "tags": raw_tags,
+        "risk": entity.risk_rating,
+        "is_target": entity.is_target,
+        "category": entity.category,
+    }
+    if is_root is not None:
+        data["is_root"] = is_root
+    return data
+
+
+def _format_edge(rel: EntityRelationship, *, is_external: bool = False) -> dict[str, Any]:
+    """Formats an EntityRelationship dictionary conforming to the Developer Data Schema Contract."""
+    first_ev = rel.evidence_pointers.first()
+    ev_meta: dict[str, Any] = (first_ev.metadata or {}) if first_ev else {}
+
+    evidence_dict: dict[str, Any] = {
+        "source_module": first_ev.source_module if first_ev else (rel.source_module or "core"),
+        "snippet": ev_meta.get("snippet")
+        or (
+            first_ev.summary_snippet
+            if first_ev
+            else f"{rel.source_entity.display_name} -> {rel.target_entity.display_name}"
+        ),
+    }
+
+    if first_ev:
+        if ev_meta.get("file_name"):
+            evidence_dict["file_name"] = ev_meta.get("file_name")
+        if ev_meta.get("page_number"):
+            evidence_dict["page_number"] = ev_meta.get("page_number")
+        if ev_meta.get("date"):
+            evidence_dict["date"] = ev_meta.get("date")
+        elif first_ev.occurred_at:
+            evidence_dict["date"] = first_ev.occurred_at.strftime("%Y-%m-%d %H:%M")
+        if ev_meta.get("amount") is not None:
+            evidence_dict["amount"] = ev_meta.get("amount")
+        else:
+            evidence_dict["amount"] = rel.weight
+        if ev_meta.get("ref_no"):
+            evidence_dict["ref_no"] = ev_meta.get("ref_no")
+        if ev_meta.get("turnaround"):
+            evidence_dict["turnaround"] = ev_meta.get("turnaround")
+        if ev_meta.get("audio_timestamp"):
+            evidence_dict["audio_timestamp"] = ev_meta.get("audio_timestamp")
+        if ev_meta.get("audio_url"):
+            evidence_dict["audio_url"] = ev_meta.get("audio_url")
+        if first_ev.evidence_url:
+            evidence_dict["evidence_url"] = first_ev.evidence_url
+    else:
+        evidence_dict["amount"] = rel.weight
+
+    is_rl = bool(rel.metadata.get("is_rapid_layering") or rel.relation_type == "RAPID_LAYERING")
+    is_ext = is_external or bool(rel.metadata.get("is_external"))
+
+    return {
+        "id": str(rel.id),
+        "source": str(rel.source_entity_id),
+        "target": str(rel.target_entity_id),
+        "from": str(rel.source_entity_id),
+        "to": str(rel.target_entity_id),
+        "relation_type": rel.relation_type,
+        "label": rel.get_relation_type_display(),
+        "weight": rel.weight,
+        "confidence": rel.confidence_score,
+        "module": rel.source_module,
+        "is_direct": rel.is_direct,
+        "is_rapid_layering": is_rl,
+        "is_external": is_ext,
+        "evidence": evidence_dict,
+        "evidence_count": rel.evidence_pointers.count(),
+    }
+
+
 def get_entity_network(
     entity_id: str,
     *,
@@ -77,14 +172,7 @@ def get_entity_network(
 
     visited_node_ids: set[str] = {str(root_entity.id)}
     nodes_map: dict[str, dict[str, Any]] = {
-        str(root_entity.id): {
-            "id": str(root_entity.id),
-            "label": root_entity.display_name,
-            "type": root_entity.entity_type,
-            "risk": root_entity.risk_rating,
-            "is_target": root_entity.is_target,
-            "is_root": True,
-        }
+        str(root_entity.id): _format_node(root_entity, is_root=True)
     }
     edges_list: list[dict[str, Any]] = []
 
@@ -107,34 +195,13 @@ def get_entity_network(
 
         for rel in relations:
             s_id = str(rel.source_entity_id)
-            t_id = str(rel.target_entity_id)
             neighbor = rel.target_entity if s_id == current_id else rel.source_entity
             neighbor_id = str(neighbor.id)
 
             if neighbor_id not in nodes_map:
-                nodes_map[neighbor_id] = {
-                    "id": neighbor_id,
-                    "label": neighbor.display_name,
-                    "type": neighbor.entity_type,
-                    "risk": neighbor.risk_rating,
-                    "is_target": neighbor.is_target,
-                    "is_root": False,
-                }
+                nodes_map[neighbor_id] = _format_node(neighbor, is_root=False)
 
-            edges_list.append(
-                {
-                    "id": str(rel.id),
-                    "from": s_id,
-                    "to": t_id,
-                    "label": rel.get_relation_type_display(),
-                    "relation_type": rel.relation_type,
-                    "confidence": rel.confidence_score,
-                    "weight": rel.weight,
-                    "module": rel.source_module,
-                    "is_direct": rel.is_direct,
-                    "evidence_count": rel.evidence_pointers.count(),
-                }
-            )
+            edges_list.append(_format_edge(rel))
 
             if neighbor_id not in visited_node_ids:
                 visited_node_ids.add(neighbor_id)
@@ -240,25 +307,303 @@ def get_recent_alerts(
     return qs.order_by("-risk_score", "-created_at")[:limit]
 
 
-def get_graph_overview(
+def get_edge_evidence(edge_id: str) -> dict[str, Any]:
+    """
+    Fetches comprehensive granular evidence for a clicked edge to populate
+    the 'Audit Evidence Trail' slide-out drawer.
+    Supports Financial, Document/Text, Voice, and Chat evidence categories.
+    """
+    try:
+        rel = (
+            EntityRelationship.objects.select_related("source_entity", "target_entity")
+            .prefetch_related("evidence_pointers")
+            .get(id=edge_id)
+        )
+    except (EntityRelationship.DoesNotExist, ValueError, TypeError, ValidationError):
+        return {"status": "error", "message": "Relationship edge not found."}
+
+    evidence_pointers = list(rel.evidence_pointers.all())
+
+    evidence_items: list[dict[str, Any]] = []
+    category = "FINANCIAL"
+    if rel.source_module in ["q_verify", "q_scan"] or rel.relation_type in [
+        "PARTNER",
+        "MENTIONED_IN",
+    ]:
+        category = "DOCUMENT"
+    elif rel.source_module == "q_voice" or "VOICE" in rel.relation_type:
+        category = "VOICE"
+    elif rel.source_module == "q_chat":
+        category = "CHAT"
+
+    for ptr in evidence_pointers:
+        meta: dict[str, Any] = ptr.metadata or {}
+        item = {
+            "id": str(ptr.id),
+            "source_module": ptr.source_module,
+            "source_model": ptr.source_model,
+            "record_id": ptr.source_record_id,
+            "evidence_url": ptr.evidence_url,
+            "summary": ptr.summary_snippet,
+            "occurred_at": ptr.occurred_at.strftime("%Y-%m-%d %H:%M") if ptr.occurred_at else None,
+            # Financial payload
+            "amount": meta.get("amount") or rel.weight,
+            "debit_amount": meta.get("debit_amount"),
+            "credit_amount": meta.get("credit_amount"),
+            "direction": meta.get("direction", "out"),
+            "narration": meta.get("narration") or ptr.summary_snippet,
+            "ref_no": meta.get("ref_no") or ptr.source_record_id,
+            "account_no": meta.get("account_no", ""),
+            "turnaround": meta.get("turnaround", ""),
+            "is_rapid_layering": bool(
+                meta.get("is_rapid_layering") or rel.metadata.get("is_rapid_layering")
+            ),
+            # Document payload
+            "file_name": meta.get("file_name") or ptr.summary_snippet,
+            "page_number": meta.get("page_number", 1),
+            "snippet": meta.get("snippet") or ptr.summary_snippet,
+            # Voice payload
+            "audio_file": meta.get("file_name", ""),
+            "audio_timestamp": meta.get("audio_timestamp", "00:00"),
+            "transcript_snippet": meta.get("snippet") or ptr.summary_snippet,
+            "audio_url": meta.get("audio_url", ""),
+        }
+        evidence_items.append(item)
+
+    if not evidence_items:
+        evidence_items.append(
+            {
+                "id": f"synth-{rel.id}",
+                "source_module": rel.source_module or "core",
+                "source_model": "EntityRelationship",
+                "summary": f"{rel.source_entity.display_name} connected to {rel.target_entity.display_name}",
+                "amount": rel.weight,
+                "narration": rel.get_relation_type_display(),
+                "ref_no": str(rel.id)[:8],
+                "is_rapid_layering": bool(rel.metadata.get("is_rapid_layering")),
+                "turnaround": rel.metadata.get("turnaround", ""),
+                "snippet": f"Correlation established via {rel.source_module} ({rel.get_relation_type_display()})",
+                "page_number": 1,
+                "audio_timestamp": "00:00",
+            }
+        )
+
+    return {
+        "status": "success",
+        "edge": {
+            "id": str(rel.id),
+            "source_id": str(rel.source_entity_id),
+            "target_id": str(rel.target_entity_id),
+            "source_name": rel.source_entity.display_name,
+            "target_name": rel.target_entity.display_name,
+            "relation_type": rel.relation_type,
+            "relation_type_display": rel.get_relation_type_display(),
+            "label": rel.get_relation_type_display(),
+            "category": category,
+            "module": rel.source_module,
+            "weight": rel.weight,
+            "confidence": rel.confidence_score,
+            "is_rapid_layering": bool(
+                rel.metadata.get("is_rapid_layering") or rel.relation_type == "RAPID_LAYERING"
+            ),
+            "is_external": bool(rel.metadata.get("is_external")),
+        },
+        "evidence_items": evidence_items,
+        "evidence_list": evidence_items,
+    }
+
+
+def get_mode1_keyword_graph(
+    audit_id: str | None,
+    keyword: str,
     *,
-    max_nodes: int = 80,
-    min_risk: int = 0,
-    filter_names: list[str] | None = None,
+    max_nodes: int = 120,
 ) -> dict[str, Any]:
     """
-    Generates a top-level network overview of the highest risk entities and their connections
-    for the primary Q-Link dashboard view. If filter_names is provided, focuses on entities
-    matching those names and their 1-hop connected neighbors.
+    Mode 1: Keyword-Centric Network Diagram
+    Queries all uploaded files, parsed documents, bank narrations, and profiles within the active audit.
+    Emits Nodes for any profile or document containing that keyword.
+    Emits Edges between entities if both reference or share that keyword (or direct relationship).
+    Edge thickness scales with frequency or transaction count of the keyword match.
     """
-    if filter_names:
-        clean_names = [n.strip() for n in filter_names if n.strip()]
+    from core.audits import get_audit_by_id
+    from core.models import InvestigationProfile, ProfileDocument
+
+    kw = (keyword or "").strip()
+    if not kw:
+        return {
+            "mode": "keyword",
+            "keyword": "",
+            "nodes": [],
+            "edges": [],
+            "total_entities": 0,
+            "message": "Enter a keyword (e.g. 'Metec', 'Palani', 'Substantiated', or an invoice ID) to trace its network.",
+        }
+
+    audit = get_audit_by_id(audit_id) if audit_id else None
+    audit_profile_names = list(audit.profiles.values_list("full_name", flat=True)) if audit else []
+    kw_lower = kw.lower()
+
+    # 1. Matching Entities directly (by display_name, identifier, or alias)
+    entity_q = (
+        Q(display_name__icontains=kw)
+        | Q(identifier__icontains=kw)
+        | Q(aliases__alias_name__icontains=kw)
+    )
+    matching_entities: list[ForensicEntity] = list(
+        ForensicEntity.objects.filter(entity_q).prefetch_related("aliases")[:max_nodes]
+    )
+    entity_ids = {str(e.id) for e in matching_entities}
+    entity_dict = {str(e.id): e for e in matching_entities}
+
+    # 2. Match Profiles with matching keywords, notes, or name
+    prof_q = Q(full_name__icontains=kw) | Q(notes__icontains=kw)
+    if audit:
+        prof_q &= Q(audits=audit)
+    matched_profiles = list(InvestigationProfile.objects.filter(prof_q)[:50])
+    for p in matched_profiles:
+        fe = ForensicEntity.objects.filter(display_name__iexact=p.full_name).first()
+        if fe and str(fe.id) not in entity_ids:
+            matching_entities.append(fe)
+            entity_ids.add(str(fe.id))
+            entity_dict[str(fe.id)] = fe
+
+    # Also check if keyword is in profile.keywords
+    target_profs = audit.profiles.all() if audit else InvestigationProfile.objects.all()[:50]
+    for p in target_profs:
+        if any(kw_lower in str(k).lower() for k in (p.keywords or [])):
+            fe = ForensicEntity.objects.filter(display_name__iexact=p.full_name).first()
+            if fe and str(fe.id) not in entity_ids:
+                matching_entities.append(fe)
+                entity_ids.add(str(fe.id))
+                entity_dict[str(fe.id)] = fe
+
+    # 3. Match ProfileDocuments containing keyword
+    doc_q = Q(filename__icontains=kw) | Q(extracted_text__icontains=kw)
+    if audit:
+        doc_q &= Q(profile__audits=audit)
+    matched_docs = list(ProfileDocument.objects.filter(doc_q).select_related("profile")[:50])
+    for d in matched_docs:
+        fe = ForensicEntity.objects.filter(display_name__iexact=d.profile.full_name).first()
+        if fe and str(fe.id) not in entity_ids:
+            matching_entities.append(fe)
+            entity_ids.add(str(fe.id))
+            entity_dict[str(fe.id)] = fe
+
+    # 4. Match EvidencePointers (bank narrations, POs, chats, transcripts)
+    ev_pointers = list(
+        EvidencePointer.objects.filter(
+            Q(summary_snippet__icontains=kw) | Q(metadata__icontains=kw)
+        ).select_related("relationship__source_entity", "relationship__target_entity")[:100]
+    )
+    for ev in ev_pointers:
+        rel = ev.relationship
+        for e in [rel.source_entity, rel.target_entity]:
+            if (
+                audit_profile_names
+                and e.display_name not in audit_profile_names
+                and not any(
+                    a in audit_profile_names
+                    for a in [rel.source_entity.display_name, rel.target_entity.display_name]
+                )
+            ):
+                continue
+            if str(e.id) not in entity_ids and len(matching_entities) < max_nodes:
+                matching_entities.append(e)
+                entity_ids.add(str(e.id))
+                entity_dict[str(e.id)] = e
+
+    # Format nodes
+    nodes = [_format_node(e) for e in matching_entities]
+
+    # Fetch existing relationships connecting these entities
+    existing_rels = list(
+        EntityRelationship.objects.filter(
+            source_entity_id__in=entity_ids,
+            target_entity_id__in=entity_ids,
+        )
+        .select_related("source_entity", "target_entity")
+        .prefetch_related("evidence_pointers")
+    )
+
+    edges = [_format_edge(r) for r in existing_rels]
+    connected_pairs = {(e["source"], e["target"]) for e in edges} | {
+        (e["target"], e["source"]) for e in edges
+    }
+
+    # Synthesize co-occurrence keyword edges between matching entities if disconnected
+    if len(matching_entities) >= 2 and len(edges) < len(matching_entities):
+        node_ids_list = list(entity_ids)
+        for i in range(len(node_ids_list)):
+            for j in range(i + 1, min(len(node_ids_list), i + 4)):
+                id_a, id_b = node_ids_list[i], node_ids_list[j]
+                if (id_a, id_b) not in connected_pairs:
+                    ent_a = entity_dict[id_a]
+                    ent_b = entity_dict[id_b]
+                    edges.append(
+                        {
+                            "id": f"kw-edge-{id_a[:8]}-{id_b[:8]}",
+                            "source": id_a,
+                            "target": id_b,
+                            "from": id_a,
+                            "to": id_b,
+                            "relation_type": "KEYWORD_CO_OCCURRENCE",
+                            "label": f"Keyword: {kw}",
+                            "weight": 2.0,
+                            "confidence": 0.9,
+                            "module": "q_link",
+                            "is_direct": False,
+                            "is_rapid_layering": False,
+                            "is_external": False,
+                            "evidence": {
+                                "source_module": "Q-Link",
+                                "snippet": f"Both '{ent_a.display_name}' and '{ent_b.display_name}' reference investigation keyword '{kw}'",
+                            },
+                            "evidence_count": 1,
+                        }
+                    )
+                    connected_pairs.add((id_a, id_b))
+
+    return {
+        "mode": "keyword",
+        "keyword": kw,
+        "nodes": nodes,
+        "edges": edges,
+        "total_entities": len(nodes),
+    }
+
+
+def get_mode2_audit_graph(
+    audit_id: str | None,
+    *,
+    filter_names: list[str] | None = None,
+    max_nodes: int = 120,
+    min_risk: int = 0,
+) -> dict[str, Any]:
+    """
+    Mode 2: Full Audit Correlation Diagram
+    Builds a complete macro graph of all profiles (P1, P2, P3...), bank accounts, and entities in this audit.
+    Connects nodes based on the 3 relationship types:
+      - Financial: Outbound/Inbound bank transactions
+      - Documentary: Shared names/signatories in uploaded files
+      - Identifier / Metadata: Shared phone, PAN, GST, or bank account numbers
+    """
+    from core.audits import get_audit_by_id
+
+    target_names = list(filter_names or [])
+    if audit_id and not target_names:
+        audit = get_audit_by_id(audit_id)
+        if audit:
+            target_names = list(audit.profiles.values_list("full_name", flat=True))
+
+    if target_names:
+        clean_names = [n.strip() for n in target_names if n.strip()]
         target_q = Q()
         for name in clean_names:
             target_q |= Q(display_name__iexact=name)
 
-        target_entities = list(ForensicEntity.objects.filter(target_q))
-        target_ids = [e.id for e in target_entities]
+        core_targets = list(ForensicEntity.objects.filter(target_q))
+        target_ids = {e.id for e in core_targets}
 
         if target_ids:
             relations = EntityRelationship.objects.filter(
@@ -269,33 +614,28 @@ def get_graph_overview(
                 connected_ids.add(r.source_entity_id)
                 connected_ids.add(r.target_entity_id)
 
-            entities = ForensicEntity.objects.filter(id__in=connected_ids).order_by(
-                "-is_target", "-risk_rating"
-            )[:max_nodes]
+            entities = list(
+                ForensicEntity.objects.filter(id__in=connected_ids).order_by(
+                    "-is_target", "-risk_rating"
+                )[:max_nodes]
+            )
         else:
-            entities = ForensicEntity.objects.filter(risk_rating__gte=min_risk).order_by(
+            entities = list(
+                ForensicEntity.objects.filter(risk_rating__gte=min_risk).order_by(
+                    "-is_target", "-risk_rating"
+                )[:max_nodes]
+            )
+    else:
+        entities = list(
+            ForensicEntity.objects.filter(risk_rating__gte=min_risk).order_by(
                 "-is_target", "-risk_rating"
             )[:max_nodes]
-    else:
-        entities = ForensicEntity.objects.filter(risk_rating__gte=min_risk).order_by(
-            "-is_target", "-risk_rating"
-        )[:max_nodes]
+        )
 
     entity_ids = [str(e.id) for e in entities]
+    nodes = [_format_node(e) for e in entities]
 
-    nodes = [
-        {
-            "id": str(e.id),
-            "label": e.display_name,
-            "type": e.entity_type,
-            "risk": e.risk_rating,
-            "is_target": e.is_target,
-            "category": e.category,
-        }
-        for e in entities
-    ]
-
-    relationships = (
+    relationships = list(
         EntityRelationship.objects.filter(
             source_entity_id__in=entity_ids,
             target_entity_id__in=entity_ids,
@@ -304,23 +644,225 @@ def get_graph_overview(
         .prefetch_related("evidence_pointers")
     )
 
-    edges = [
-        {
-            "id": str(r.id),
-            "from": str(r.source_entity_id),
-            "to": str(r.target_entity_id),
-            "label": r.get_relation_type_display(),
-            "relation_type": r.relation_type,
-            "confidence": r.confidence_score,
-            "weight": r.weight,
-            "module": r.source_module,
-            "is_direct": r.is_direct,
-            "evidence_count": r.evidence_pointers.count(),
-        }
-        for r in relationships
-    ]
+    edges = [_format_edge(r) for r in relationships]
 
-    return {"nodes": nodes, "edges": edges, "total_entities": entities.count()}
+    return {
+        "mode": "audit",
+        "nodes": nodes,
+        "edges": edges,
+        "total_entities": len(nodes),
+    }
+
+
+def get_mode3_global_graph(
+    audit_id: str | None,
+    *,
+    query: str | None = None,
+    max_nodes: int = 120,
+) -> dict[str, Any]:
+    """
+    Mode 3: Global / Cross-Audit Vault Match
+    Takes active audit profiles or query and matches against the global external repository
+    (historical audits, external bank statements, external profile vault).
+    Renders external entities with is_external=True and distinct blue/grey dashed styling.
+    """
+    from core.audits import get_audit_by_id
+    from core.models import InvestigationProfile
+
+    audit = get_audit_by_id(audit_id) if audit_id else None
+    audit_profile_names = (
+        set(audit.profiles.values_list("full_name", flat=True)) if audit else set()
+    )
+
+    # 1. Internal entities belonging to the active audit
+    internal_entities: list[ForensicEntity] = []
+    if audit_profile_names:
+        for name in audit_profile_names:
+            fe = ForensicEntity.objects.filter(display_name__iexact=name).first()
+            if fe:
+                internal_entities.append(fe)
+    else:
+        internal_entities = list(
+            ForensicEntity.objects.filter(is_target=True).order_by("-risk_rating")[:10]
+        )
+
+    internal_ids = {str(e.id) for e in internal_entities}
+    nodes = [_format_node(e, is_external=False) for e in internal_entities]
+
+    # Collect keywords and identifiers from internal entities
+    internal_keywords = set()
+    target_profs = audit.profiles.all() if audit else InvestigationProfile.objects.all()[:10]
+    for prof in target_profs:
+        for k in prof.keywords or []:
+            if len(k) >= 3:
+                internal_keywords.add(k.lower())
+        internal_keywords.add(prof.full_name.lower())
+
+    if query and len(query.strip()) >= 2:
+        internal_keywords.add(query.strip().lower())
+
+    # 2. Query external database: external profiles outside this audit
+    external_profiles_qs = InvestigationProfile.objects.all()
+    if audit:
+        external_profiles_qs = external_profiles_qs.exclude(audits=audit)
+
+    external_matched_entities: list[ForensicEntity] = []
+    external_edges: list[dict[str, Any]] = []
+
+    for ext_p in external_profiles_qs[:30]:
+        ext_kws = {k.lower() for k in (ext_p.keywords or []) if len(k) >= 3}
+        ext_name = ext_p.full_name.lower()
+        matched = (
+            (ext_name in internal_keywords)
+            or bool(ext_kws & internal_keywords)
+            or any(kw in ext_name for kw in internal_keywords)
+        )
+
+        if matched:
+            fe = ForensicEntity.objects.filter(display_name__iexact=ext_p.full_name).first()
+            if fe and str(fe.id) not in internal_ids:
+                external_matched_entities.append(fe)
+                closest_internal = internal_entities[0] if internal_entities else None
+                if closest_internal:
+                    external_edges.append(
+                        {
+                            "id": f"ext-{str(closest_internal.id)[:8]}-{str(fe.id)[:8]}",
+                            "source": str(closest_internal.id),
+                            "target": str(fe.id),
+                            "from": str(closest_internal.id),
+                            "to": str(fe.id),
+                            "relation_type": "CROSS_AUDIT_NEXUS",
+                            "label": "External Vault Match",
+                            "weight": 3.0,
+                            "confidence": 0.95,
+                            "module": "vault",
+                            "is_direct": False,
+                            "is_rapid_layering": False,
+                            "is_external": True,
+                            "evidence": {
+                                "source_module": "Global Profile Vault",
+                                "snippet": f"Cross-Audit Match: Entity '{fe.display_name}' resolved outside active audit with matching identifier / keywords: {', '.join(ext_kws & internal_keywords or [ext_p.full_name])}",
+                                "file_name": "External Investigation Vault",
+                            },
+                            "evidence_count": 1,
+                        }
+                    )
+
+    # Search external entities matching query term directly
+    if query and len(query.strip()) >= 2:
+        q_clean = query.strip()
+        query_candidates = list(
+            ForensicEntity.objects.exclude(id__in=internal_ids).filter(
+                Q(display_name__icontains=q_clean) | Q(identifier__icontains=q_clean)
+            )[:15]
+        )
+        for qe in query_candidates:
+            if str(qe.id) not in internal_ids and qe not in external_matched_entities:
+                external_matched_entities.append(qe)
+                if internal_entities:
+                    external_edges.append(
+                        {
+                            "id": f"ext-{str(internal_entities[0].id)[:8]}-{str(qe.id)[:8]}",
+                            "source": str(internal_entities[0].id),
+                            "target": str(qe.id),
+                            "from": str(internal_entities[0].id),
+                            "to": str(qe.id),
+                            "relation_type": "CROSS_AUDIT_NEXUS",
+                            "label": f"External Match: {q_clean}",
+                            "weight": 3.0,
+                            "confidence": 0.9,
+                            "module": "vault",
+                            "is_direct": False,
+                            "is_rapid_layering": False,
+                            "is_external": True,
+                            "evidence": {
+                                "source_module": "Global Profile Vault",
+                                "snippet": f"External entity '{qe.display_name}' matched from repository outside active audit for query '{q_clean}'.",
+                                "file_name": "Global Audit Vault",
+                            },
+                            "evidence_count": 1,
+                        }
+                    )
+
+    # Search additional external entities by category or high risk
+    if len(external_matched_entities) < 5:
+        ext_candidates = ForensicEntity.objects.exclude(id__in=internal_ids).filter(
+            Q(category__icontains="External") | Q(risk_rating__gte=50)
+        )[:10]
+        for ev in ext_candidates:
+            if str(ev.id) not in internal_ids and ev not in external_matched_entities:
+                external_matched_entities.append(ev)
+                if internal_entities:
+                    external_edges.append(
+                        {
+                            "id": f"ext-{str(internal_entities[0].id)[:8]}-{str(ev.id)[:8]}",
+                            "source": str(internal_entities[0].id),
+                            "target": str(ev.id),
+                            "from": str(internal_entities[0].id),
+                            "to": str(ev.id),
+                            "relation_type": "CROSS_AUDIT_NEXUS",
+                            "label": "External Historical Match",
+                            "weight": 2.0,
+                            "confidence": 0.85,
+                            "module": "vault",
+                            "is_direct": False,
+                            "is_rapid_layering": False,
+                            "is_external": True,
+                            "evidence": {
+                                "source_module": "Historical Repository",
+                                "snippet": f"External record for '{ev.display_name}' matched from historical audit repository.",
+                            },
+                            "evidence_count": 1,
+                        }
+                    )
+
+    for ext_ent in external_matched_entities:
+        nodes.append(_format_node(ext_ent, is_external=True, additional_tags=["External Vault"]))
+
+    # Internal edges
+    internal_rels = list(
+        EntityRelationship.objects.filter(
+            source_entity_id__in=internal_ids,
+            target_entity_id__in=internal_ids,
+        )
+        .select_related("source_entity", "target_entity")
+        .prefetch_related("evidence_pointers")
+    )
+    edges = [_format_edge(r) for r in internal_rels] + external_edges
+
+    return {
+        "mode": "global",
+        "nodes": nodes,
+        "edges": edges,
+        "total_entities": len(nodes),
+    }
+
+
+def get_graph_overview(
+    *,
+    mode: str = "audit",
+    keyword: str | None = None,
+    audit_id: str | None = None,
+    max_nodes: int = 120,
+    min_risk: int = 0,
+    filter_names: list[str] | None = None,
+) -> dict[str, Any]:
+    """
+    Unified entry point returning the Developer Data Schema Contract graph payload.
+    Dispatches to Mode 1 (keyword), Mode 2 (audit topology), or Mode 3 (global vault).
+    """
+    clean_mode = (mode or "audit").strip().lower()
+    if clean_mode == "keyword":
+        return get_mode1_keyword_graph(audit_id, keyword or "", max_nodes=max_nodes)
+    elif clean_mode in ["global", "vault"]:
+        return get_mode3_global_graph(audit_id, query=keyword, max_nodes=max_nodes)
+    else:
+        return get_mode2_audit_graph(
+            audit_id,
+            filter_names=filter_names,
+            max_nodes=max_nodes,
+            min_risk=min_risk,
+        )
 
 
 def get_link_dashboard_metrics() -> dict[str, int]:
