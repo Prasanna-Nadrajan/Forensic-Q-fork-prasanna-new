@@ -393,7 +393,7 @@ class QMailCheckpointsAndSelectorsTests(TestCase):
             self.assertEqual(len(messages[0].attachments), 1)
             self.assertEqual(messages[0].attachments[0].filename, "statement.pdf")
 
-    @patch("apps.q_mail.backend.pst_parser.pypff")
+    @patch("q_mail.backend.pst_parser.pypff")
     def test_pst_parser_embedded_msg(self, mock_pypff):
         import tempfile
         from pathlib import Path
@@ -447,7 +447,7 @@ class QMailCheckpointsAndSelectorsTests(TestCase):
             self.assertEqual(len(messages[0].attachments), 1)
             self.assertEqual(messages[0].attachments[0].filename, "Embedded Test.msg")
 
-    @patch("apps.q_mail.backend.pst_parser.pypff")
+    @patch("q_mail.backend.pst_parser.pypff")
     def test_pst_parser_embedded_msg_exception(self, mock_pypff):
         import tempfile
         from pathlib import Path
