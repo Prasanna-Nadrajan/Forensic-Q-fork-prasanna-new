@@ -18,6 +18,7 @@ from .audits import (
 from .modules import get_discovered_modules
 from .profiles import (
     add_keywords_to_profile,
+    attach_document_to_profile,
     create_investigation_profile,
     extract_keywords_from_file,
     get_all_profiles,
@@ -149,6 +150,19 @@ def create_profile_view(request: HttpRequest) -> HttpResponse:
         keywords=keywords_input,
     )
 
+    # Check for attached evidentiary / legal document file
+    if "document_file" in request.FILES:
+        try:
+            attach_document_to_profile(
+                profile_id=profile.id,
+                file_obj=request.FILES["document_file"],
+                filename=request.FILES["document_file"].name,
+            )
+        except Exception as exc:
+            messages.warning(
+                request, f"Profile created, but document processing had an issue: {exc}"
+            )
+
     # Automatically set newly created profile as active in session
     set_active_profile(request, profile.id)
 
@@ -212,6 +226,18 @@ def edit_profile_view(request: HttpRequest, profile_id: str) -> HttpResponse:
             avatar_color=payload.get("avatar_color", "").strip(),
             keywords=keywords_input if keywords_input is not None else None,
         )
+
+        if "document_file" in request.FILES:
+            try:
+                attach_document_to_profile(
+                    profile_id=profile.id,
+                    file_obj=request.FILES["document_file"],
+                    filename=request.FILES["document_file"].name,
+                )
+            except Exception as exc:
+                messages.warning(
+                    request, f"Profile updated, but document processing had an issue: {exc}"
+                )
     except ValueError as err:
         if is_json:
             return JsonResponse({"status": "error", "message": str(err)}, status=404)
@@ -235,6 +261,40 @@ def edit_profile_view(request: HttpRequest, profile_id: str) -> HttpResponse:
     messages.success(request, f"Investigation Profile '{profile.full_name}' successfully updated.")
     next_url = payload.get("next") or "/"
     return redirect(next_url)
+
+
+@require_POST
+def upload_profile_document_view(request: HttpRequest, profile_id: str) -> JsonResponse:
+    """
+    Attaches an evidentiary or legal document to an Investigation Profile.
+    Extracts counterparties and synchronizes with Q-Link.
+    """
+    uploaded_file = request.FILES.get("file") or request.FILES.get("document_file")
+    if not uploaded_file:
+        return JsonResponse({"status": "error", "message": "No file uploaded."}, status=400)
+
+    description = request.POST.get("description", "").strip()
+
+    try:
+        doc = attach_document_to_profile(
+            profile_id=profile_id,
+            file_obj=uploaded_file,
+            filename=uploaded_file.name,
+            description=description,
+        )
+        return JsonResponse(
+            {
+                "status": "success",
+                "message": f"Successfully attached '{doc.filename}' to profile.",
+                "document": doc.to_dict(),
+            }
+        )
+    except ValueError as err:
+        return JsonResponse({"status": "error", "message": str(err)}, status=404)
+    except Exception as err:
+        return JsonResponse(
+            {"status": "error", "message": f"Failed attaching document: {err}"}, status=500
+        )
 
 
 ALLOWED_KEYWORDS_EXTENSIONS = {".txt"}

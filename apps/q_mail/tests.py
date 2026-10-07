@@ -399,7 +399,7 @@ class QMailCheckpointsAndSelectorsTests(TestCase):
         from pathlib import Path
         from unittest.mock import MagicMock
 
-        from apps.q_mail.backend.pst_parser import PSTStreamParser
+        from q_mail.backend.pst_parser import PSTStreamParser
 
         mock_instance = MagicMock()
         mock_pypff.file.return_value = mock_instance
@@ -453,7 +453,7 @@ class QMailCheckpointsAndSelectorsTests(TestCase):
         from pathlib import Path
         from unittest.mock import MagicMock
 
-        from apps.q_mail.backend.pst_parser import PSTStreamParser
+        from q_mail.backend.pst_parser import PSTStreamParser
 
         mock_instance = MagicMock()
         mock_pypff.file.return_value = mock_instance

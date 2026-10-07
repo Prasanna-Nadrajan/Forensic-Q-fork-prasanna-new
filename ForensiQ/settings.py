@@ -214,7 +214,7 @@ if not PORTAL_ACCESS_PASSWORD:
 VOICE_MODEL_ENDPOINT = os.environ.get(
     "VOICE_MODEL_ENDPOINT", "http://127.0.0.1:8434/v1/audio/transcriptions"
 )
-VOICE_API_TIMEOUT = float(os.environ.get("VOICE_API_TIMEOUT", "60.0"))
+VOICE_API_TIMEOUT = float(os.environ.get("VOICE_API_TIMEOUT", "300.0"))
 
 # Q-Link & Q-Trail Forensic LLM Model-Host Endpoint
 LLM_API_ENDPOINT = os.environ.get("LLM_API_ENDPOINT", "http://127.0.0.1:8434/v1/chat/completions")

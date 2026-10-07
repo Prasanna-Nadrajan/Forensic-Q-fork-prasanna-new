@@ -39,6 +39,7 @@
         ".docx",
         ".xlsx",
         ".pptx",
+        ".pdf",
         ".zip"
     ],
     "exclude_directories": [

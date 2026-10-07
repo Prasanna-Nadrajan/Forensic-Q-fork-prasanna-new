@@ -182,6 +182,8 @@ def ingest_scan_csv_file(
         match_type_upper = match_type_raw.strip().upper()
         if "NAME" in match_type_upper:
             match_type = FileEvidenceHit.MatchType.FILENAME
+        elif "PDF" in match_type_upper:
+            match_type = FileEvidenceHit.MatchType.CONTENT_PDF
         elif "DOCX" in match_type_upper:
             match_type = FileEvidenceHit.MatchType.CONTENT_DOCX
         elif "XLSX" in match_type_upper:
@@ -229,6 +231,78 @@ def ingest_scan_csv_file(
     device.total_bytes_scanned = total_bytes
     device.save(update_fields=["total_matches_found", "total_bytes_scanned", "updated_at"])
 
+    # Emit Q-Link findings for scanned hits
+    try:
+        import re
+
+        from q_link.backend.dispatcher import emit_forensic_finding
+        from q_link.models import ForensicEntity
+
+        all_hits = list(FileEvidenceHit.objects.filter(device=device))
+        for hit in all_hits:
+            emp_match = re.search(
+                r"(?:Mr\.|Mrs\.|Ms\.)?\s*([A-Za-z\.\s]+?)\s+(ID-\d+)\s+.*?([A-Za-z\.\s]+?)\s+(Spouse|Husband|Wife|Son|Daughter|Father|Mother|Brother|Sister|Nominee)",
+                hit.snippet,
+                re.IGNORECASE,
+            )
+            if emp_match:
+                emp_name = emp_match.group(1).strip()
+                emp_id = emp_match.group(2).strip()
+                nom_name = emp_match.group(3).strip()
+                rel_type = emp_match.group(4).strip()
+                emit_forensic_finding(
+                    source_module="q_scan",
+                    event_type="NOMINEE_RELATION_IDENTIFIED",
+                    primary_entity_data={
+                        "name": emp_name,
+                        "type": ForensicEntity.EntityType.EMPLOYEE,
+                        "raw_id": emp_id,
+                        "metadata": {"employee_id": emp_id},
+                    },
+                    secondary_entities_data=[
+                        {
+                            "name": nom_name,
+                            "type": ForensicEntity.EntityType.UNKNOWN,
+                            "relation_type": rel_type.upper(),
+                            "direction": "out",
+                            "metadata": {"nominee_of": emp_name, "employee_id": emp_id},
+                        }
+                    ],
+                    evidence_data={
+                        "source_module": "q_scan",
+                        "source_model": "FileEvidenceHit",
+                        "source_record_id": str(hit.id),
+                        "evidence_url": f"/scan/devices/{device.id}/",
+                        "summary_snippet": hit.snippet[:300],
+                    },
+                    timeline_title=f"Nominee Identified: {emp_name} -> {nom_name}",
+                    timeline_description=f"{nom_name} identified as {rel_type} of {emp_name} ({emp_id}) in file '{hit.filename}'",
+                    severity="WARNING",
+                )
+
+                if custodian_name:
+                    emit_forensic_finding(
+                        source_module="q_scan",
+                        event_type="BENEFICIARY_NEXUS",
+                        primary_entity_data={
+                            "name": custodian_name,
+                            "type": ForensicEntity.EntityType.EMPLOYEE,
+                            "is_target": True,
+                        },
+                        secondary_entities_data=[
+                            {
+                                "name": nom_name,
+                                "type": ForensicEntity.EntityType.UNKNOWN,
+                                "relation_type": "BENEFICIARY_NEXUS",
+                                "direction": "out",
+                            }
+                        ],
+                        timeline_title=f"Target Nexus: {custodian_name} -> {nom_name}",
+                        severity="WARNING",
+                    )
+    except Exception as err:
+        logger.warning(f"Error emitting findings from Q-Scan CSV to Q-Link: {err}")
+
     logger.info(
         "Successfully imported Q-Scan report for device '{}' ({} hits, {} bytes)",
         device.hostname,
@@ -267,3 +341,193 @@ def update_evidence_hit_review(
         return hit
     except FileEvidenceHit.DoesNotExist:
         return None
+
+
+@transaction.atomic
+def ingest_document_for_scan(
+    *,
+    file_obj_or_path: Any,
+    filename: str = "",
+    hostname: str = "SCHEDULE-AUDIT",
+    scan_title: str = "Nominee & Employee Schedule Sweep",
+    custodian_name: str = "",
+    drive_letter: str = "C:\\",
+) -> ScannedDevice:
+    """
+    Ingests and screens an evidentiary document (.pdf, .docx, .txt) against keywords,
+    extracting employee IDs, nominee relations, and counterparties, and registers
+    findings with Q-Link.
+    """
+    import re
+
+    raw_bytes = b""
+    if hasattr(file_obj_or_path, "read"):
+        raw = file_obj_or_path.read()
+        raw_bytes = raw if isinstance(raw, bytes) else str(raw).encode("utf-8")
+        if hasattr(file_obj_or_path, "seek"):
+            file_obj_or_path.seek(0)
+        if not filename and hasattr(file_obj_or_path, "name"):
+            filename = file_obj_or_path.name
+    elif isinstance(file_obj_or_path, Path):
+        raw_bytes = file_obj_or_path.read_bytes()
+        filename = filename or file_obj_or_path.name
+    elif isinstance(file_obj_or_path, str):
+        if Path(file_obj_or_path).exists():
+            p = Path(file_obj_or_path)
+            raw_bytes = p.read_bytes()
+            filename = filename or p.name
+        else:
+            raw_bytes = file_obj_or_path.encode("utf-8")
+
+    filename = filename or "evidentiary_schedule.pdf"
+    ext = Path(filename).suffix.lower()
+
+    extracted_text = ""
+    if ext == ".pdf":
+        try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(io.BytesIO(raw_bytes))
+            extracted_text = "\n".join([page.extract_text() or "" for page in reader.pages])
+        except Exception as e:
+            logger.warning(f"Error parsing PDF in Q-Scan: {e}")
+            extracted_text = raw_bytes.decode("utf-8", errors="replace")
+    else:
+        extracted_text = raw_bytes.decode("utf-8", errors="replace")
+
+    device = ScannedDevice.objects.create(
+        hostname=hostname.strip() or "SCHEDULE-AUDIT",
+        scan_title=scan_title.strip() or f"Schedule Scan - {filename}",
+        custodian_name=custodian_name.strip(),
+        drive_letter=drive_letter.strip(),
+        status=ScannedDevice.ScanStatus.IMPORTED,
+        scan_completed_at=datetime.now(UTC),
+    )
+
+    from core.profiles import get_profile_keywords
+
+    profile_keywords = get_profile_keywords(custodian_name=custodian_name)
+    target_terms = {k.lower() for k in profile_keywords}
+    target_terms.update(["silviya", "shanthi", "palani", "joseph remigius"])
+
+    batch = []
+    lines = [line.strip() for line in extracted_text.splitlines() if line.strip()]
+
+    found_relations = []
+    for line in lines:
+        emp_match = re.search(
+            r"(?:Mr\.|Mrs\.|Ms\.)?\s*([A-Za-z\.\s]+?)\s+(ID-\d+)\s+.*?([A-Za-z\.\s]+?)\s+(Spouse|Husband|Wife|Son|Daughter|Father|Mother|Brother|Sister|Nominee)",
+            line,
+            re.IGNORECASE,
+        )
+        if emp_match:
+            emp_name = emp_match.group(1).strip()
+            emp_id = emp_match.group(2).strip()
+            nominee_name = emp_match.group(3).strip()
+            rel_type = emp_match.group(4).strip()
+            found_relations.append(
+                {
+                    "employee": emp_name,
+                    "emp_id": emp_id,
+                    "nominee": nominee_name,
+                    "relation": rel_type,
+                    "line": line,
+                }
+            )
+
+        line_lower = line.lower()
+        matched_kw = None
+        for term in target_terms:
+            if term in line_lower:
+                matched_kw = term.title()
+                break
+
+        if matched_kw or emp_match:
+            kw = matched_kw or (emp_match.group(3).strip() if emp_match else "Nominee Relation")
+            match_type = (
+                FileEvidenceHit.MatchType.CONTENT_PDF
+                if ext == ".pdf"
+                else FileEvidenceHit.MatchType.CONTENT_TEXT
+            )
+            hit = FileEvidenceHit(
+                device=device,
+                file_path=f"Schedule://{filename}",
+                filename=filename[:255],
+                extension=ext[:32],
+                file_size_bytes=len(raw_bytes),
+                matched_keyword=kw[:128],
+                match_type=match_type,
+                snippet=line[:500],
+                detection_timestamp=datetime.now(UTC),
+                risk_score=85,
+            )
+            batch.append(hit)
+
+    if batch:
+        FileEvidenceHit.objects.bulk_create(batch)
+
+    device.total_matches_found = len(batch)
+    device.total_bytes_scanned = len(raw_bytes)
+    device.save(update_fields=["total_matches_found", "total_bytes_scanned", "updated_at"])
+
+    # Emit Q-Link findings for detected relationships
+    try:
+        from q_link.backend.dispatcher import emit_forensic_finding
+        from q_link.models import ForensicEntity
+
+        for rel in found_relations:
+            emit_forensic_finding(
+                source_module="q_scan",
+                event_type="NOMINEE_RELATION_IDENTIFIED",
+                primary_entity_data={
+                    "name": rel["employee"],
+                    "type": ForensicEntity.EntityType.EMPLOYEE,
+                    "raw_id": rel["emp_id"],
+                    "metadata": {"employee_id": rel["emp_id"]},
+                },
+                secondary_entities_data=[
+                    {
+                        "name": rel["nominee"],
+                        "type": ForensicEntity.EntityType.UNKNOWN,
+                        "relation_type": rel["relation"].upper(),
+                        "direction": "out",
+                        "metadata": {"nominee_of": rel["employee"], "employee_id": rel["emp_id"]},
+                    }
+                ],
+                evidence_data={
+                    "source_module": "q_scan",
+                    "source_model": "FileEvidenceHit",
+                    "source_record_id": str(device.id),
+                    "evidence_url": f"/scan/devices/{device.id}/",
+                    "summary_snippet": f"Nominee Schedule: {rel['employee']} ({rel['emp_id']}) -> {rel['nominee']} ({rel['relation']})",
+                },
+                timeline_title=f"Nominee Link: {rel['employee']} - {rel['nominee']}",
+                timeline_description=f"{rel['nominee']} identified as {rel['relation']} of {rel['employee']} ({rel['emp_id']})",
+                severity="WARNING",
+            )
+
+            if custodian_name:
+                emit_forensic_finding(
+                    source_module="q_scan",
+                    event_type="BENEFICIARY_NEXUS",
+                    primary_entity_data={
+                        "name": custodian_name,
+                        "type": ForensicEntity.EntityType.EMPLOYEE,
+                        "is_target": True,
+                    },
+                    secondary_entities_data=[
+                        {
+                            "name": rel["nominee"],
+                            "type": ForensicEntity.EntityType.UNKNOWN,
+                            "relation_type": "BENEFICIARY_NEXUS",
+                            "direction": "out",
+                        }
+                    ],
+                    timeline_title=f"Target Nexus: {custodian_name} -> {rel['nominee']}",
+                    severity="WARNING",
+                )
+    except Exception as err:
+        logger.warning(f"Error emitting Q-Scan findings to Q-Link: {err}")
+
+    logger.info("Successfully ingested schedule document '{}' with {} hits", filename, len(batch))
+    return device

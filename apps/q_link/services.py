@@ -5,6 +5,7 @@ timeline event aggregation, and automated risk alert evaluations.
 All database mutations are strictly encapsulated in atomic transactions.
 """
 
+import logging
 import re
 from datetime import datetime
 from typing import Any
@@ -22,6 +23,8 @@ from .models import (
     ForensicTimelineEvent,
     RelationshipAlert,
 )
+
+logger = logging.getLogger(__name__)
 
 # Common corporate stop-suffixes for fuzzy entity name normalization
 LEGAL_SUFFIXES = [
@@ -365,6 +368,52 @@ def evaluate_relationship_risks(entity: ForensicEntity) -> list[RelationshipAler
                         ],
                     )
                     alerts_created.append(alert)
+
+    # 3. Check for Nexus with Substantiated Investigation Profile
+    try:
+        from core.models import InvestigationProfile
+
+        all_rels = list(
+            EntityRelationship.objects.filter(source_entity=entity).select_related("target_entity")
+        ) + list(
+            EntityRelationship.objects.filter(target_entity=entity).select_related("source_entity")
+        )
+
+        for rel in all_rels:
+            other_entity = rel.target_entity if rel.source_entity == entity else rel.source_entity
+            other_name = other_entity.display_name.strip()
+            sub_prof = InvestigationProfile.objects.filter(
+                full_name__iexact=other_name, is_substantiated=True
+            ).first()
+
+            if sub_prof:
+                alert_title = f"Nexus with Substantiated Target: {entity.display_name} <-> {sub_prof.full_name}"
+                if not RelationshipAlert.objects.filter(
+                    primary_entity=entity, title=alert_title, is_acknowledged=False
+                ).exists():
+                    alert = RelationshipAlert.objects.create(
+                        primary_entity=entity,
+                        title=alert_title,
+                        alert_level=RelationshipAlert.AlertLevel.CRITICAL,
+                        risk_score=95,
+                        trigger_reason=(
+                            f"Direct {rel.get_relation_type_display()} nexus detected between "
+                            f"target '{entity.display_name}' and substantiated profile '{sub_prof.full_name}'."
+                        ),
+                        ai_summary=(
+                            f"Critical Alert: Target subject '{entity.display_name}' is linked to "
+                            f"'{sub_prof.full_name}', an investigation profile marked as SUBSTANTIATED. "
+                            f"Connection established via {rel.source_module} ({rel.relation_type})."
+                        ),
+                        related_entities=[
+                            {
+                                "id": str(other_entity.id),
+                                "name": other_entity.display_name,
+                            }
+                        ],
+                    )
+    except Exception as exc:
+        logger.debug(f"Alert evaluation skipped on entity {entity.display_name}: {exc}")
 
     return alerts_created
 

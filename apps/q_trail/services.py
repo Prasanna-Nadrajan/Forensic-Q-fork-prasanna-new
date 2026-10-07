@@ -133,8 +133,8 @@ def analyze_profiles_money_trail(
         "analyzed_profiles": [],
     }
 
-    if len(unique_profile_ids) < 2:
-        logger.info("Fewer than 2 profiles supplied to Q-Trail; returning empty baseline.")
+    if len(unique_profile_ids) < 1:
+        logger.info("No profiles supplied to Q-Trail; returning empty baseline.")
         return empty_result
 
     # 1. Fetch statement DataFrames and metadata for each selected profile
@@ -165,34 +165,49 @@ def analyze_profiles_money_trail(
     direct_records_list: list[pd.DataFrame] = []
     intermediate_records_list: list[pd.DataFrame] = []
 
-    # Iterate over all ordered pairs (A, B) where A != B
-    for (pid_a, df_a), (pid_b, df_b) in itertools.permutations(profile_dfs.items(), 2):
-        if df_a.empty or df_b.empty:
+    # Rapid Layering (Immediate Hop Pass-Throughs per profile)
+    from .backend.reconciliation import detect_rapid_layering_for_profile
+
+    for pid, df in profile_dfs.items():
+        if df.empty:
             continue
-
-        name_a = next((p["name"] for p in profile_metadata if p["id"] == pid_a), "Person A")
-        name_b = next((p["name"] for p in profile_metadata if p["id"] == pid_b), "Person B")
-
-        # Reconcile pair
-        res = reconcile_and_match_network(
-            statement_a=df_a,
-            statement_b=df_b,
-            person_a_name=name_a,
-            person_b_name=name_b,
+        p_name = next((p["name"] for p in profile_metadata if p["id"] == pid), "Account Holder")
+        lay_df = detect_rapid_layering_for_profile(
+            df,
+            account_holder_name=p_name,
             time_window_days=time_window_days,
         )
+        if not lay_df.empty:
+            intermediate_records_list.append(lay_df)
 
-        d_df = res.get("direct_transfers")
-        if isinstance(d_df, pd.DataFrame) and not d_df.empty:
-            direct_records_list.append(d_df)
+    # Iterate over all ordered pairs (A, B) where A != B (multi-profile network)
+    if len(unique_profile_ids) >= 2:
+        for (pid_a, df_a), (pid_b, df_b) in itertools.permutations(profile_dfs.items(), 2):
+            if df_a.empty or df_b.empty:
+                continue
 
-        i_df = res.get("intermediate_transfers")
-        if isinstance(i_df, pd.DataFrame) and not i_df.empty:
-            # Annotate with sender and recipient names for multi-profile clarity
-            annotated_i_df = i_df.copy()
-            annotated_i_df["Sender_Person"] = name_a
-            annotated_i_df["Recipient_Person"] = name_b
-            intermediate_records_list.append(annotated_i_df)
+            name_a = next((p["name"] for p in profile_metadata if p["id"] == pid_a), "Person A")
+            name_b = next((p["name"] for p in profile_metadata if p["id"] == pid_b), "Person B")
+
+            # Reconcile pair
+            res = reconcile_and_match_network(
+                statement_a=df_a,
+                statement_b=df_b,
+                person_a_name=name_a,
+                person_b_name=name_b,
+                time_window_days=time_window_days,
+            )
+
+            d_df = res.get("direct_transfers")
+            if isinstance(d_df, pd.DataFrame) and not d_df.empty:
+                direct_records_list.append(d_df)
+
+            i_df = res.get("intermediate_transfers")
+            if isinstance(i_df, pd.DataFrame) and not i_df.empty:
+                annotated_i_df = i_df.copy()
+                annotated_i_df["Sender_Person"] = name_a
+                annotated_i_df["Recipient_Person"] = name_b
+                intermediate_records_list.append(annotated_i_df)
 
     # 3. Concatenate and Deduplicate Across Permutations
     if direct_records_list:
@@ -275,7 +290,7 @@ def analyze_profiles_money_trail(
     grouped_intermediaries = group_intermediate_transfers_by_intermediary(combined_intermediate)
 
     # 5. Detect Circular Round-Tripping Loops & Multi-Hop Network Chains
-    from apps.q_trail.backend.llm_narrative import generate_loop_forensic_narrative
+    from q_trail.backend.llm_narrative import generate_loop_forensic_narrative
 
     circular_trails: list[dict[str, Any]] = []
     flow_edges: dict[str, set[str]] = {p["name"]: set() for p in profile_metadata}

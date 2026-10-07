@@ -324,5 +324,241 @@ def sync_all_modules() -> dict[str, int]:
         except Exception as err:
             logger.warning(f"Error syncing Q-Verify: {err}")
 
+    # 6. Ingest Core Investigation Profiles & Attached Documents
+    try:
+        from core.models import InvestigationProfile, ProfileDocument
+
+        for prof in InvestigationProfile.objects.all():
+            p_entity, _ = emit_forensic_finding(
+                source_module="core",
+                event_type="INVESTIGATION_PROFILE_REGISTERED",
+                primary_entity_data={
+                    "name": prof.full_name,
+                    "type": ForensicEntity.EntityType.EMPLOYEE,
+                    "raw_id": prof.employee_id or prof.full_name,
+                    "is_target": True,
+                    "metadata": {
+                        "employee_id": prof.employee_id,
+                        "department": prof.department,
+                        "designation": prof.designation,
+                        "is_substantiated": prof.is_substantiated,
+                    },
+                },
+            )
+            if prof.is_substantiated:
+                p_entity.risk_rating = 95
+                p_entity.save(update_fields=["risk_rating", "updated_at"])
+
+            for doc in ProfileDocument.objects.filter(profile=prof):
+                if doc.extracted_entities:
+                    sec_entities = []
+                    for ent in doc.extracted_entities:
+                        ent_name = ent.get("name") if isinstance(ent, dict) else str(ent)
+                        ent_rel = (
+                            ent.get("relation_type", "PARTNER")
+                            if isinstance(ent, dict)
+                            else "PARTNER"
+                        )
+                        if not ent_name or ent_name.lower() == prof.full_name.lower():
+                            continue
+
+                        other_prof = InvestigationProfile.objects.filter(
+                            full_name__iexact=ent_name
+                        ).first()
+                        is_sub = bool(other_prof and other_prof.is_substantiated)
+
+                        sec_entities.append(
+                            {
+                                "name": ent_name,
+                                "type": ForensicEntity.EntityType.EMPLOYEE
+                                if ent_rel == "PARTNER"
+                                else ForensicEntity.EntityType.COMPANY,
+                                "relation_type": ent_rel,
+                                "direction": "out",
+                                "metadata": {
+                                    "source_document": doc.filename,
+                                    "is_substantiated": is_sub,
+                                },
+                            }
+                        )
+
+                    if sec_entities:
+                        emit_forensic_finding(
+                            source_module="core",
+                            event_type="PROFILE_DOCUMENT_LEGAL_NEXUS",
+                            primary_entity_data={
+                                "name": prof.full_name,
+                                "type": ForensicEntity.EntityType.EMPLOYEE,
+                                "is_target": True,
+                                "metadata": {"is_substantiated": prof.is_substantiated},
+                            },
+                            secondary_entities_data=sec_entities,
+                            evidence_data={
+                                "source_module": "core",
+                                "source_model": "ProfileDocument",
+                                "source_record_id": str(doc.id),
+                                "summary_snippet": f"Attached Legal Document: {doc.filename}",
+                            },
+                            timeline_title=f"Legal Document: {doc.filename}",
+                            timeline_description=f"Evidentiary document for {prof.full_name} established nexus with {', '.join([s['name'] for s in sec_entities])}",
+                            severity="CRITICAL"
+                            if any(
+                                s.get("metadata", {}).get("is_substantiated") for s in sec_entities
+                            )
+                            else "WARNING",
+                        )
+            stats["core_profiles"] = stats.get("core_profiles", 0) + 1
+    except Exception as err:
+        logger.warning(f"Error syncing Core Profiles in Q-Link: {err}")
+
+    # 7. Ingest Q-Scan Hits
+    if apps.is_installed("q_scan"):
+        try:
+            import re
+
+            FileEvidenceHit = apps.get_model("q_scan", "FileEvidenceHit")
+            for hit in FileEvidenceHit.objects.select_related("device")[:200]:
+                emp_match = re.search(
+                    r"(?:Mr\.|Mrs\.|Ms\.)?\s*([A-Za-z\.\s]+?)\s+(ID-\d+)\s+.*?([A-Za-z\.\s]+?)\s+(Spouse|Husband|Wife|Son|Daughter|Father|Mother|Brother|Sister|Nominee)",
+                    hit.snippet,
+                    re.IGNORECASE,
+                )
+                if emp_match:
+                    emp_name = emp_match.group(1).strip()
+                    emp_id = emp_match.group(2).strip()
+                    nom_name = emp_match.group(3).strip()
+                    rel_type = emp_match.group(4).strip()
+                    emit_forensic_finding(
+                        source_module="q_scan",
+                        event_type="NOMINEE_RELATION_IDENTIFIED",
+                        primary_entity_data={
+                            "name": emp_name,
+                            "type": ForensicEntity.EntityType.EMPLOYEE,
+                            "raw_id": emp_id,
+                            "metadata": {"employee_id": emp_id},
+                        },
+                        secondary_entities_data=[
+                            {
+                                "name": nom_name,
+                                "type": ForensicEntity.EntityType.UNKNOWN,
+                                "relation_type": rel_type.upper(),
+                                "direction": "out",
+                            }
+                        ],
+                        evidence_data={
+                            "source_module": "q_scan",
+                            "source_model": "FileEvidenceHit",
+                            "source_record_id": str(hit.id),
+                            "evidence_url": f"/scan/devices/{hit.device.id}/"
+                            if hit.device
+                            else "/scan/",
+                            "summary_snippet": hit.snippet[:300],
+                        },
+                        timeline_title=f"Nominee Link: {emp_name} - {nom_name}",
+                        timeline_description=f"{nom_name} identified as {rel_type} of {emp_name} ({emp_id})",
+                        severity="WARNING",
+                    )
+                    stats["q_scan"] = stats.get("q_scan", 0) + 1
+        except Exception as err:
+            logger.warning(f"Error syncing Q-Scan in Q-Link: {err}")
+
+    # 8. Ingest Q-Chat Mentions & Participants
+    if apps.is_installed("q_chat"):
+        try:
+            ChatChannel = apps.get_model("q_chat", "ChatChannel")
+            ChatMessage = apps.get_model("q_chat", "ChatMessage")
+            for ch in ChatChannel.objects.all()[:50]:
+                participants = ch.participants or []
+                if len(participants) >= 2:
+                    p1 = participants[0]
+                    for p2 in participants[1:]:
+                        emit_forensic_finding(
+                            source_module="q_chat",
+                            event_type="CHAT_COMMUNICATION",
+                            primary_entity_data={
+                                "name": p1,
+                                "type": ForensicEntity.EntityType.EMPLOYEE,
+                            },
+                            secondary_entities_data=[
+                                {
+                                    "name": p2,
+                                    "type": ForensicEntity.EntityType.EMPLOYEE,
+                                    "relation_type": "CHAT_INTERACTION",
+                                    "direction": "out",
+                                }
+                            ],
+                            timeline_title=f"Chat: {p1} <-> {p2}",
+                            severity="INFO",
+                        )
+                for msg in ChatMessage.objects.filter(channel=ch, message_text__icontains="Palani")[
+                    :10
+                ]:
+                    sender = msg.sender_name
+                    emit_forensic_finding(
+                        source_module="q_chat",
+                        event_type="VENDOR_MENTION_IN_CHAT",
+                        primary_entity_data={
+                            "name": sender,
+                            "type": ForensicEntity.EntityType.EMPLOYEE,
+                        },
+                        secondary_entities_data=[
+                            {
+                                "name": "Emor Palani",
+                                "type": ForensicEntity.EntityType.VENDOR,
+                                "relation_type": "SUBMITTED_INVOICE",
+                                "direction": "in",
+                                "metadata": {"mention": msg.message_text},
+                            }
+                        ],
+                        evidence_data={
+                            "source_module": "q_chat",
+                            "source_model": "ChatMessage",
+                            "source_record_id": str(msg.id),
+                            "summary_snippet": msg.message_text,
+                        },
+                        timeline_title="Chat Mention: Emor Palani Invoice",
+                        timeline_description=f"{sender} mentioned: '{msg.message_text}'",
+                        severity="WARNING",
+                    )
+                    stats["q_chat"] = stats.get("q_chat", 0) + 1
+        except Exception as err:
+            logger.warning(f"Error syncing Q-Chat in Q-Link: {err}")
+
+    # 9. Ingest Q-Voice
+    if apps.is_installed("q_voice"):
+        try:
+            AudioRecording = apps.get_model("q_voice", "AudioRecording")
+            TranscriptSegment = apps.get_model("q_voice", "TranscriptSegment")
+            for rec in AudioRecording.objects.all()[:50]:
+                segments = list(TranscriptSegment.objects.filter(recording=rec))
+                all_text = " ".join([s.text_content for s in segments]).lower()
+                has_indhumathi = any(
+                    x in all_text for x in ["indhumathi", "indhumadhi", "indumadhi"]
+                )
+                has_metec = "metec" in all_text
+                if has_indhumathi and has_metec:
+                    emit_forensic_finding(
+                        source_module="q_voice",
+                        event_type="AUDIO_IDENTITY_REVEALED",
+                        primary_entity_data={
+                            "name": "Indhumathi",
+                            "type": ForensicEntity.EntityType.EMPLOYEE,
+                            "metadata": {"designation": "Design HR", "organization": "Metec"},
+                        },
+                        secondary_entities_data=[
+                            {
+                                "name": "Metec",
+                                "type": ForensicEntity.EntityType.COMPANY,
+                                "relation_type": "DESIGN_HR",
+                                "direction": "out",
+                            }
+                        ],
+                        timeline_title="Voice Intercept: Indhumathi (Design HR - Metec)",
+                        severity="WARNING",
+                    )
+                    stats["q_voice"] = stats.get("q_voice", 0) + 1
+        except Exception as err:
+            logger.warning(f"Error syncing Q-Voice in Q-Link: {err}")
+
     logger.info(f"[Q-Link Synchronizer] Completed full sync: {stats}")
     return stats

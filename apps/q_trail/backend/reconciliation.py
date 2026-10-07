@@ -771,3 +771,136 @@ def reconcile_and_match_network(
         "grouped_intermediaries": grouped_intermediaries,
         "metrics": metrics,
     }
+
+
+def detect_rapid_layering_for_profile(
+    statement: pd.DataFrame,
+    *,
+    account_holder_name: str = "Account Holder",
+    time_window_days: int = 1,
+    date_col: str | None = None,
+    debit_col: str | None = None,
+    credit_col: str | None = None,
+    narration_col: str | None = None,
+) -> pd.DataFrame:
+    """
+    Detects Rapid Layering (Immediate Hop Pass-Through):
+    Identifies transactions where an inflow (Credit > 0) is followed within hours or the same day
+    (<= time_window_days) by rapid outflows (Debit > 0) to third-party counterparties.
+    """
+    df = _prepare_statement_dataframe(
+        statement,
+        date_col=date_col,
+        debit_col=debit_col,
+        credit_col=credit_col,
+        narration_col=narration_col,
+    )
+    if df.empty:
+        return pd.DataFrame()
+
+    inflows = df[df["Credit"] > 0].copy()
+    outflows = df[df["Debit"] > 0].copy()
+
+    if inflows.empty or outflows.empty:
+        return pd.DataFrame()
+
+    def _clean_party(name_val, vpa_val, narr_val):
+        for candidate in [name_val, vpa_val]:
+            cand_str = str(candidate or "").strip()
+            if cand_str and cand_str.upper() not in ("UNKNOWN", "NONE", "NAN", ""):
+                return cand_str
+        # Fallback to narration extraction
+        n = str(narr_val or "").strip()
+        if "/" in n:
+            tokens = [t.strip() for t in n.split("/") if t.strip()]
+            for tok in tokens:
+                if "@" in tok:
+                    return tok
+                if (
+                    len(tok) > 3
+                    and not tok.isdigit()
+                    and tok.upper() not in ("UPI", "IN", "OUT", "TFR")
+                ):
+                    return tok
+        return "Unknown Counterparty"
+
+    records = []
+    for _, in_row in inflows.iterrows():
+        in_amt = float(in_row["Credit"])
+        in_date_str = str(in_row.get("Date", ""))
+        in_date_dt = in_row.get("Date_dt")
+        in_party = _clean_party(
+            in_row.get("Counterparty_Name"),
+            in_row.get("Counterparty_VPA"),
+            in_row.get("Narration"),
+        )
+
+        for _, out_row in outflows.iterrows():
+            out_amt = float(out_row["Debit"])
+            out_date_str = str(out_row.get("Date", ""))
+            out_date_dt = out_row.get("Date_dt")
+            out_party = _clean_party(
+                out_row.get("Counterparty_Name"),
+                out_row.get("Counterparty_VPA"),
+                out_row.get("Narration"),
+            )
+
+            if (
+                in_party.lower() == out_party.lower()
+                or out_party.lower() == account_holder_name.lower()
+            ):
+                continue
+
+            # Temporal match: same date string or within time_window_days
+            is_temporal_match = False
+            delta_hours = 0.0
+
+            if in_date_str and out_date_str and in_date_str == out_date_str:
+                is_temporal_match = True
+                delta_hours = 0.5
+            elif pd.notna(in_date_dt) and pd.notna(out_date_dt):
+                delta_sec = (out_date_dt - in_date_dt).total_seconds()
+                if 0 <= delta_sec <= (time_window_days * 86400):
+                    is_temporal_match = True
+                    delta_hours = round(max(0.1, delta_sec / 3600.0), 1)
+
+            if is_temporal_match:
+                retention_amt = max(0.0, in_amt - out_amt)
+                retention_pct = round((retention_amt / in_amt * 100.0) if in_amt > 0 else 0.0, 1)
+
+                records.append(
+                    {
+                        "Transfer_Type": "Rapid_Layering",
+                        "Match_Method": "TEMPORAL_RAPID_LAYERING",
+                        "Sender_Person": in_party,
+                        "Intermediary_Entity": account_holder_name,
+                        "Recipient_Person": out_party,
+                        "Inflow_Date": in_date_str,
+                        "Outflow_Date": out_date_str,
+                        "Inflow_Amount": in_amt,
+                        "Outflow_Amount": out_amt,
+                        "Retention_Amount": retention_amt,
+                        "Retention_Pct": retention_pct,
+                        "Time_Delta_Hours": delta_hours,
+                        "Inflow_Narration": in_row.get("Narration", ""),
+                        "Outflow_Narration": out_row.get("Narration", ""),
+                        "Inflow_UTR": in_row.get("UTR", "N/A"),
+                        "Outflow_UTR": out_row.get("UTR", "N/A"),
+                        "Inflow_VPA": in_row.get("Counterparty_VPA", ""),
+                        "Outflow_VPA": out_row.get("Counterparty_VPA", ""),
+                    }
+                )
+
+    if not records:
+        return pd.DataFrame()
+
+    res_df = pd.DataFrame(records)
+    return res_df.drop_duplicates(
+        subset=[
+            "Sender_Person",
+            "Recipient_Person",
+            "Inflow_Date",
+            "Outflow_Date",
+            "Outflow_Amount",
+        ]
+    ).reset_index(drop=True)

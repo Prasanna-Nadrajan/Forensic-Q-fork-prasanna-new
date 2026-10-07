@@ -146,6 +146,61 @@ class InvestigationProfile(ForensicBaseModel):
             "avatar_color": self.avatar_color,
             "keywords": self.keywords or [],
             "audits": audits_info,
+            "documents": [
+                {
+                    "id": str(d.id),
+                    "filename": d.filename,
+                    "description": d.description,
+                    "extracted_entities": d.extracted_entities or [],
+                }
+                for d in self.documents.all()
+            ]
+            if self.pk
+            else [],
+        }
+
+
+class ProfileDocument(ForensicBaseModel):
+    """
+    Associated evidentiary or legal document attached to an Investigation Profile
+    (e.g. Partnership Deed, Incorporation Certificate, Nominee Schedule, Vendor Contract).
+    """
+
+    profile = models.ForeignKey(
+        InvestigationProfile,
+        on_delete=models.CASCADE,
+        related_name="documents",
+        help_text="Investigation Profile this document belongs to",
+    )
+    filename = models.CharField(max_length=255)
+    file = models.FileField(upload_to="profile_documents/", blank=True, null=True)
+    file_type = models.CharField(max_length=32, blank=True, default="")
+    description = models.CharField(max_length=255, blank=True, default="")
+    extracted_text = models.TextField(blank=True, default="")
+    extracted_entities = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Entities / persons / companies identified within this document",
+    )
+
+    class Meta:
+        app_label = "core"
+        ordering = ["-created_at"]
+        verbose_name = "Profile Document"
+        verbose_name_plural = "Profile Documents"
+
+    def __str__(self) -> str:
+        return f"{self.filename} ({self.profile.full_name})"
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "id": str(self.id),
+            "profile_id": str(self.profile_id),
+            "filename": self.filename,
+            "file_type": self.file_type,
+            "description": self.description,
+            "extracted_entities": self.extracted_entities or [],
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M") if self.created_at else "",
         }
 
 

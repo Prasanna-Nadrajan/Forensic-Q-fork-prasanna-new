@@ -169,6 +169,7 @@ def extract_clean_tracking_name(narr: str) -> str:
         "P2M",
         "PAY",
         "IN",
+        "OUT",
         "INR",
         "DR",
         "CR",
@@ -320,32 +321,156 @@ def format_inr(number: float | int) -> str:
     return formatted + "." + decimal
 
 
+def extract_tables_from_pdf(pdf_file_source: Any) -> pd.DataFrame:
+    """
+    Extracts tabular transaction records from a PDF bank statement.
+    Supports Federal Bank, HDFC, ICICI, SBI, Axis, Jupiter, and standard tabular statements.
+    """
+    import pypdf
+
+    try:
+        if isinstance(pdf_file_source, (str, os.PathLike)):
+            reader = pypdf.PdfReader(pdf_file_source)
+        else:
+            if hasattr(pdf_file_source, "seek"):
+                pdf_file_source.seek(0)
+            pdf_bytes = io.BytesIO(
+                pdf_file_source.getvalue()
+                if hasattr(pdf_file_source, "getvalue")
+                else pdf_file_source.read()
+            )
+            reader = pypdf.PdfReader(pdf_bytes)
+    except Exception as exc:
+        logger.error(f"Failed to read PDF buffer: {exc}")
+        return pd.DataFrame()
+
+    full_text = ""
+    for page in reader.pages:
+        txt = page.extract_text()
+        if txt:
+            full_text += txt + "\n"
+
+    clean_lines = []
+    for line in full_text.split("\n"):
+        line_s = line.strip()
+        if not line_s or "Page 1 of" in line_s or "FEDERAL BANK •" in line_s:
+            continue
+        clean_lines.append(line_s)
+
+    date_pat = re.compile(r"^(\d{2}[/-]\d{2}[/-]\d{4})(?:\s+(\d{2}[/-]\d{2}[/-]\d{4}))?\s*(.*)$")
+    amt_tail_pat = re.compile(
+        r"(\d+(?:,\d+)*(?:\.\d{2})?)\s+(\d+(?:,\d+)*(?:\.\d{2})?)\s+(Dr|Cr)$", re.IGNORECASE
+    )
+
+    records = []
+    curr_line = None
+
+    for line in clean_lines:
+        if date_pat.match(line):
+            if curr_line:
+                records.append(curr_line)
+            curr_line = line
+        elif curr_line:
+            curr_line += " " + line
+    if curr_line:
+        records.append(curr_line)
+
+    parsed = []
+    for rec in records:
+        m_date = date_pat.match(rec)
+        if not m_date:
+            continue
+        txn_date = m_date.group(1).replace("-", "/")
+        val_date = (m_date.group(2) or txn_date).replace("-", "/")
+        rest = m_date.group(3)
+
+        m_amt = amt_tail_pat.search(rest)
+        if m_amt:
+            amt_str = m_amt.group(1).replace(",", "")
+            bal_str = m_amt.group(2).replace(",", "")
+            drcr = m_amt.group(3).upper()
+            narr = rest[: m_amt.start()].strip()
+
+            try:
+                amt_val = float(amt_str)
+                bal_val = float(bal_str)
+            except (ValueError, TypeError):
+                continue
+
+            debit = amt_val if drcr == "DR" else 0.0
+            credit = amt_val if drcr == "CR" else 0.0
+
+            parsed.append(
+                {
+                    "Date": txn_date,
+                    "Value Date": val_date,
+                    "Narration": narr,
+                    "Debit Amount": debit,
+                    "Credit Amount": credit,
+                    "Closing Balance": bal_val,
+                }
+            )
+
+    return pd.DataFrame(parsed)
+
+
 def parse_bank_statement_dataframe(file_obj_or_path: Any, filename: str) -> pd.DataFrame:
     """
-    Master file reader routing Excel (.xlsx, .xls), CSV, Word (.docx), and tabular files
+    Master file reader routing Excel (.xlsx, .xls), CSV, Word (.docx), PDF (.pdf), and tabular files
     into a standardized Pandas DataFrame with clean columns.
     """
     ext = filename.split(".")[-1].lower() if "." in filename else ""
     df = pd.DataFrame()
 
     if ext in ["xlsx", "xls"]:
-        df = pd.read_excel(file_obj_or_path, header=0)
+        try:
+            if hasattr(file_obj_or_path, "seek"):
+                file_obj_or_path.seek(0)
+            raw_preview = pd.read_excel(file_obj_or_path, header=None, nrows=15)
+            header_idx = 0
+            for idx, row in raw_preview.iterrows():
+                vals = [str(v).lower().strip() for v in row if pd.notna(v)]
+                if any("date" in v for v in vals) and any(
+                    "withdraw" in v
+                    or "deposit" in v
+                    or "dr" in v
+                    or "cr" in v
+                    or "amount" in v
+                    or "balance" in v
+                    for v in vals
+                ):
+                    header_idx = idx
+                    break
+            if hasattr(file_obj_or_path, "seek"):
+                file_obj_or_path.seek(0)
+            df = pd.read_excel(file_obj_or_path, header=header_idx)
+        except Exception:
+            if hasattr(file_obj_or_path, "seek"):
+                file_obj_or_path.seek(0)
+            df = pd.read_excel(file_obj_or_path, header=0)
     elif ext == "csv":
         df = pd.read_csv(file_obj_or_path, header=0)
     elif ext == "docx":
         df = extract_tables_from_word(file_obj_or_path)
+    elif ext == "pdf":
+        df = extract_tables_from_pdf(file_obj_or_path)
     else:
-        # Attempt Excel first, fallback to CSV
+        # Attempt Excel first, fallback to CSV, then PDF
         try:
+            if hasattr(file_obj_or_path, "seek"):
+                file_obj_or_path.seek(0)
             df = pd.read_excel(file_obj_or_path, header=0)
         except Exception:
             try:
                 if hasattr(file_obj_or_path, "seek"):
                     file_obj_or_path.seek(0)
                 df = pd.read_csv(file_obj_or_path, header=0)
-            except Exception as e:
-                logger.error("Failed to parse statement buffer: {}", e)
-                return pd.DataFrame()
+            except Exception:
+                try:
+                    df = extract_tables_from_pdf(file_obj_or_path)
+                except Exception as e:
+                    logger.error("Failed to parse statement buffer: {}", e)
+                    return pd.DataFrame()
 
     if "page_num" in df.columns:
         df = df.drop(columns=["page_num"])

@@ -73,6 +73,7 @@ class StandaloneDiskScanner:
         ".docx",
         ".xlsx",
         ".pptx",
+        ".pdf",
         ".zip",
     }
 
@@ -391,6 +392,10 @@ class StandaloneDiskScanner:
                 self._scan_office_document(
                     entry.path, cleaned_path, ext, file_size, mod_time, writer, csv_file
                 )
+            elif ext == ".pdf":
+                self._scan_pdf_document(
+                    entry.path, cleaned_path, file_size, mod_time, writer, csv_file
+                )
             elif ext == ".zip":
                 self._scan_zip_archive(
                     entry.path, cleaned_path, file_size, mod_time, writer, csv_file
@@ -399,6 +404,64 @@ class StandaloneDiskScanner:
                 self._scan_text_file_contents(
                     entry.path, cleaned_path, file_size, mod_time, writer, csv_file
                 )
+
+    def _scan_pdf_document(
+        self,
+        long_path: str,
+        display_path: str,
+        file_size: int,
+        mod_time: str,
+        writer: Any,
+        csv_file: Any,
+    ) -> None:
+        """
+        Inspects PDF documents for keywords using pure stdlib or optional pypdf.
+        """
+        import zlib
+
+        try:
+            full_text = ""
+            try:
+                from pypdf import PdfReader
+
+                reader = PdfReader(long_path)
+                full_text = "\n".join([p.extract_text() or "" for p in reader.pages])
+            except Exception:
+                with open(long_path, "rb") as f:
+                    content = f.read(10 * 1024 * 1024)
+                # Search streams
+                stream_texts = []
+                for match in re.finditer(b"stream[\r\n]+(.*?)[\r\n]+endstream", content, re.DOTALL):
+                    stream_data = match.group(1)
+                    try:
+                        decomp = zlib.decompress(stream_data)
+                        stream_texts.append(decomp.decode("latin-1", errors="ignore"))
+                    except Exception:
+                        stream_texts.append(stream_data.decode("latin-1", errors="ignore"))
+                full_text = "\n".join(stream_texts) or content.decode("latin-1", errors="ignore")
+
+            text_lower = full_text.lower()
+            matched_in_this_file = set()
+
+            for kw_lower, kw_orig in zip(self.keywords_lower, self.keywords, strict=False):
+                if kw_orig in matched_in_this_file:
+                    continue
+                pos = text_lower.find(kw_lower)
+                if pos != -1:
+                    matched_in_this_file.add(kw_orig)
+                    snippet = self._extract_snippet_from_str(full_text, pos, len(kw_orig))
+                    self._record_match(
+                        path=display_path,
+                        keyword=kw_orig,
+                        match_type="CONTENT_PDF",
+                        file_size=file_size,
+                        mod_time=mod_time,
+                        snippet=snippet,
+                        writer=writer,
+                        csv_file=csv_file,
+                    )
+        except Exception:
+            self.total_errors_bypassed += 1
 
     def _scan_text_file_contents(
         self,
@@ -818,13 +881,36 @@ def main() -> None:
     print("=" * 80)
     print(f"Execution Directory: {EXECUTION_DIR}")
 
-    config_file = EXECUTION_DIR / "config.json"
-    output_file = EXECUTION_DIR / "scan_results.csv"
+    import argparse
+
+    parser = argparse.ArgumentParser(description="ForensiQ Q-Scan Endpoint Filesystem Scanner")
+    parser.add_argument(
+        "--target", "-t", action="append", help="Target directory to scan (can specify multiple)"
+    )
+    parser.add_argument(
+        "--keywords", "-k", help="Comma-separated keywords or path to keywords text file"
+    )
+    parser.add_argument("--output", "-o", help="Path to write output CSV results")
+    parser.add_argument("--config", "-c", help="Custom path to config.json")
+    args, unknown = parser.parse_known_args()
+
+    config_file = Path(args.config) if args.config else (EXECUTION_DIR / "config.json")
+    output_file = Path(args.output) if args.output else (EXECUTION_DIR / "scan_results.csv")
 
     config = load_or_create_config(config_file)
 
-    target_dirs = config.get("target_directories", ["C:\\"])
-    keywords = config.get("keywords", ["password", "confidential"])
+    target_dirs = args.target if args.target else config.get("target_directories", ["C:\\"])
+
+    if args.keywords:
+        kw_arg = args.keywords.strip()
+        if Path(kw_arg).exists():
+            kw_lines = Path(kw_arg).read_text(encoding="utf-8", errors="ignore").splitlines()
+            keywords = [line.strip() for line in kw_lines if line.strip()]
+        else:
+            keywords = [k.strip() for k in kw_arg.split(",") if k.strip()]
+    else:
+        keywords = config.get("keywords", ["password", "confidential"])
+
     search_contents = bool(config.get("search_contents", True))
     content_exts = set(config.get("content_extensions", []))
     exclude_dirs = config.get("exclude_directories", [])

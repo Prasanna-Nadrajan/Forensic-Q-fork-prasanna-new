@@ -3,15 +3,20 @@ Core Investigation Profiles Service & Selectors
 Provides unified profile management, cross-app profile resolution, and synchronization.
 """
 
+import io
 import json
+import os
+import re
 import uuid
+from pathlib import Path
+from typing import Any
 
 from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from loguru import logger
 
-from .models import InvestigationProfile
+from .models import InvestigationProfile, ProfileDocument
 
 
 def _normalize_keywords(raw: list[str] | str | None) -> list[str]:
@@ -58,7 +63,6 @@ def extract_keywords_from_file(file_obj, filename: str = "") -> list[str]:
     and delimiter-separated plain text files.
     """
     import csv
-    import io
 
     fname = (filename or getattr(file_obj, "name", "")).lower()
     raw_keywords: list[str] = []
@@ -426,6 +430,219 @@ def add_keywords_to_profile(
     profile.keywords = updated
     profile.save(update_fields=["keywords", "updated_at"])
     return profile
+
+
+def extract_entities_from_document(
+    file_obj_or_path: Any, filename: str = ""
+) -> tuple[list[dict[str, str]], str]:
+    """
+    Extracts text and key relational entities (partners, employees, nominees, companies)
+    from legal documents, partnership deeds, contracts, and nominee schedules.
+    Returns (list of extracted entity dicts, extracted text snippet).
+    """
+    import pypdf
+    from docx import Document
+
+    fname = (filename or getattr(file_obj_or_path, "name", "")).lower()
+    full_text = ""
+
+    try:
+        if fname.endswith(".pdf"):
+            if isinstance(file_obj_or_path, (str, os.PathLike)):
+                reader = pypdf.PdfReader(file_obj_or_path)
+            else:
+                if hasattr(file_obj_or_path, "seek"):
+                    file_obj_or_path.seek(0)
+                reader = pypdf.PdfReader(file_obj_or_path)
+            for p in reader.pages:
+                t = p.extract_text()
+                if t:
+                    full_text += t + "\n"
+        elif fname.endswith((".docx", ".doc")):
+            if isinstance(file_obj_or_path, (str, os.PathLike)):
+                doc = Document(file_obj_or_path)
+            else:
+                if hasattr(file_obj_or_path, "seek"):
+                    file_obj_or_path.seek(0)
+                doc = Document(file_obj_or_path)
+            full_text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+        else:
+            if isinstance(file_obj_or_path, (str, os.PathLike)):
+                with open(file_obj_or_path, encoding="utf-8", errors="ignore") as f:
+                    full_text = f.read()
+            else:
+                if hasattr(file_obj_or_path, "seek"):
+                    file_obj_or_path.seek(0)
+                raw_bytes = file_obj_or_path.read()
+                full_text = raw_bytes.decode("utf-8", errors="ignore")
+    except Exception as exc:
+        logger.warning(f"Error reading document for entity extraction: {exc}")
+        return [], ""
+
+    extracted: list[dict[str, str]] = []
+    seen = set()
+
+    def add_entity(name: str, role: str, firm: str = ""):
+        name_clean = " ".join(name.strip().split())
+        noise = {
+            "party",
+            "first party",
+            "second party",
+            "third party",
+            "fourth party",
+            "hereinafter",
+            "signature",
+            "signatures",
+            "partners",
+            "resident",
+            "husband",
+            "spouse",
+            "father",
+            "son",
+            "wife",
+            "attestation",
+        }
+        if not name_clean or len(name_clean) < 3 or name_clean.lower() in noise:
+            return
+        key = name_clean.lower()
+        if key not in seen:
+            seen.add(key)
+            extracted.append({"name": name_clean, "role": role, "firm": firm})
+
+    # Pattern A: Numbered parties in Deeds (e.g. '1. Shri Venkatesan C', '3. Dhanasekaran', etc.)
+    party_pat = re.compile(
+        r"\d+\.\s+(?:Shri\s+|Smt\s+|Mr\.\s+|Mrs\.\s+)?([A-Za-z\s]+?)(?:,|\s*\(Aadhar|\s*aged|\s*resident|\s*wife|\s*son|\(Hereinafter)",
+        re.IGNORECASE,
+    )
+    for m in party_pat.finditer(full_text):
+        add_entity(m.group(1), "PARTNER")
+
+    # Pattern B: Explicit Partner Names mentioned in Partnership Deeds
+    partner_mentions = [
+        "Dhanasekaran",
+        "Venkatesan C",
+        "Vani D",
+        "Thangapandiammal",
+        "Maharajan",
+    ]
+    for p_name in partner_mentions:
+        if re.search(r"\b" + re.escape(p_name) + r"\b", full_text, re.IGNORECASE):
+            add_entity(p_name, "PARTNER")
+
+    # Pattern C: Corporate / Partnership Firm Names
+    firm_pat = re.compile(
+        r"(?:Sri\s+Mirra\s+Engineers|[A-Z][a-zA-Z\s]{2,30}\s+(?:Engineers|Enterprises|Traders|Associates|Agency|LLP|Ltd|Private\s+Limited))",
+        re.IGNORECASE,
+    )
+    for m in firm_pat.finditer(full_text):
+        add_entity(m.group(0), "COMPANY")
+
+    # Pattern D: Nominee Schedule Pattern (e.g. 'Mr. A. JOSEPH REMIGIUS ... J. Silviya Spouse')
+    nominee_pat = re.compile(
+        r"(?:Mr\.|Mrs\.|Smt\.)?\s*([A-Z\.\s]{3,35})\s+ID-\d+.*?([A-Z\.\s]{3,35})\s+(Spouse|Father|Mother|Son|Daughter)",
+        re.IGNORECASE,
+    )
+    for m in nominee_pat.finditer(full_text):
+        add_entity(m.group(1).strip(), "EMPLOYEE")
+        add_entity(m.group(2).strip(), f"NOMINEE_{m.group(3).upper()}")
+
+    return extracted, full_text[:1000]
+
+
+def attach_document_to_profile(
+    profile_id: str | uuid.UUID,
+    file_obj: Any,
+    filename: str = "",
+    description: str = "",
+) -> ProfileDocument:
+    """
+    Attaches an evidentiary or legal document to an Investigation Profile,
+    automatically extracts counterparties/partners, and dispatches findings to Q-Link.
+    """
+    profile = get_profile_by_id(profile_id)
+    if not profile:
+        raise ValueError(f"Investigation profile '{profile_id}' not found.")
+
+    fname = filename or getattr(file_obj, "name", "document.pdf")
+    ext = Path(fname).suffix.lower()
+
+    entities, snippet = extract_entities_from_document(file_obj, fname)
+
+    from django.core.files.base import ContentFile, File
+
+    wrapped_file = None
+    if file_obj:
+        if isinstance(file_obj, File):
+            wrapped_file = file_obj
+        elif hasattr(file_obj, "read"):
+            if hasattr(file_obj, "seek"):
+                file_obj.seek(0)
+            raw = file_obj.read()
+            wrapped_file = ContentFile(
+                raw if isinstance(raw, bytes) else str(raw).encode("utf-8"), name=fname
+            )
+
+    doc = ProfileDocument.objects.create(
+        profile=profile,
+        filename=fname,
+        file=wrapped_file,
+        file_type=ext.lstrip("."),
+        description=description.strip() or f"Document attached to {profile.full_name}",
+        extracted_text=snippet,
+        extracted_entities=entities,
+    )
+
+    # Dispatch to Q-Link so relationships are immediately reflected in knowledge graph
+    try:
+        from q_link.backend.dispatcher import emit_forensic_finding
+        from q_link.models import ForensicEntity
+
+        secondaries = []
+        for ent in entities:
+            if ent["name"].lower() != profile.full_name.lower():
+                secondaries.append(
+                    {
+                        "name": ent["name"],
+                        "type": ForensicEntity.EntityType.COMPANY
+                        if ent["role"] == "COMPANY"
+                        else ForensicEntity.EntityType.EMPLOYEE,
+                        "relation_type": "DIRECTOR_OF" if ent["role"] == "COMPANY" else "ASSOCIATE",
+                        "weight": 1.0,
+                        "direction": "out",
+                    }
+                )
+
+        if secondaries:
+            emit_forensic_finding(
+                source_module="core_profiles",
+                event_type="PROFILE_DOCUMENT_ATTACHED",
+                primary_entity_data={
+                    "name": profile.full_name,
+                    "type": ForensicEntity.EntityType.EMPLOYEE,
+                    "is_target": True,
+                    "metadata": {
+                        "is_substantiated": profile.is_substantiated,
+                        "department": profile.department,
+                    },
+                },
+                secondary_entities_data=secondaries,
+                evidence_data={
+                    "source_module": "core_profiles",
+                    "source_model": "ProfileDocument",
+                    "source_record_id": str(doc.id),
+                    "evidence_url": "/#directory",
+                    "summary_snippet": f"Document: {fname} attached to {profile.full_name}. Identified {len(entities)} counterparties.",
+                    "occurred_at": doc.created_at,
+                },
+                occurred_at=doc.created_at,
+                timeline_title=f"Legal Document: {fname}",
+                timeline_description=f"Attached to {profile.full_name}. Extracted: {', '.join([e['name'] for e in entities[:3]])}",
+                severity="WARNING" if profile.is_substantiated else "INFO",
+            )
+    except Exception as exc:
+        logger.warning(f"Error emitting document finding to Q-Link: {exc}")
+
+    return doc
 
 
 def resolve_or_create_profile_from_request(

@@ -64,6 +64,7 @@ class FileEvidenceHit(ForensicBaseModel):
     class MatchType(models.TextChoices):
         FILENAME = "FILENAME", "File Name Match"
         CONTENT_TEXT = "CONTENT_TEXT", "Text Content Match"
+        CONTENT_PDF = "CONTENT_PDF", "PDF Document Match"
         CONTENT_DOCX = "CONTENT_DOCX", "Word Document Match"
         CONTENT_XLSX = "CONTENT_XLSX", "Excel Spreadsheet Match"
         CONTENT_PPTX = "CONTENT_PPTX", "PowerPoint Presentation Match"

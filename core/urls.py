@@ -23,6 +23,11 @@ urlpatterns = [
         name="upload_profile_keywords_file",
     ),
     path(
+        "profiles/<uuid:profile_id>/document/",
+        views.upload_profile_document_view,
+        name="upload_profile_document",
+    ),
+    path(
         "api/keywords/parse-file/",
         views.parse_keywords_file_view,
         name="parse_keywords_file",

@@ -8,7 +8,22 @@
         icon_color="text-teal-400"
         back_url="/">
         
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            {% if active_audit %}
+            <div class="inline-flex p-0.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs mr-1">
+                <a href="?scope=audit"
+                   class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope == 'audit' %}bg-teal-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %}">
+                    <i class="fa-solid fa-folder-tree text-[10px]"></i>
+                    <span>Audit: {{ active_audit.name }}</span>
+                </a>
+                <a href="?scope=all"
+                   class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope != 'audit' %}bg-teal-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %}">
+                    <i class="fa-solid fa-globe text-[10px]"></i>
+                    <span>All Custodians</span>
+                </a>
+            </div>
+            {% endif %}
+
             <a href="{% url 'q_scan:download_tool' 'q_scan.exe' %}" 
                class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 text-xs font-bold border border-teal-500/40 shadow-sm transition-all transform hover:-translate-y-0.5 cursor-pointer">
                 <i class="fa-solid fa-download text-teal-400"></i>
@@ -21,6 +36,12 @@
                 <span>Download Bundle (ZIP)</span>
             </a>
 
+            <button onclick="openFolderScanModal()" 
+                    class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-bold border border-emerald-500/40 shadow-sm transition-all transform hover:-translate-y-0.5 cursor-pointer">
+                <i class="fa-solid fa-bolt-lightning text-emerald-400"></i>
+                <span>Live Folder Scan</span>
+            </button>
+
             <button onclick="openUploadModal()" 
                     class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-lg shadow-teal-600/20 transition-all transform hover:-translate-y-0.5 cursor-pointer">
                 <i class="fa-solid fa-file-arrow-up"></i>
@@ -29,7 +50,36 @@
         </div>
     </c-page_header>
 
+    <!-- Forensic Metric Summary Stat Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <c-stat_card 
+            title="Audited Endpoints" 
+            value="{{ metrics.total_devices }}" 
+            subtitle="Audited machines & drives" 
+            icon="fa-solid fa-desktop" 
+            variant="sky" />
 
+        <c-stat_card 
+            title="Evidence Hits" 
+            value="{{ metrics.total_hits }}" 
+            subtitle="Keyword findings identified" 
+            icon="fa-solid fa-magnifying-glass" 
+            variant="rose" />
+
+        <c-stat_card 
+            title="Critical Findings" 
+            value="{{ metrics.high_risk_hits }}" 
+            subtitle="Risk score ≥ 70" 
+            icon="fa-solid fa-triangle-exclamation" 
+            variant="amber" />
+
+        <c-stat_card 
+            title="Reviewed Items" 
+            value="{{ metrics.reviewed_hits }}" 
+            subtitle="Analyst reviewed findings" 
+            icon="fa-solid fa-shield-check" 
+            variant="emerald" />
+    </div>
 
     <!-- Target Custodians / Auditees Directory -->
     <div class="mb-8" x-data="{
@@ -178,7 +228,74 @@
         {% endif %}
     </div>
 
-
+    <!-- Scanned Devices & Endpoints Table -->
+    {% if recent_devices %}
+    <div class="mb-8">
+        <c-card title="Audited Endpoints & Forensic Drives" 
+                subtitle="All endpoints, local disks, and schedule documents ingested into Q-Scan." 
+                icon="fa-solid fa-desktop" 
+                icon_color="text-teal-400">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-200 dark:border-zinc-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                            <th class="py-3 px-4">Endpoint / Machine</th>
+                            <th class="py-3 px-4">Campaign Label</th>
+                            <th class="py-3 px-4">Target Custodian</th>
+                            <th class="py-3 px-4">Root / Drive</th>
+                            <th class="py-3 px-4 text-center">Hits Found</th>
+                            <th class="py-3 px-4">Scanned Date</th>
+                            <th class="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800 font-mono">
+                        {% for d in recent_devices %}
+                        <tr class="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition">
+                            <td class="py-3 px-4 font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-2">
+                                <i class="fa-solid fa-hard-drive text-teal-400 text-xs"></i>
+                                <span>{{ d.hostname }}</span>
+                            </td>
+                            <td class="py-3 px-4 text-slate-600 dark:text-zinc-400 font-sans truncate max-w-[200px]">
+                                {{ d.scan_title|default:"Endpoint Scan" }}
+                            </td>
+                            <td class="py-3 px-4 text-slate-700 dark:text-zinc-300 font-sans">
+                                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 text-[11px]">
+                                    {{ d.custodian_name|default:"Unassigned" }}
+                                </span>
+                            </td>
+                            <td class="py-3 px-4 text-slate-500 dark:text-zinc-400">
+                                {{ d.drive_letter|default:"C:\\" }}
+                            </td>
+                            <td class="py-3 px-4 text-center">
+                                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold {% if d.total_matches_found > 0 %}bg-rose-500/10 text-rose-400 border border-rose-500/20{% else %}bg-slate-500/10 text-slate-400{% endif %}">
+                                    {{ d.total_matches_found }} hits
+                                </span>
+                            </td>
+                            <td class="py-3 px-4 text-slate-400 text-[11px]">
+                                {{ d.created_at|date:"M d, Y H:i" }}
+                            </td>
+                            <td class="py-3 px-4 text-right">
+                                <div class="flex items-center justify-end gap-2">
+                                    <a href="{% url 'q_scan:device_detail' d.id %}" 
+                                       class="px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-sans font-bold shadow-xs transition">
+                                        Open Hits
+                                    </a>
+                                    <form method="POST" action="{% url 'q_scan:delete_device' d.id %}" class="inline" onsubmit="return confirm('Delete endpoint scan record?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="p-1 text-slate-400 hover:text-rose-400 transition cursor-pointer" title="Delete Device">
+                                            <i class="fa-solid fa-trash-can text-xs"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </c-card>
+    </div>
+    {% endif %}
 
     <!-- Upload Evidence CSV Modal -->
     <div id="upload-modal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -224,10 +341,10 @@
 
                 <c-file_uploader 
                     name="csv_file"
-                    accept=".csv"
-                    label="CSV Evidence File"
-                    hint="Drag & drop Q-Scan CSV findings export or click to browse"
-                    badge="SHA-256 Validated"
+                    accept=".csv,.pdf,.docx,.txt"
+                    label="CSV Evidence or Nominee Schedule File"
+                    hint="Drag & drop Q-Scan CSV export or evidentiary schedule (.pdf, .docx, .txt)"
+                    badge="Forensic Screening"
                     required />
 
                 <div class="pt-2 flex justify-end gap-2">
@@ -242,6 +359,69 @@
         </div>
     </div>
 
+    <!-- Live Directory Scan Modal -->
+    <div id="folder-scan-modal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+            <button onclick="closeFolderScanModal()" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <i class="fa-solid fa-bolt-lightning text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-white">Live Endpoint Directory Scan</h3>
+                    <p class="text-xs text-zinc-400">Execute native disk scanner on target machine directory with active investigation keywords.</p>
+                </div>
+            </div>
+
+            <form method="POST" action="{% url 'q_scan:scan_directory' %}" class="space-y-4">
+                {% csrf_token %}
+
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-300 mb-1">Target Directory Path <span class="text-rose-500">*</span></label>
+                    <input type="text" name="target_dir" placeholder="e.g., C:\Users\VikashG\Downloads\Testing\case 1" required
+                           class="w-full px-3 py-2 text-xs rounded-xl bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-emerald-500 font-mono">
+                    <p class="text-[10px] text-zinc-500 mt-1">Full path to local folder containing evidence, deeds, or schedules.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1">Device / Hostname</label>
+                        <input type="text" name="hostname" placeholder="e.g., WORKSTATION-01"
+                               class="w-full px-3 py-2 text-xs rounded-xl bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-300 mb-1">Audit Label</label>
+                        <input type="text" name="scan_title" placeholder="e.g., Case 1 Sweep"
+                               class="w-full px-3 py-2 text-xs rounded-xl bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <div>
+                    <c-profile_selector name="profile_id" label="Target Auditee / Investigation Profile" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-300 mb-1">Additional Keywords (Comma-separated)</label>
+                    <input type="text" name="keywords" placeholder="Silviya, Shanthi, Palani, kickback, confidential..."
+                           class="w-full px-3 py-2 text-xs rounded-xl bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeFolderScanModal()" class="px-4 py-2 text-xs rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold cursor-pointer">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-xs rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md cursor-pointer flex items-center gap-1.5">
+                        <i class="fa-solid fa-play text-xs"></i>
+                        <span>Start Live Scan</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Script -->
     <script>
         function openUploadModal() {
@@ -250,6 +430,14 @@
 
         function closeUploadModal() {
             document.getElementById('upload-modal').classList.add('hidden');
+        }
+
+        function openFolderScanModal() {
+            document.getElementById('folder-scan-modal').classList.remove('hidden');
+        }
+
+        function closeFolderScanModal() {
+            document.getElementById('folder-scan-modal').classList.add('hidden');
         }
     </script>
 

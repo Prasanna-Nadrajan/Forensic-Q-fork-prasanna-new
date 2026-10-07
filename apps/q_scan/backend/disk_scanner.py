@@ -61,6 +61,7 @@ class HighPerformanceDiskScanner:
         ".docx",
         ".xlsx",
         ".pptx",
+        ".pdf",
         ".zip",
     }
 
@@ -418,6 +419,11 @@ class HighPerformanceDiskScanner:
                 self._scan_office_document(
                     entry.path, cleaned_path, ext, file_size, mod_time, writer, csv_file
                 )
+            # PDF Document Inspection (.pdf)
+            elif ext == ".pdf":
+                self._scan_pdf_document(
+                    entry.path, cleaned_path, file_size, mod_time, writer, csv_file
+                )
             # Zip Archive Inspection
             elif ext == ".zip":
                 self._scan_zip_archive(
@@ -428,6 +434,57 @@ class HighPerformanceDiskScanner:
                 self._scan_text_file_contents(
                     entry.path, cleaned_path, file_size, mod_time, writer, csv_file
                 )
+
+    def _scan_pdf_document(
+        self,
+        long_path: str,
+        display_path: str,
+        file_size: int,
+        mod_time: str,
+        writer: Any,
+        csv_file: Any,
+    ) -> None:
+        """
+        Inspects PDF documents for keyword matches using pypdf with pure-Python stream fallback.
+        """
+        try:
+            text_pages = []
+            try:
+                from pypdf import PdfReader
+
+                reader = PdfReader(long_path)
+                for page in reader.pages:
+                    t = page.extract_text()
+                    if t:
+                        text_pages.append(t)
+            except Exception:
+                with open(long_path, "rb") as f:
+                    raw = f.read(5 * 1024 * 1024)
+                    text_pages = [raw.decode("latin-1", errors="ignore")]
+
+            full_text = "\n".join(text_pages)
+            text_lower = full_text.lower()
+            matched_in_this_file: set[str] = set()
+
+            for kw_lower, kw_orig in zip(self.keywords_lower, self.keywords, strict=False):
+                if kw_orig in matched_in_this_file:
+                    continue
+                pos = text_lower.find(kw_lower)
+                if pos != -1:
+                    matched_in_this_file.add(kw_orig)
+                    snippet = self._extract_snippet_from_str(full_text, pos, len(kw_orig))
+                    self._record_match(
+                        path=display_path,
+                        keyword=kw_orig,
+                        match_type="CONTENT_PDF",
+                        file_size=file_size,
+                        mod_time=mod_time,
+                        snippet=snippet,
+                        writer=writer,
+                        csv_file=csv_file,
+                    )
+        except Exception:
+            self.total_errors_bypassed += 1
 
     def _scan_text_file_contents(
         self,

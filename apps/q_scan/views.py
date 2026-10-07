@@ -5,6 +5,7 @@ Routes requests, validates parameters, and coordinates selectors & services.
 
 import csv
 import json
+import uuid
 from pathlib import Path
 
 from django.conf import settings
@@ -12,9 +13,11 @@ from django.contrib import messages
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
+from loguru import logger
 
 from .selectors import (
     get_all_custodian_profiles,
+    get_all_scanned_devices,
     get_custodian_scanned_devices,
     get_evidence_hits_query,
     get_paginated_evidence_hits,
@@ -23,6 +26,7 @@ from .selectors import (
 )
 from .services import (
     delete_scanned_device,
+    ingest_document_for_scan,
     ingest_scan_csv_file,
     update_evidence_hit_review,
 )
@@ -40,19 +44,29 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     active_audit = get_active_audit(request)
     metrics = get_scan_dashboard_metrics()
     custodian_profiles = get_all_custodian_profiles()
+    all_devices = get_all_scanned_devices()
 
-    if active_audit:
+    scope = request.GET.get("scope", "all")
+    if active_audit and scope == "audit":
         audit_names = {p.full_name.strip().lower() for p in active_audit.profiles.all()}
         custodian_profiles = [
             p for p in custodian_profiles if p["custodian_name"].strip().lower() in audit_names
         ]
+        recent_devices = [
+            d for d in all_devices if d.custodian_name.strip().lower() in audit_names
+        ][:20]
+    else:
+        recent_devices = list(all_devices[:20])
 
     active_profile_keywords = get_profile_keywords(request=request)
 
     context = {
         "metrics": metrics,
         "custodian_profiles": custodian_profiles,
+        "recent_devices": recent_devices,
         "active_profile_keywords": active_profile_keywords,
+        "active_audit": active_audit,
+        "scope": scope,
     }
     return render(request, "q_scan/dashboard.html", context)
 
@@ -132,19 +146,34 @@ def upload_scan_csv_view(request: HttpRequest) -> HttpResponse:
         custodian_name = resolved_name
 
     try:
-        device = ingest_scan_csv_file(
-            csv_file_obj_or_path=uploaded_file,
-            hostname=hostname,
-            scan_title=scan_title,
-            custodian_name=custodian_name,
-            drive_letter=drive_letter,
-        )
-        messages.success(
-            request,
-            f"Successfully imported {device.total_matches_found:,} evidence hits from '{device.hostname}'.",
-        )
+        ext = Path(uploaded_file.name).suffix.lower()
+        if ext in (".pdf", ".docx", ".txt"):
+            device = ingest_document_for_scan(
+                file_obj_or_path=uploaded_file,
+                filename=uploaded_file.name,
+                hostname=hostname,
+                scan_title=scan_title or f"Schedule Scan - {uploaded_file.name}",
+                custodian_name=custodian_name,
+                drive_letter=drive_letter,
+            )
+            messages.success(
+                request,
+                f"Successfully screened '{device.hostname}' ({uploaded_file.name}) finding {device.total_matches_found:,} nominee/evidence hits.",
+            )
+        else:
+            device = ingest_scan_csv_file(
+                csv_file_obj_or_path=uploaded_file,
+                hostname=hostname,
+                scan_title=scan_title,
+                custodian_name=custodian_name,
+                drive_letter=drive_letter,
+            )
+            messages.success(
+                request,
+                f"Successfully imported {device.total_matches_found:,} evidence hits from '{device.hostname}'.",
+            )
     except Exception as e:
-        messages.error(request, f"Failed to parse and import CSV file: {e}")
+        messages.error(request, f"Failed to parse and import file: {e}")
 
     return redirect("q_scan:dashboard")
 
@@ -316,3 +345,84 @@ def _format_size(size_bytes: int) -> str:
             return f"{size:.2f} {unit}"
         size /= 1024.0
     return f"{size:.2f} PB"
+
+
+@require_POST
+def scan_directory_view(request: HttpRequest) -> HttpResponse:
+    """
+    Executes a high-speed disk scan on a specified directory path using HighPerformanceDiskScanner,
+    automatically searching for active profile keywords and ingesting matching findings.
+    """
+    import tempfile
+
+    from .backend.disk_scanner import HighPerformanceDiskScanner
+
+    target_dir = request.POST.get("target_dir", "").strip()
+    if not target_dir or not Path(target_dir).exists():
+        messages.error(
+            request, f"Target directory '{target_dir}' does not exist or is inaccessible."
+        )
+        return redirect("q_scan:dashboard")
+
+    hostname = request.POST.get("hostname", "").strip() or Path(target_dir).name.upper()
+    scan_title = request.POST.get("scan_title", "").strip() or f"Live Scan: {Path(target_dir).name}"
+    custodian_name = request.POST.get("custodian_name", "").strip()
+    drive_letter = request.POST.get("drive_letter", str(Path(target_dir).drive) or "C:\\").strip()
+
+    from core.profiles import get_profile_keywords, resolve_or_create_profile_from_request
+
+    profile, resolved_name = resolve_or_create_profile_from_request(
+        request, default_department="Endpoint Security"
+    )
+    if profile:
+        custodian_name = profile.full_name
+    elif not custodian_name and resolved_name:
+        custodian_name = resolved_name
+
+    keywords_set = set(get_profile_keywords(custodian_name=custodian_name))
+    custom_kw_input = request.POST.get("keywords", "").strip()
+    if custom_kw_input:
+        for kw in custom_kw_input.split(","):
+            if kw.strip():
+                keywords_set.add(kw.strip())
+
+    if not keywords_set:
+        keywords_set.update(
+            ["Silviya", "Shanthi", "Palani", "kickback", "confidential", "invoice", "salary"]
+        )
+
+    temp_csv = Path(tempfile.gettempdir()) / f"q_scan_{uuid.uuid4().hex[:8]}.csv"
+
+    try:
+        scanner = HighPerformanceDiskScanner(
+            target_directories=[target_dir],
+            keywords=sorted(keywords_set),
+            output_csv_path=temp_csv,
+            search_contents=True,
+        )
+        scan_stats = scanner.run_scan()
+
+        device = ingest_scan_csv_file(
+            csv_file_obj_or_path=temp_csv,
+            hostname=hostname,
+            scan_title=scan_title,
+            custodian_name=custodian_name,
+            drive_letter=drive_letter,
+        )
+
+        messages.success(
+            request,
+            f"Live scan completed in {scan_stats.get('elapsed_seconds', 0)}s! Screened {scan_stats.get('files_examined', 0)} files, identified {device.total_matches_found} keyword findings.",
+        )
+        return redirect("q_scan:device_detail", device_id=device.id)
+
+    except Exception as exc:
+        logger.error(f"Error executing live directory scan on {target_dir}: {exc}")
+        messages.error(request, f"Scan failed: {exc}")
+        return redirect("q_scan:dashboard")
+    finally:
+        if temp_csv.exists():
+            try:
+                temp_csv.unlink()
+            except Exception as exc:
+                logger.debug(f"Temp scan CSV cleanup bypassed: {exc}")
