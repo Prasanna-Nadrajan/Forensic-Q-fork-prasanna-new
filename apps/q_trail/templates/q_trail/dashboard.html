@@ -1,43 +1,68 @@
 <c-base title="Q-Trail | Money Trail Tracker">
 
-    <div class="px-6 py-4 border-b border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-40">
-        <div>
-            <h1 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <i class="fa-solid fa-route text-amber-500"></i>
-                Q-Trail Automated Pass-Through Analyzer
-            </h1>
-            <p class="text-sm text-slate-500 dark:text-zinc-400 mt-1">
-                Scans a single profile's bank statement for 80-100% value threshold pass-through behaviors.
-            </p>
-        </div>
-    </div>
+    <!-- Page Header -->
+    <c-page_header title="Q-Trail"
+        subtitle="Scans a single profile's bank statement for 80-100% value threshold pass-through behaviors."
+        icon="fa-solid fa-route" icon_color="text-amber-500" back_url="/">
+    </c-page_header>
 
     <div class="p-6 max-w-7xl mx-auto space-y-6">
         
         <!-- Profile Selection Card -->
-        <div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
+        <div class="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
             <!-- Hidden elements to satisfy E2E verification test suite -->
             <div class="hidden">
                 <span class="sr-only">Audit:</span>
                 <span class="sr-only">All Profiles (</span>
             </div>
-            <form method="POST" action="{% url 'q_trail:dashboard' %}" class="flex flex-col gap-4">
+            <form method="POST" action="{% url 'q_trail:dashboard' %}" class="flex flex-col gap-5">
                 {% csrf_token %}
                 <input type="hidden" name="scope" value="{{ scope }}">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-500 dark:text-zinc-400 mb-2 uppercase tracking-wider">Select Person A (Intermediary)</label>
-                    <div class="flex flex-col gap-2 max-h-48 overflow-y-auto">
-                        {% for p in available_profiles %}
-                            <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                                <input type="radio" name="profile_ids" value="{{ p.id }}" class="profile-checkbox" {% if p.id in selected_profile_ids %}checked{% endif %}>
-                                {{ p.name }} ({{ p.transactions_count }} txns)
-                            </label>
-                        {% endfor %}
+                
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Select Person A (Intermediary)</h2>
+                        <p class="text-xs text-slate-500 dark:text-zinc-400 mt-1">Choose an auditee profile to scan for pass-through money trail patterns.</p>
                     </div>
                 </div>
-                <div class="flex justify-end">
-                    <button type="submit" class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-lg shadow-md transition-colors flex items-center gap-2">
-                        <i class="fa-solid fa-radar text-white"></i> Analyze Profile
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-h-[300px] overflow-y-auto pr-2 pb-2">
+                    {% for p in available_profiles %}
+                        <label class="relative flex flex-col p-4 cursor-pointer rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all has-[:checked]:border-amber-500 has-[:checked]:ring-1 has-[:checked]:ring-amber-500 has-[:checked]:bg-amber-50/50 dark:has-[:checked]:bg-amber-900/10">
+                            <input type="radio" name="profile_ids" value="{{ p.id }}" class="peer sr-only profile-checkbox" {% if p.id in selected_profile_ids %}checked{% endif %}>
+                            
+                            <!-- Checkmark Indicator -->
+                            <div class="absolute top-3 right-3 text-amber-500 opacity-0 peer-checked:opacity-100 transition-opacity">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-bold border border-indigo-200 dark:border-indigo-800 shrink-0 shadow-sm">
+                                    {{ p.name|make_list|first|upper }}
+                                </div>
+                                <div class="overflow-hidden">
+                                    <div class="font-semibold text-sm text-slate-900 dark:text-white truncate" title="{{ p.name }}">{{ p.name }}</div>
+                                    <div class="text-[10px] text-slate-500 dark:text-zinc-400 font-mono truncate" title="{{ p.designation }} | {{ p.department }}">{{ p.designation }} | {{ p.department }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-auto grid grid-cols-2 gap-2 border-t border-slate-200 dark:border-zinc-700/50 pt-3">
+                                <div>
+                                    <div class="text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-wider mb-0.5">Transactions</div>
+                                    <div class="text-xs font-bold text-slate-700 dark:text-zinc-300">{{ p.transactions_count|default:"0" }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] text-slate-500 dark:text-zinc-500 uppercase tracking-wider mb-0.5">Accounts</div>
+                                    <div class="text-xs font-bold text-slate-700 dark:text-zinc-300">{{ p.accounts_count|default:"0" }}</div>
+                                </div>
+                            </div>
+                        </label>
+                    {% endfor %}
+                </div>
+                
+                <div class="flex justify-end pt-2 border-t border-slate-100 dark:border-zinc-800/80">
+                    <button type="submit" class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold rounded-lg shadow-lg shadow-amber-500/20 transition-all transform hover:-translate-y-0.5 flex items-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-radar text-amber-950"></i> Run Pass-Through Analysis
                     </button>
                 </div>
             </form>
@@ -68,31 +93,50 @@
             
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm text-slate-600 dark:text-zinc-300">
-                    <thead class="bg-slate-100 dark:bg-zinc-800/50 text-xs uppercase font-semibold text-slate-500 dark:text-zinc-400">
+                    <thead class="bg-slate-100 dark:bg-zinc-800/50 text-[11px] uppercase font-bold text-slate-500 dark:text-zinc-400 tracking-wider">
                         <tr>
-                            <th class="px-4 py-3 border-b border-slate-200 dark:border-zinc-800">Person X (Sender)</th>
-                            <th class="px-4 py-3 border-b border-slate-200 dark:border-zinc-800">Date (Leg 1)</th>
-                            <th class="px-4 py-3 border-b border-slate-200 dark:border-zinc-800">Amount (Leg 1)</th>
-                            <th class="px-4 py-3 border-b border-slate-200 dark:border-zinc-800 bg-amber-50 dark:bg-amber-500/10 text-amber-900 dark:text-amber-500">Person A (Intermediary)</th>
-                            <th class="px-4 py-3 border-b border-slate-200 dark:border-zinc-800">Date (Leg 2)</th>
-                            <th class="px-4 py-3 border-b border-slate-200 dark:border-zinc-800">Amount (Leg 2)</th>
-                            <th class="px-4 py-3 border-b border-slate-200 dark:border-zinc-800">Person B/C (Receiver)</th>
-                            <th class="px-4 py-3 border-b border-slate-200 dark:border-zinc-800">Pattern Type</th>
+                            <th class="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 whitespace-nowrap">Person X (Sender)</th>
+                            <th class="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 whitespace-nowrap">Date (Leg 1)</th>
+                            <th class="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 whitespace-nowrap">Amount (Leg 1)</th>
+                            <th class="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 bg-amber-50/50 dark:bg-amber-500/10 text-amber-900 dark:text-amber-500 whitespace-nowrap">Person A (Intermediary)</th>
+                            <th class="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 whitespace-nowrap">Date (Leg 2)</th>
+                            <th class="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 whitespace-nowrap">Amount (Leg 2)</th>
+                            <th class="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 whitespace-nowrap">Person B/C (Receiver)</th>
+                            <th class="px-5 py-4 border-b border-slate-200 dark:border-zinc-800 whitespace-nowrap text-center">Pattern Type</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800">
+                    <tbody class="divide-y divide-slate-100 dark:divide-zinc-800/80">
                         {% for p in patterns %}
-                        <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
-                            <td class="px-4 py-3 font-medium text-slate-900 dark:text-white">{{ p.Person_X_Sender }}</td>
-                            <td class="px-4 py-3 whitespace-nowrap">{{ p.Date_Leg_1 }}</td>
-                            <td class="px-4 py-3 whitespace-nowrap text-emerald-600 dark:text-emerald-400 font-mono">₹{{ p.Amount_Leg_1 }}</td>
-                            <td class="px-4 py-3 font-bold text-amber-700 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-500/5">{{ p.Person_A_Intermediary }}</td>
-                            <td class="px-4 py-3 whitespace-nowrap">{{ p.Date_Leg_2 }}</td>
-                            <td class="px-4 py-3 whitespace-nowrap text-rose-600 dark:text-rose-400 font-mono">₹{{ p.Amount_Leg_2 }}</td>
-                            <td class="px-4 py-3 font-medium text-slate-900 dark:text-white">{{ p.Person_BC_Receiver }}</td>
-                            <td class="px-4 py-3">
-                                <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300">
-                                    {{ p.Pattern_Type }}
+                        <tr class="hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors group">
+                            <td class="px-5 py-4 font-medium text-slate-900 dark:text-white align-top">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-0.5"></span>
+                                    <span>{{ p.Person_X_Sender|default:"-" }}</span>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4 whitespace-nowrap align-top text-xs font-mono text-slate-500 dark:text-zinc-400 mt-1">{{ p.Date_Leg_1 }}</td>
+                            <td class="px-5 py-4 whitespace-nowrap align-top">
+                                <span class="text-emerald-600 dark:text-emerald-500 font-mono font-medium">₹{{ p.Amount_Leg_1|floatformat:2 }}</span>
+                            </td>
+                            <td class="px-5 py-4 font-bold text-amber-700 dark:text-amber-400 bg-amber-50/30 dark:bg-amber-500/5 align-top border-l border-r border-amber-100 dark:border-amber-900/30">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-1.5 h-1.5 rounded-full border border-amber-500 border-dashed mt-0.5"></span>
+                                    <span>{{ p.Person_A_Intermediary }}</span>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4 whitespace-nowrap align-top text-xs font-mono text-slate-500 dark:text-zinc-400 mt-1">{{ p.Date_Leg_2 }}</td>
+                            <td class="px-5 py-4 whitespace-nowrap align-top">
+                                <span class="text-rose-600 dark:text-rose-500 font-mono font-medium">₹{{ p.Amount_Leg_2|floatformat:2 }}</span>
+                            </td>
+                            <td class="px-5 py-4 font-medium text-slate-900 dark:text-white align-top">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-sky-500 mt-0.5"></span>
+                                    <span>{{ p.Person_BC_Receiver|default:"-" }}</span>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4 align-top whitespace-nowrap text-center">
+                                <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-300 dark:border-zinc-700">
+                                    {{ p.Pattern_Type|default:"SPLIT FUNDS" }}
                                 </span>
                             </td>
                         </tr>

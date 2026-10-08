@@ -2,7 +2,7 @@
     title="Trace the Money Timeline"
 />
 
-<div class="bg-zinc-950 text-white rounded-xl p-4 border border-zinc-800 shadow-md mb-6"
+<div class="bg-white dark:bg-zinc-950 text-slate-900 dark:text-white rounded-xl p-4 border border-slate-200 dark:border-zinc-800 shadow-md mb-6"
      x-data="{
          beats: window.beatsData || [],
          currentBeat: 0,
@@ -58,15 +58,15 @@
      ">
 
     <!-- Top Transport Bar & Active Beat Headline -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-zinc-800 pb-3 mb-3">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 dark:border-zinc-800 pb-3 mb-3">
         <!-- Transport Controls -->
         <div class="flex items-center gap-2">
-            <span class="text-[11px] font-bold tracking-wider uppercase text-zinc-400 mr-1 select-none">
+            <span class="text-[11px] font-bold tracking-wider uppercase text-slate-500 dark:text-zinc-400 mr-1 select-none">
                 <i class="fa-solid fa-film text-amber-500 mr-1"></i>Trace
             </span>
 
             <button type="button" @click="setBeat(currentBeat - 1)" :disabled="currentBeat === 0"
-                    class="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs transition cursor-pointer"
+                    class="w-7 h-7 rounded-lg bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs transition cursor-pointer"
                     title="Previous transaction leg">
                 <i class="fa-solid fa-backward-step"></i>
             </button>
@@ -79,24 +79,24 @@
             </button>
 
             <button type="button" @click="setBeat(currentBeat + 1)" :disabled="currentBeat >= beats.length - 1"
-                    class="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs transition cursor-pointer"
+                    class="w-7 h-7 rounded-lg bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs transition cursor-pointer"
                     title="Next transaction leg">
                 <i class="fa-solid fa-forward-step"></i>
             </button>
 
             <button type="button" @click="setBeat(beats.length - 1)"
-                    class="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-xs transition cursor-pointer"
+                    class="w-7 h-7 rounded-lg bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:bg-zinc-700 flex items-center justify-center text-xs transition cursor-pointer"
                     title="Jump to final case position">
                 <i class="fa-solid fa-forward-fast"></i>
             </button>
 
             <!-- Speed selector -->
-            <div class="flex items-center gap-1 ml-2 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 text-[11px] font-mono">
+            <div class="flex items-center gap-1 ml-2 bg-slate-50 dark:bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg p-0.5 text-[11px] font-mono">
                 <button type="button" @click="speedMs = 2000"
-                        :class="speedMs === 2000 ? 'bg-amber-500 text-slate-950 font-bold' : 'text-zinc-400 hover:text-white'"
+                        :class="speedMs === 2000 ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'"
                         class="px-2 py-0.5 rounded transition cursor-pointer">1&times;</button>
                 <button type="button" @click="speedMs = 1000"
-                        :class="speedMs === 1000 ? 'bg-amber-500 text-slate-950 font-bold' : 'text-zinc-400 hover:text-white'"
+                        :class="speedMs === 1000 ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'"
                         class="px-2 py-0.5 rounded transition cursor-pointer">2&times;</button>
             </div>
         </div>
@@ -107,12 +107,12 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <span class="text-[10px] font-mono font-bold text-amber-500" x-text="'Beat ' + activeBeat.n + ' / ' + beats.length"></span>
-                        <span class="font-bold text-xs text-white" x-text="activeBeat.title"></span>
+                        <span class="font-bold text-xs text-slate-900 dark:text-white" x-text="activeBeat.title"></span>
                         <template x-if="activeBeat.amount > 0">
                             <span class="font-mono text-xs text-emerald-400 font-bold" x-text="'₹' + Number(activeBeat.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})"></span>
                         </template>
                     </div>
-                    <div class="text-[11px] text-zinc-400 truncate max-w-md" x-text="activeBeat.cap"></div>
+                    <div class="text-[11px] text-slate-500 dark:text-zinc-400 truncate max-w-md" x-text="activeBeat.cap"></div>
                 </div>
 
                 <!-- Beat Kind Badge -->
@@ -121,7 +121,7 @@
                           'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30': activeBeat.kind === 'direct',
                           'bg-sky-500/20 text-sky-400 border border-sky-500/30': activeBeat.kind === 'hop',
                           'bg-rose-500/20 text-rose-400 border border-rose-500/30': activeBeat.kind === 'return',
-                          'bg-zinc-800 text-zinc-400 border border-zinc-700': activeBeat.kind === 'summary'
+                          'bg-slate-200 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-300 dark:border-zinc-700': activeBeat.kind === 'summary'
                       }"
                       x-text="activeBeat.kind === 'direct' ? 'Rule 1 · Direct' : (activeBeat.kind === 'hop' ? 'Rule 2 · 1-Hop' : (activeBeat.kind === 'return' ? 'Loop Closer' : 'Full Summary'))">
                 </span>
@@ -132,7 +132,7 @@
     <!-- Timeline Scrubber Rail -->
     <div class="relative py-2 select-none">
         <!-- Track Background -->
-        <div class="h-1.5 w-full bg-zinc-800 rounded-full relative overflow-hidden">
+        <div class="h-1.5 w-full bg-slate-200 dark:bg-zinc-800 rounded-full relative overflow-hidden">
             <!-- Progress Fill -->
             <div class="h-full bg-amber-500 transition-all duration-300"
                  :style="'width: ' + ((currentBeat / Math.max(1, beats.length - 1)) * 100) + '%'"></div>
@@ -143,7 +143,7 @@
             <template x-for="(b, idx) in beats" :key="idx">
                 <button type="button" @click="setBeat(idx)"
                         class="w-5 h-5 rounded-full flex items-center justify-center font-mono text-[9px] transition-all cursor-pointer border"
-                        :class="idx === currentBeat ? 'bg-amber-500 text-slate-950 font-bold border-amber-400 scale-110 shadow-sm shadow-amber-500/50' : (idx < currentBeat ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:border-zinc-500' : 'bg-zinc-900 text-zinc-600 border-zinc-800 hover:border-zinc-700')"
+                        :class="idx === currentBeat ? 'bg-amber-500 text-slate-950 font-bold border-amber-400 scale-110 shadow-sm shadow-amber-500/50' : (idx < currentBeat ? 'bg-slate-200 dark:bg-zinc-800 text-zinc-300 border-slate-300 dark:border-zinc-700 hover:border-zinc-500' : 'bg-slate-50 dark:bg-zinc-900 text-zinc-600 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:border-zinc-700')"
                         :title="'Beat ' + b.n + ': ' + b.title">
                     <span x-text="b.n"></span>
                 </button>
@@ -152,7 +152,7 @@
     </div>
 
     <!-- Footer Stats Row -->
-    <div class="flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-zinc-400 pt-2 border-t border-zinc-800/80">
+    <div class="flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-slate-500 dark:text-zinc-400 pt-2 border-t border-slate-200 dark:border-zinc-800/80">
         <div>
             <template x-if="activeBeat && activeBeat.retained > 0">
                 <span>

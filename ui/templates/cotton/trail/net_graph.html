@@ -3,7 +3,7 @@
     subtitle="Direct transfers and 1-hop pass-through conduits with cycle-closing return arcs."
 />
 
-<div class="bg-zinc-950 text-white rounded-xl p-5 border border-zinc-800 shadow-md mb-8 relative overflow-hidden"
+<div class="bg-white dark:bg-zinc-950 text-slate-900 dark:text-white rounded-xl p-5 border border-slate-200 dark:border-zinc-800 shadow-md mb-8 relative overflow-hidden"
      x-data="{
          graph: window.topologyGraphData || { W: 1060, H: 580, R: 18, nodes: [], edges: [], plates: [], cols: [] },
          focusedNode: null,
@@ -83,8 +83,8 @@
 
              // 1. Column Guides
              (g.cols || []).forEach(col => {
-                 html += `<line x1='${col.x}' y1='60' x2='${col.x}' y2='${g.H - 40}' stroke='#27272a' stroke-width='1' stroke-dasharray='3 6' />`;
-                 html += `<text x='${col.x}' y='42' text-anchor='middle' fill='#71717a' font-size='10' font-family='monospace' font-weight='700' letter-spacing='1.5'>${col.t}</text>`;
+                 html += `<line x1='${col.x}' y1='60' x2='${col.x}' y2='${g.H - 40}' class='stroke-slate-200 dark:stroke-zinc-800' stroke-width='1' stroke-dasharray='3 6' />`;
+                 html += `<text x='${col.x}' y='42' text-anchor='middle' class='fill-slate-500 dark:fill-zinc-500' font-size='10' font-family='monospace' font-weight='700' letter-spacing='1.5'>${col.t}</text>`;
              });
 
              // 2. Edges
@@ -114,11 +114,11 @@
                  html += `<g opacity='${op}' style='transition: opacity .2s' data-node-id='${n.id}'>`;
                  // Left dock pin (incoming)
                  if (n.kind === 'conduit' || n.x > 500) {
-                     html += `<circle cx='${n.x - halfW}' cy='${n.y}' r='3.5' fill='${fill}' stroke='#09090b' stroke-width='1.5' />`;
+                     html += `<circle cx='${n.x - halfW}' cy='${n.y}' r='3.5' fill='${fill}' class='stroke-white dark:stroke-zinc-950' stroke-width='1.5' />`;
                  }
                  // Right dock pin (outgoing)
                  if (n.kind === 'conduit' || n.x < 500) {
-                     html += `<circle cx='${n.x + halfW}' cy='${n.y}' r='3.5' fill='${fill}' stroke='#09090b' stroke-width='1.5' />`;
+                     html += `<circle cx='${n.x + halfW}' cy='${n.y}' r='3.5' fill='${fill}' class='stroke-white dark:stroke-zinc-950' stroke-width='1.5' />`;
                  }
                  html += `</g>`;
              });
@@ -131,19 +131,19 @@
      ">
 
     <!-- Topology Header & Legend Bar -->
-    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-zinc-800 pb-4 mb-4">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 dark:border-zinc-800 pb-4 mb-4">
         <div>
             <div class="flex items-center gap-2">
                 <span class="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center text-xs">
                     <i class="fa-solid fa-diagram-project"></i>
                 </span>
-                <h3 class="font-bold text-sm sm:text-base text-white">
+                <h3 class="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
                     {{ title }}
                 </h3>
-                <span class="text-xs font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400"
+                <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400"
                       x-text="(graph.edges || []).length + ' Links · ' + (graph.nodes || []).length + ' Entities'"></span>
             </div>
-            <p class="text-xs text-zinc-400 mt-1">
+            <p class="text-xs text-slate-500 dark:text-zinc-400 mt-1">
                 {{ subtitle }}
             </p>
         </div>
@@ -152,27 +152,27 @@
         <div class="flex flex-wrap items-center gap-3 text-[11px] font-mono select-none">
             <span class="flex items-center gap-1.5">
                 <span class="w-3.5 h-0.5 bg-emerald-400 rounded"></span>
-                <span class="text-zinc-300">Rule 1 Direct</span>
+                <span class="text-slate-600 dark:text-zinc-300">Rule 1 Direct</span>
             </span>
             <span class="flex items-center gap-1.5">
                 <span class="w-3.5 h-0.5 bg-sky-400 rounded"></span>
-                <span class="text-zinc-300">Rule 2 Conduit</span>
+                <span class="text-slate-600 dark:text-zinc-300">Rule 2 Conduit</span>
             </span>
             <span class="flex items-center gap-1.5">
                 <span class="w-3.5 h-0.5 bg-rose-500 border-b border-dashed border-rose-400"></span>
-                <span class="text-zinc-300">Loop Return</span>
+                <span class="text-slate-600 dark:text-zinc-300">Loop Return</span>
             </span>
             <span class="flex items-center gap-1.5">
                 <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                <span class="text-zinc-300">Auditee</span>
+                <span class="text-slate-600 dark:text-zinc-300">Auditee</span>
             </span>
             <span class="flex items-center gap-1.5">
                 <span class="w-2.5 h-2.5 rounded-full border border-dashed border-sky-400"></span>
-                <span class="text-zinc-300">Conduit</span>
+                <span class="text-slate-600 dark:text-zinc-300">Conduit</span>
             </span>
             <template x-if="isFocused">
                 <button type="button" @click="clearFocus()"
-                        class="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-bold cursor-pointer">
+                        class="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300 text-[10px] font-bold cursor-pointer">
                     <i class="fa-solid fa-xmark mr-1"></i>Reset Focus
                 </button>
             </template>
@@ -180,7 +180,7 @@
     </div>
 
     <!-- Dual-Layer Canvas Container (SVG edges + HTML node plates) -->
-    <div class="relative w-full overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950 select-none"
+    <div class="relative w-full overflow-hidden rounded-xl border border-slate-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 select-none"
          :style="'aspect-ratio: ' + (graph.W || 1060) + ' / ' + (graph.H || 580) + ';'">
 
         <!-- 1. SVG Layer (Grid, column guides, vector curves, arrows, node circles) -->
@@ -212,7 +212,7 @@
             <defs>
                 <!-- Subtle dotted grid -->
                 <pattern id="qtrailGrid" width="24" height="24" patternUnits="userSpaceOnUse">
-                    <circle cx="1" cy="1" r="1" fill="#27272a" />
+                    <circle cx="1" cy="1" r="1" class="fill-slate-300 dark:fill-zinc-800" />
                 </pattern>
 
                 <!-- Arrow markers -->
@@ -228,7 +228,7 @@
             </defs>
 
             <!-- Background & Grid -->
-            <rect width="100%" height="100%" fill="#09090b" />
+            <rect width="100%" height="100%" class="fill-white dark:fill-zinc-950" />
             <rect width="100%" height="100%" fill="url(#qtrailGrid)" />
 
             <!-- Dynamic SVG Elements Container -->
@@ -245,8 +245,8 @@
                             @mouseenter="hoveredNode = p.id" @mouseleave="hoveredNode = null"
                             class="w-full h-full px-2.5 py-1.5 rounded-lg border text-left flex items-center gap-2.5 transition shadow-sm cursor-pointer overflow-hidden group select-none"
                             :class="(p.meta && p.meta.kind === 'conduit')
-                                ? 'bg-sky-950/85 hover:bg-sky-900/90 border-sky-500/40 hover:border-sky-400 text-sky-200'
-                                : 'bg-zinc-900/90 hover:bg-zinc-850 border-zinc-700/80 hover:border-amber-500/60 text-zinc-200'">
+                                ? 'bg-sky-50 dark:bg-sky-950/85 hover:bg-sky-100 dark:hover:bg-sky-900/90 border-sky-300 dark:border-sky-500/40 hover:border-sky-500 dark:hover:border-sky-400 text-sky-800 dark:text-sky-200'
+                                : 'bg-slate-50 dark:bg-zinc-900/90 hover:bg-slate-100 dark:hover:bg-zinc-800 border-slate-300 dark:border-zinc-700/80 hover:border-amber-500/60 text-slate-800 dark:text-zinc-200'">
 
                         <!-- Left: Circular Letter Avatar Badge -->
                         <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none shadow"
@@ -258,10 +258,10 @@
 
                         <!-- Right: Profile Info -->
                         <div class="flex-1 min-w-0 flex flex-col justify-center leading-tight">
-                            <span class="font-bold text-xs truncate text-white block tracking-tight"
+                            <span class="font-bold text-xs truncate text-slate-900 dark:text-white block tracking-tight"
                                   x-text="p.meta ? p.meta.label : p.name"></span>
-                            <div class="flex items-center justify-between text-[10px] text-zinc-400 font-mono gap-1 mt-0.5">
-                                <span class="truncate text-zinc-400" x-text="p.meta ? p.meta.sub : ''"></span>
+                            <div class="flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400 font-mono gap-1 mt-0.5">
+                                <span class="truncate text-slate-500 dark:text-zinc-400" x-text="p.meta ? p.meta.sub : ''"></span>
                                 <span class="shrink-0 font-medium text-[9px]"
                                       :class="(p.meta && p.meta.kind === 'conduit') ? 'text-sky-400' : 'text-emerald-400'"
                                       x-text="p.meta ? p.meta.foot : ''"></span>
@@ -274,13 +274,13 @@
 
         <!-- 3. Tooltip Popup -->
         <template x-if="tooltip">
-            <div class="absolute z-20 pointer-events-none px-2.5 py-1.5 rounded-lg bg-zinc-900/95 border border-zinc-700 text-xs shadow-xl text-white transform -translate-x-1/2 -translate-y-full mb-2 font-mono"
+            <div class="absolute z-20 pointer-events-none px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-zinc-900/95 border border-slate-300 dark:border-zinc-700 text-xs shadow-xl text-slate-900 dark:text-white transform -translate-x-1/2 -translate-y-full mb-2 font-mono"
                  :style="'left: ' + ((tooltip.x / (graph.W || 1060)) * 100) + '%; top: ' + ((tooltip.y / (graph.H || 580)) * 100) + '%;'">
                 <div class="text-[10px] text-amber-400 font-bold uppercase tracking-wider" x-text="tooltip.kind"></div>
                 <div class="font-bold text-xs" x-text="tooltip.title"></div>
                 <div class="text-emerald-400 font-bold" x-text="tooltip.amount"></div>
                 <template x-if="tooltip.utr">
-                    <div class="text-[10px] text-zinc-400" x-text="'UTR: ' + tooltip.utr"></div>
+                    <div class="text-[10px] text-slate-500 dark:text-zinc-400" x-text="'UTR: ' + tooltip.utr"></div>
                 </template>
             </div>
         </template>
