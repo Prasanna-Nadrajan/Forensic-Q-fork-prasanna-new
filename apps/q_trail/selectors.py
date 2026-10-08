@@ -197,40 +197,262 @@ def get_transactions_df_for_profile(
     return df
 
 
-def generate_trail_sankey_chart(
-    direct_df: pd.DataFrame,
-    intermediate_df: pd.DataFrame,
-    *,
-    height: int = 500,
-) -> str:
-    """
-    Generates an interactive Plotly Dark Sankey diagram visualizing fund flows:
-    - Direct: Source Profile -> Destination Profile
-    - 1-Hop Intermediate: Source Profile -> Intermediary X -> Destination Profile
+def _clean_str(val) -> str:
+    if val is None:
+        return ""
+    return str(val).strip()
 
-    Strictly satisfies q_trail/INSTRUCTION.md:
-    template='plotly_dark', plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)'.
+def _format_inr_short(val) -> str:
+    if val is None:
+        return "₹0.00"
+    v = float(val)
+    abs_v = abs(v)
+    sign = "-" if v < 0 else ""
+    if abs_v >= 10000000:
+        return f"{sign}₹{abs_v / 10000000:.2f}Cr"
+    if abs_v >= 100000:
+        return f"{sign}₹{abs_v / 100000:.2f}L"
+    if abs_v >= 1000:
+        return f"{sign}₹{abs_v / 1000:.1f}K"
+    return f"{sign}₹{abs_v:,.2f}"
+
+def build_topology_graph(patterns: list[dict]) -> dict:
     """
-    if direct_df.empty and intermediate_df.empty:
-        # Generate an elegant empty state placeholder figure
-        fig = go.Figure()
-        fig.add_annotation(
-            text="No fund flow links detected between the selected profiles.<br>Adjust profile selection or time window.",
-            xref="paper",
-            yref="paper",
-            x=0.5,
-            y=0.5,
-            showarrow=False,
-            font={"size": 14, "color": "#94a3b8"},
-        )
-        fig.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            height=height,
-            margin={"l": 20, "r": 20, "t": 20, "b": 20},
-        )
-        return fig.to_html(include_plotlyjs=False, full_html=False)
+    Computes SVG coordinates, bezier curves, and HTML label plates for the
+    interactive Multi-Hop Topology Canvas (`NetGraph`).
+    """
+    import re
+    
+    W = 1060
+    R = 16
+    plate_w = 205
+    plate_h = 54
+
+    origins_set = set()
+    conduits_set = set()
+    beneficiaries_set = set()
+
+    for p in patterns:
+        senders = [s.strip() for s in p["Person_X_Sender"].split(",") if s.strip()]
+        receivers = [r.strip() for r in p["Person_BC_Receiver"].split(",") if r.strip()]
+        inter = p["Person_A_Intermediary"]
+        
+        origins_set.update(senders)
+        conduits_set.add(inter)
+        beneficiaries_set.update(receivers)
+
+    # Ensure conduits are distinct so 3-column topology flows left-to-right
+    if conduits_set:
+        origins_set = origins_set - conduits_set
+        beneficiaries_set = beneficiaries_set - conduits_set
+
+    origin_list = sorted(origins_set)
+    conduit_list = sorted(conduits_set)
+    beneficiary_list = sorted(beneficiaries_set)
+
+    max_col_count = max(len(origin_list), len(conduit_list), len(beneficiary_list), 1)
+    pitch = 84.0
+    H = int(max(580.0, 130.0 + (max_col_count * pitch)))
+
+    node_dict = {}
+
+    def _distribute_y(items, col_x):
+        count = len(items)
+        if count == 0:
+            return
+        step = min(94.0, (H - 160.0) / max(count, 1))
+        total_col_h = (count - 1) * step
+        start_y = 80.0 + ((H - 120.0) - total_col_h) / 2.0
+        for i, name in enumerate(items):
+            if name in node_dict:
+                continue
+            y = start_y + (i * step)
+            initial = name[0].upper() if name else "N"
+            node_dict[name] = {
+                "id": re.sub(r"[^a-zA-Z0-9]+", "_", name.lower()).strip("_"),
+                "name": name,
+                "label": name,
+                "short": name.split()[0] if " " in name else name,
+                "letter": initial,
+                "x": col_x,
+                "y": round(y, 1),
+                "w": plate_w,
+                "h": plate_h,
+                "kind": "conduit" if col_x == 530 else "entity",
+            }
+
+    _distribute_y(origin_list, 160.0)
+    _distribute_y(conduit_list, 530.0)
+    _distribute_y(beneficiary_list, 900.0)
+
+    nodes = list(node_dict.values())
+    node_by_name = {n["name"]: n for n in nodes}
+    node_by_id = {n["id"]: n for n in nodes}
+
+    def _find_node(target_name):
+        if not target_name:
+            return None
+        t_clean = _clean_str(target_name)
+        if t_clean in node_by_name:
+            return node_by_name[t_clean]
+        t_lower = t_clean.lower()
+        t_id = re.sub(r"[^a-zA-Z0-9]+", "_", t_lower).strip("_")
+        if t_id in node_by_id:
+            return node_by_id[t_id]
+        return None
+
+    edges = []
+    edge_idx = 1
+    half_w = plate_w / 2.0
+
+    for p in patterns:
+        senders = [s.strip() for s in p["Person_X_Sender"].split(",") if s.strip()]
+        receivers = [r.strip() for r in p["Person_BC_Receiver"].split(",") if r.strip()]
+        c_name = p["Person_A_Intermediary"]
+        
+        c_node = _find_node(c_name)
+        if not c_node: continue
+        
+        if senders:
+            in_amt = p["Amount_Leg_1"] / len(senders)
+            for s_name in senders:
+                s_node = _find_node(s_name)
+                if s_node:
+                    x1, y1 = s_node["x"] + half_w, s_node["y"]
+                    x2, y2 = c_node["x"] - half_w, c_node["y"]
+                    cx1 = x1 + (x2 - x1) * 0.5
+                    cx2 = x1 + (x2 - x1) * 0.5
+                    d = f"M {x1} {y1} C {cx1} {y1}, {cx2} {y2}, {x2} {y2}"
+                    edges.append({
+                        "id": f"L{edge_idx}", "from": s_node["id"], "to": c_node["id"],
+                        "from_name": s_name, "to_name": c_name, "kind": "hop",
+                        "amount": _format_inr_short(in_amt), "amount_num": in_amt,
+                        "d": d, "color": "#38bdf8", "dashed": False, "utr": "", "via": c_name, "ret": 0.0,
+                        "mid": {"x": round((x1 + x2) / 2, 1), "y": round((y1 + y2) / 2, 1)},
+                    })
+                    edge_idx += 1
+                    
+        if receivers:
+            out_amt = p["Amount_Leg_2"] / len(receivers)
+            for t_name in receivers:
+                t_node = _find_node(t_name)
+                if t_node:
+                    x1, y1 = c_node["x"] + half_w, c_node["y"]
+                    x2, y2 = t_node["x"] - half_w, t_node["y"]
+                    cx1 = x1 + (x2 - x1) * 0.5
+                    cx2 = x1 + (x2 - x1) * 0.5
+                    d = f"M {x1} {y1} C {cx1} {y1}, {cx2} {y2}, {x2} {y2}"
+                    edges.append({
+                        "id": f"L{edge_idx}", "from": c_node["id"], "to": t_node["id"],
+                        "from_name": c_name, "to_name": t_name, "kind": "hop",
+                        "amount": _format_inr_short(out_amt), "amount_num": out_amt,
+                        "d": d, "color": "#f59e0b", "dashed": False, "utr": "", "via": c_name, "ret": 0.0,
+                        "mid": {"x": round((x1 + x2) / 2, 1), "y": round((y1 + y2) / 2, 1)},
+                    })
+                    edge_idx += 1
+
+    plates = []
+    for n in nodes:
+        is_conduit = n["kind"] == "conduit"
+        plates.append({
+            "id": n["id"], "name": n["name"], "letter": n["letter"],
+            "x": round(n["x"] - half_w, 1), "y": round(n["y"] - (plate_h / 2.0), 1),
+            "w": plate_w, "h": plate_h,
+            "meta": {
+                "kind": n["kind"], "letter": n["letter"], "label": n["name"],
+                "sub": "Conduit Intermediary" if is_conduit else "Auditee Profile",
+                "foot": "Unlinked VPA/Entity" if is_conduit else "Ledger Linked",
+            },
+        })
+
+    cols = [
+        {"x": 160, "t": "ORIGIN SENDER"},
+        {"x": 530, "t": "INTERMEDIARY CONDUITS (X)"},
+        {"x": 900, "t": "BENEFICIARY RECEIVERS"},
+    ]
+
+    return {
+        "W": W, "H": H, "R": R,
+        "nodes": nodes, "node_by_id": node_by_id, "edges": edges,
+        "plates": plates, "cols": cols, "cols_top": 45,
+    }
+
+
+
+    import plotly.graph_objects as go
+    node_names = []
+    node_map = {}
+    node_colors = []
+
+    def get_or_create_node(name: str, node_type: str = "subject") -> int:
+        clean_name = str(name).strip()
+        if clean_name not in node_map:
+            idx = len(node_names)
+            node_map[clean_name] = idx
+            node_names.append(clean_name)
+            if node_type == "sender":
+                node_colors.append("#10b981")  # Emerald for Senders
+            elif node_type == "intermediary":
+                node_colors.append("#f59e0b")  # Amber for Intermediaries
+            elif node_type == "receiver":
+                node_colors.append("#f43f5e")  # Rose for Receivers
+            else:
+                node_colors.append("#94a3b8")
+            return idx
+        return node_map[clean_name]
+
+    sources = []
+    targets = []
+    values = []
+    labels = []
+
+    for p in patterns:
+        senders = [s.strip() for s in p["Person_X_Sender"].split(",") if s.strip()]
+        receivers = [r.strip() for r in p["Person_BC_Receiver"].split(",") if r.strip()]
+        intermediary = p["Person_A_Intermediary"]
+        
+        inter_idx = get_or_create_node(intermediary, "intermediary")
+        
+        if senders:
+            in_amt = p["Amount_Leg_1"] / len(senders)
+            for s in senders:
+                s_idx = get_or_create_node(s, "sender")
+                sources.append(s_idx)
+                targets.append(inter_idx)
+                values.append(in_amt)
+                labels.append(p["Date_Leg_1"])
+                
+        if receivers:
+            out_amt = p["Amount_Leg_2"] / len(receivers)
+            for r in receivers:
+                r_idx = get_or_create_node(r, "receiver")
+                sources.append(inter_idx)
+                targets.append(r_idx)
+                values.append(out_amt)
+                labels.append(p["Date_Leg_2"])
+
+    fig = go.Figure(
+        data=[
+            go.Sankey(
+                node=dict(
+                    pad=15, thickness=20, line=dict(color="black", width=0.5),
+                    label=node_names, color=node_colors,
+                ),
+                link=dict(
+                    source=sources, target=targets, value=values, label=labels,
+                    color="rgba(148, 163, 184, 0.3)",
+                ),
+            )
+        ]
+    )
+
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        height=height, margin={"l": 20, "r": 20, "t": 40, "b": 20}, font=dict(color="white"),
+    )
+
+    return fig.to_html(include_plotlyjs=False, full_html=False)
+
 
     # Establish node index registry
     node_names: list[str] = []
@@ -365,3 +587,103 @@ def get_trail_paths_by_case(case_id: str | uuid.UUID) -> QuerySet[FundTrailPath]
         .prefetch_related("pass_through_nodes")
         .order_by("-total_amount")
     )
+def build_chronological_beats(patterns: list[dict]) -> list[dict]:
+    """
+    Constructs a sequential, chronological beat tape of all transaction legs.
+    Investigators can scrub, play, and step through the flow chronologically.
+    """
+    raw_events = []
+
+    for p in patterns:
+        senders = [s.strip() for s in p["Person_X_Sender"].split(",") if s.strip()]
+        receivers = [r.strip() for r in p["Person_BC_Receiver"].split(",") if r.strip()]
+        conduit = p["Person_A_Intermediary"]
+        
+        out_date = str(p.get("Date_Leg_1", ""))
+        in_date = str(p.get("Date_Leg_2", ""))
+        
+        if senders:
+            out_amt = p["Amount_Leg_1"] / len(senders)
+            for sender in senders:
+                raw_events.append({
+                    "date": out_date,
+                    "kind": "hop",
+                    "from": sender,
+                    "to": conduit,
+                    "amount": out_amt,
+                    "retained": 0.0,
+                    "utr": "",
+                    "via": conduit,
+                    "cap": f"{sender} dispatched ₹{out_amt:,.2f} to conduit '{conduit}'.",
+                    "title": f"{sender} → {conduit}",
+                })
+                
+        if receivers:
+            in_amt = p["Amount_Leg_2"] / len(receivers)
+            for recipient in receivers:
+                raw_events.append({
+                    "date": in_date,
+                    "kind": "hop",
+                    "from": conduit,
+                    "to": recipient,
+                    "amount": in_amt,
+                    "retained": 0.0,
+                    "utr": "",
+                    "via": conduit,
+                    "cap": f"Conduit '{conduit}' forwarded ₹{in_amt:,.2f} to {recipient}.",
+                    "title": f"{conduit} → {recipient}",
+                })
+
+    def _parse_date_key(item):
+        d = item.get("date", "")
+        return d if d else "9999-99-99"
+
+    raw_events.sort(key=_parse_date_key)
+
+    beats = []
+    cumulative_retained = 0.0
+
+    for idx, ev in enumerate(raw_events):
+        retained = ev.get("retained", 0.0)
+        cumulative_retained += retained
+        edge_id = f"L{idx + 1}"
+        beats.append({
+            "n": idx + 1,
+            "kind": ev["kind"],
+            "title": ev["title"],
+            "cap": ev["cap"],
+            "date": ev["date"],
+            "amount": ev["amount"],
+            "amount_short": _format_inr_short(ev["amount"]),
+            "retained": retained,
+            "retained_short": _format_inr_short(retained),
+            "cumulative_retained": cumulative_retained,
+            "cumulative_retained_short": _format_inr_short(cumulative_retained),
+            "from_node": ev["from"],
+            "to_node": ev["to"],
+            "via": ev["via"],
+            "utr": ev["utr"],
+            "edge_id": edge_id,
+        })
+
+    summary_beat = {
+        "n": len(beats) + 1,
+        "kind": "summary",
+        "title": "Case Position: Full Topology Reconciled",
+        "cap": f"All {len(beats)} transaction legs reconciled.",
+        "date": "All Dates",
+        "amount": 0.0,
+        "amount_short": "₹0.00",
+        "retained": 0.0,
+        "retained_short": "₹0.00",
+        "cumulative_retained": cumulative_retained,
+        "cumulative_retained_short": _format_inr_short(cumulative_retained),
+        "from_node": "",
+        "to_node": "",
+        "via": "",
+        "utr": "",
+        "edge_id": "",
+    }
+    beats.append(summary_beat)
+
+    return beats
