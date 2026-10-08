@@ -933,11 +933,15 @@ def detect_rapid_layering_for_profile(
         ]
     ).reset_index(drop=True)
 
+
 # =============================================================================
 # 6. Automate Pass-Through Logic (Prompt Request)
 # =============================================================================
 
-def detect_pass_through_patterns(df: pd.DataFrame, account_holder_name: str) -> tuple[list[dict], list[str]]:
+
+def detect_pass_through_patterns(
+    df: pd.DataFrame, account_holder_name: str
+) -> tuple[list[dict], list[str]]:
     """
     Detects pass-through patterns based on an 80-100% value threshold constraint within 3 days.
     Returns:
@@ -945,84 +949,97 @@ def detect_pass_through_patterns(df: pd.DataFrame, account_holder_name: str) -> 
     """
     if df.empty:
         return [], []
-        
-    df['Date_dt'] = pd.to_datetime(df['Date'], errors='coerce', format='mixed')
-    df = df.sort_values('Date_dt')
-    
-    inflows = df[df['Credit'] > 0].copy()
-    outflows = df[df['Debit'] > 0].copy()
-    
+
+    df["Date_dt"] = pd.to_datetime(df["Date"], errors="coerce", format="mixed")
+    df = df.sort_values("Date_dt")
+
+    inflows = df[df["Credit"] > 0].copy()
+    outflows = df[df["Debit"] > 0].copy()
+
     def _clean_party(row):
-        for col in ['Counterparty_Name', 'Counterparty_VPA']:
-            val = str(row.get(col, '')).strip()
-            if val and val.upper() not in ('UNKNOWN', 'NONE', 'NAN'):
+        for col in ["Counterparty_Name", "Counterparty_VPA"]:
+            val = str(row.get(col, "")).strip()
+            if val and val.upper() not in ("UNKNOWN", "NONE", "NAN"):
                 return val
-        
+
         # fallback to narration
-        narr = str(row.get('Narration', '')).strip()
+        narr = str(row.get("Narration", "")).strip()
         if narr:
             # Very basic extraction
             import re
-            parts = re.split(r'[-/]', narr)
+
+            parts = re.split(r"[-/]", narr)
             for p in parts:
                 p = p.strip()
-                if '@' in p:
+                if "@" in p:
                     return p
             # just return narration
             if len(narr) > 20:
                 return narr[:20] + "..."
             return narr
-            
+
         return "Unknown"
-        
-    inflows['Party'] = inflows.apply(_clean_party, axis=1)
-    outflows['Party'] = outflows.apply(_clean_party, axis=1)
-    
+
+    inflows["Party"] = inflows.apply(_clean_party, axis=1)
+    outflows["Party"] = outflows.apply(_clean_party, axis=1)
+
     # Filter out self-transfers if we can detect them easily
     # (Assuming we don't for now since we just look at all third parties)
-    
+
     available_inflows = inflows.copy()
     available_outflows = outflows.copy()
-    
+
     patterns = []
     suspicious = []
-    
-    for date in sorted(available_inflows['Date_dt'].dropna().unique()):
-        day_inflows = available_inflows[available_inflows['Date_dt'] == date]
-        total_in = float(day_inflows['Credit'].sum())
-        
+
+    for date in sorted(available_inflows["Date_dt"].dropna().unique()):
+        day_inflows = available_inflows[available_inflows["Date_dt"] == date]
+        total_in = float(day_inflows["Credit"].sum())
+
         if total_in == 0:
             continue
-            
+
         end_date = date + pd.Timedelta(days=2)
-        window_outflows = available_outflows[(available_outflows['Date_dt'] >= date) & (available_outflows['Date_dt'] <= end_date)]
-        total_out = float(window_outflows['Debit'].sum())
-        
+        window_outflows = available_outflows[
+            (available_outflows["Date_dt"] >= date) & (available_outflows["Date_dt"] <= end_date)
+        ]
+        total_out = float(window_outflows["Debit"].sum())
+
         ratio = total_out / total_in if total_in > 0 else 0
-        
+
         if 0.80 <= ratio <= 1.00:
             # Format parties
             senders = []
             for _, r in day_inflows.iterrows():
                 party = f"{r['Party']}"
-                if 'Counterparty_VPA' in r and pd.notna(r['Counterparty_VPA']) and r['Counterparty_VPA']:
-                    if r['Party'] != r['Counterparty_VPA']:
-                       party += f"/{r['Counterparty_VPA']}"
+                if (
+                    "Counterparty_VPA" in r
+                    and pd.notna(r["Counterparty_VPA"])
+                    and r["Counterparty_VPA"]
+                ):
+                    if r["Party"] != r["Counterparty_VPA"]:
+                        party += f"/{r['Counterparty_VPA']}"
                 senders.append(party)
             sender_str = ", ".join(list(dict.fromkeys(senders)))
-            
+
             receivers = []
             for _, r in window_outflows.iterrows():
                 party = f"{r['Party']}"
-                if 'Counterparty_VPA' in r and pd.notna(r['Counterparty_VPA']) and r['Counterparty_VPA']:
-                    if r['Party'] != r['Counterparty_VPA']:
-                       party += f"/{r['Counterparty_VPA']}"
+                if (
+                    "Counterparty_VPA" in r
+                    and pd.notna(r["Counterparty_VPA"])
+                    and r["Counterparty_VPA"]
+                ):
+                    if r["Party"] != r["Counterparty_VPA"]:
+                        party += f"/{r['Counterparty_VPA']}"
                 receivers.append(party)
             receiver_str = ", ".join(list(dict.fromkeys(receivers)))
-            
+
             date_leg1 = date.strftime("%Y-%m-%d")
-            dates_leg2 = ", ".join(sorted(window_outflows['Date_dt'].dt.strftime("%Y-%m-%d").unique()))
-            
+            dates_leg2 = ", ".join(
+                sorted(window_outflows["Date_dt"].dt.strftime("%Y-%m-%d").unique())
+            )
+
             pattern_type = ""
             if len(day_inflows) == 1 and len(window_outflows) == 1:
                 pattern_type = "1-to-1 Pass-Through"
@@ -1032,26 +1049,32 @@ def detect_pass_through_patterns(df: pd.DataFrame, account_holder_name: str) -> 
                 pattern_type = "Split Funds"
             else:
                 pattern_type = "Merged & Split Funds"
-                
-            patterns.append({
-                "Pattern_Type": pattern_type,
-                "Person_X_Sender": sender_str,
-                "Date_Leg_1": date_leg1,
-                "Amount_Leg_1": round(total_in, 2),
-                "Person_A_Intermediary": account_holder_name,
-                "Date_Leg_2": dates_leg2,
-                "Amount_Leg_2": round(total_out, 2),
-                "Person_BC_Receiver": receiver_str
-            })
-            
+
+            patterns.append(
+                {
+                    "Pattern_Type": pattern_type,
+                    "Person_X_Sender": sender_str,
+                    "Date_Leg_1": date_leg1,
+                    "Amount_Leg_1": round(total_in, 2),
+                    "Person_A_Intermediary": account_holder_name,
+                    "Date_Leg_2": dates_leg2,
+                    "Amount_Leg_2": round(total_out, 2),
+                    "Person_BC_Receiver": receiver_str,
+                }
+            )
+
             available_inflows = available_inflows.drop(day_inflows.index)
             available_outflows = available_outflows.drop(window_outflows.index)
         else:
             # check for suspicious patterns
             if total_in > 0 and ratio > 0:
                 if ratio < 0.8:
-                    suspicious.append(f"On {date.strftime('%Y-%m-%d')}, received ₹{total_in:,.2f} from {day_inflows.iloc[0]['Party']}, but only passed ₹{total_out:,.2f} ({(ratio*100):.1f}%) within 3 days.")
+                    suspicious.append(
+                        f"On {date.strftime('%Y-%m-%d')}, received ₹{total_in:,.2f} from {day_inflows.iloc[0]['Party']}, but only passed ₹{total_out:,.2f} ({(ratio * 100):.1f}%) within 3 days."
+                    )
                 elif ratio > 1.0:
-                    suspicious.append(f"On {date.strftime('%Y-%m-%d')}, received ₹{total_in:,.2f}, but passed out significantly more: ₹{total_out:,.2f} within 3 days.")
+                    suspicious.append(
+                        f"On {date.strftime('%Y-%m-%d')}, received ₹{total_in:,.2f}, but passed out significantly more: ₹{total_out:,.2f} within 3 days."
+                    )
 
     return patterns, suspicious

@@ -1,22 +1,32 @@
 import json
+
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_http_methods, require_POST
-from loguru import logger
 
 from core.audits import get_active_audit
-from .selectors import get_available_profiles_for_trail, build_topology_graph, build_chronological_beats
+
+from .selectors import (
+    build_chronological_beats,
+    build_topology_graph,
+    get_available_profiles_for_trail,
+)
 from .services import analyze_profiles_money_trail
+
 
 @csrf_protect
 @require_http_methods(["GET", "POST"])
 def dashboard_view(request: HttpRequest) -> HttpResponse:
     active_audit = get_active_audit(request)
     all_profiles = get_available_profiles_for_trail(audit_id=None)
-    audit_profiles = get_available_profiles_for_trail(audit_id=active_audit.id) if active_audit else []
+    audit_profiles = (
+        get_available_profiles_for_trail(audit_id=active_audit.id) if active_audit else []
+    )
 
-    scope = request.GET.get("scope") or request.POST.get("scope", "audit" if active_audit else "all")
+    scope = request.GET.get("scope") or request.POST.get(
+        "scope", "audit" if active_audit else "all"
+    )
     available_profiles = audit_profiles if scope == "audit" and active_audit else all_profiles
 
     if request.method == "POST":
@@ -41,7 +51,7 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
             profile_ids = [available_profiles[0]["id"]]
 
     analysis = analyze_profiles_money_trail(profile_ids=profile_ids)
-    
+
     topology_graph = build_topology_graph(patterns=analysis["patterns"])
     beats = build_chronological_beats(patterns=analysis["patterns"])
 
@@ -60,6 +70,7 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     }
     return render(request, "q_trail/dashboard.html", context)
 
+
 @csrf_protect
 @require_POST
 def analyze_api_view(request: HttpRequest) -> JsonResponse:
@@ -69,7 +80,7 @@ def analyze_api_view(request: HttpRequest) -> JsonResponse:
             profile_ids = payload.get("profile_ids", [])
         else:
             profile_ids = request.POST.getlist("profile_ids")
-    except Exception as e:
+    except Exception:
         return JsonResponse({"status": "error", "message": "Invalid request payload."}, status=400)
 
     analysis = analyze_profiles_money_trail(profile_ids=profile_ids)

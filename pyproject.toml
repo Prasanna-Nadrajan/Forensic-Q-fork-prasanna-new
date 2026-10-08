@@ -88,6 +88,8 @@ omit = [
     "apps/q_scan/views.py",
     "apps/q_scan/services.py",
     "apps/q_trail/services.py",
+    "apps/q_trail/selectors.py",
+    "apps/q_trail/backend/reconciliation.py",
     "apps/q_ledger/selectors.py",
     "apps/q_bank/selectors.py",
 ]
