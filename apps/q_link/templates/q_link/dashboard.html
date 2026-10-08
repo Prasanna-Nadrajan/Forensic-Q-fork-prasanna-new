@@ -13,19 +13,19 @@
         <c-slot name="actions">
             <div class="flex flex-wrap items-center gap-2.5">
                 <!-- 3 Operational Modes Switcher Bar -->
-                <div class="inline-flex p-0.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs">
+                <div class="inline-flex p-0.5 rounded-xl bg-[#FFF1E7]/80 dark:bg-slate-800/80 border border-[#805232]/80 dark:border-slate-700/80 text-xs">
                     <button type="button" onclick="switchOperationalMode('keyword')" id="mode-btn-keyword"
-                        class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'keyword' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %} cursor-pointer">
+                        class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'keyword' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-800 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white{% endif %} cursor-pointer">
                         <i class="fa-solid fa-link text-[10px]"></i>
                         <span>Mode 1: Interlinks based on keywords</span>
                     </button>
                     <button type="button" onclick="switchOperationalMode('audit')" id="mode-btn-audit"
-                        class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'audit' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %} cursor-pointer">
+                        class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'audit' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-800 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white{% endif %} cursor-pointer">
                         <i class="fa-solid fa-folder-tree text-[10px]"></i>
                         <span>Mode 2: Full Audit Topology</span>
                     </button>
                     <button type="button" onclick="switchOperationalMode('global')" id="mode-btn-global"
-                        class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'global' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %} cursor-pointer">
+                        class="px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 {% if mode == 'global' %}bg-amber-500 text-slate-950 font-bold shadow-xs{% else %}text-slate-800 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white{% endif %} cursor-pointer">
                         <i class="fa-solid fa-vault text-[10px]"></i>
                         <span>Mode 3: Global Vault Match</span>
                     </button>
@@ -33,14 +33,14 @@
 
                 {% if active_audit %}
                 <!-- Audit vs All Profiles Toggle Switch -->
-                <div class="inline-flex p-0.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs">
+                <div class="inline-flex p-0.5 rounded-xl bg-[#FFF1E7]/80 dark:bg-slate-800/80 border border-[#805232]/80 dark:border-slate-700/80 text-xs">
                     <a href="?mode={{ mode }}&scope=audit{% if keyword %}&keyword={{ keyword }}{% endif %}"
-                       class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope != 'all' %}bg-slate-700 text-slate-100 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %}">
+                       class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope != 'all' %}bg-[#805232] dark:bg-slate-700 text-white dark:text-slate-100 font-bold shadow-xs{% else %}text-slate-800 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white{% endif %}">
                         <i class="fa-solid fa-folder-tree text-[10px]"></i>
                         <span>Audit: {{ active_audit.name }} ({{ audit_profiles_count }})</span>
                     </a>
                     <a href="?mode={{ mode }}&scope=all{% if keyword %}&keyword={{ keyword }}{% endif %}"
-                       class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope == 'all' %}bg-slate-700 text-slate-100 font-bold shadow-xs{% else %}text-slate-400 hover:text-white{% endif %}">
+                       class="px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 {% if scope == 'all' %}bg-[#805232] dark:bg-slate-700 text-white dark:text-slate-100 font-bold shadow-xs{% else %}text-slate-800 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white{% endif %}">
                         <i class="fa-solid fa-globe text-[10px]"></i>
                         <span>All Profiles ({{ total_entities }})</span>
                     </a>
@@ -53,7 +53,7 @@
                     <span id="text-sync">Sync All Tools</span>
                 </button>
                 <button type="button" onclick="resetGraphView()"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition cursor-pointer">
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#B5D2E6] dark:bg-slate-800 hover:bg-[#805232] dark:hover:bg-slate-700 text-slate-900 dark:text-slate-200 text-xs font-semibold border border-[#805232] dark:border-slate-700 transition cursor-pointer">
                     <i class="fa-solid fa-compress text-xs"></i>
                     <span>Fit Canvas</span>
                 </button>
@@ -78,23 +78,23 @@
 
         <!-- Left/Center: Knowledge Graph Canvas (8 Cols) -->
         <div class="lg:col-span-8 space-y-4">
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden relative">
+            <div class="bg-[#FFF1E7] dark:bg-slate-900 border border-[#B5D2E6] dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden relative">
                 
                 <!-- Canvas Top Bar Controls -->
-                <div class="p-3.5 bg-slate-950/70 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+                <div class="p-3.5 bg-[#B5D2E6]/70 dark:bg-slate-950/70 border-b border-[#B5D2E6]/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
                     <div class="flex flex-wrap items-center gap-2.5">
                         <!-- Active Mode Badge -->
-                        <span id="active-mode-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-mono font-bold">
+                        <span id="active-mode-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-xs font-mono font-bold">
                             <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
                             <span id="active-mode-label">{% if mode == 'keyword' %}MODE 1: INTERLINKS BASED ON KEYWORDS{% elif mode == 'global' %}MODE 3: GLOBAL VAULT MATCH{% else %}MODE 2: FULL AUDIT TOPOLOGY{% endif %}</span>
                         </span>
 
                         <!-- Mode 1 / General Keyword Search Input -->
                         <div class="relative flex items-center" id="keyword-search-container">
-                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-700"></i>
                             <input type="text" id="mode1-keyword-search" value="{{ keyword }}" placeholder="Search keyword (e.g. Metec, Palani, Substantiated)..."
                                 onkeydown="if(event.key==='Enter'){ executeKeywordSearch(); }"
-                                class="bg-slate-900 border border-slate-700 text-xs text-slate-200 pl-8 pr-16 py-1.5 rounded-lg focus:outline-none focus:border-amber-400 transition w-56 sm:w-72" />
+                                class="bg-[#FFF1E7] dark:bg-slate-900 border border-[#805232] dark:border-slate-700 text-xs text-slate-900 dark:text-slate-200 pl-8 pr-16 py-1.5 rounded-lg focus:outline-none focus:border-amber-400 transition w-56 sm:w-72" />
                             <button type="button" onclick="executeKeywordSearch()"
                                 class="absolute right-1 top-1 px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-bold transition cursor-pointer">
                                 Search
@@ -103,20 +103,21 @@
 
                         <!-- Canvas In-View Quick Filter -->
                         <div class="relative hidden xl:block">
-                            <i class="fa-solid fa-filter absolute left-2.5 top-2.5 text-xs text-slate-500"></i>
+                            <i class="fa-solid fa-filter absolute left-2.5 top-2.5 text-xs text-slate-700"></i>
                             <input type="text" id="entity-search-input" placeholder="Find node in view..."
+
                                 oninput="filterGraphNodes(this.value)"
-                                class="bg-slate-900 border border-slate-800 text-xs text-slate-300 pl-7 pr-2.5 py-1.5 rounded-lg focus:outline-none focus:border-amber-400 transition w-36" />
+                                class="bg-[#FFF1E7] dark:bg-slate-900 border border-[#B5D2E6] dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 pl-7 pr-2.5 py-1.5 rounded-lg focus:outline-none focus:border-amber-400 transition w-36" />
                         </div>
                     </div>
 
                     <!-- Canvas Quick Filters -->
                     <div class="flex items-center gap-1.5 text-xs">
                         <button type="button" onclick="setEntityFilter('ALL')" class="filter-chip px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold transition">All</button>
-                        <button type="button" onclick="setEntityFilter('EMPLOYEE')" class="filter-chip px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition">Employees</button>
-                        <button type="button" onclick="setEntityFilter('VENDOR')" class="filter-chip px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition">Vendors</button>
-                        <button type="button" onclick="setEntityFilter('DOCUMENT')" class="filter-chip px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition">Documents</button>
-                        <button type="button" onclick="togglePhysics()" id="btn-physics" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700 transition" title="Toggle Graph Physics">
+                        <button type="button" onclick="setEntityFilter('EMPLOYEE')" class="filter-chip px-2.5 py-1 rounded-lg bg-[#B5D2E6] dark:bg-slate-800 text-slate-800 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition">Employees</button>
+                        <button type="button" onclick="setEntityFilter('VENDOR')" class="filter-chip px-2.5 py-1 rounded-lg bg-[#B5D2E6] dark:bg-slate-800 text-slate-800 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition">Vendors</button>
+                        <button type="button" onclick="setEntityFilter('DOCUMENT')" class="filter-chip px-2.5 py-1 rounded-lg bg-[#B5D2E6] dark:bg-slate-800 text-slate-800 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition">Documents</button>
+                        <button type="button" onclick="togglePhysics()" id="btn-physics" class="px-2.5 py-1 rounded-lg bg-[#B5D2E6] dark:bg-slate-800 text-slate-800 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white border border-[#805232] dark:border-slate-700 transition" title="Toggle Graph Physics">
                             <i class="fa-solid fa-atom mr-1 text-cyan-400"></i><span id="text-physics">Freeze</span>
                         </button>
                     </div>
@@ -136,31 +137,31 @@
                 </div>
 
                 <!-- Vis.js Graph Rendering Container -->
-                <div id="qlink-canvas" class="w-full h-[580px] bg-radial from-slate-900 to-slate-950 relative"></div>
+                <div id="qlink-canvas" class="w-full h-[580px] bg-radial from-[#FFF1E7] to-[#B5D2E6] dark:from-slate-900 dark:to-slate-950 relative transition-colors duration-200"></div>
 
                 <!-- Floating Canvas Legend -->
-                <div class="absolute bottom-3 left-3 bg-slate-950/85 backdrop-blur border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-400 flex flex-wrap items-center gap-3 pointer-events-none">
+                <div class="absolute bottom-3 left-3 bg-[#FFF1E7]/85 dark:bg-slate-950/85 backdrop-blur border border-[#B5D2E6] dark:border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-700 dark:text-slate-400 flex flex-wrap items-center gap-3 pointer-events-none">
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> Employee</span>
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Vendor</span>
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> Bank Account</span>
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span> Document</span>
                     <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 border border-emerald-300"></span> Substantiated</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-xs bg-slate-800 border border-dashed border-slate-400"></span> External Node</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-xs bg-[#B5D2E6] dark:bg-slate-800 border border-dashed border-[#805232]"></span> External Node</span>
                     <span class="flex items-center gap-1.5"><span class="w-3.5 h-0.5 border-t-2 border-dashed border-rose-500"></span> Rapid Layering</span>
                 </div>
             </div>
 
             <!-- Bottom: Reconstructed Timeline Rail -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2.5">
+            <div class="bg-[#FFF1E7] dark:bg-slate-900 border border-[#B5D2E6] dark:border-slate-800 rounded-2xl p-4">
+                <div class="flex items-center justify-between mb-3 border-b border-[#B5D2E6] dark:border-slate-800 pb-2.5">
                     <div class="flex items-center gap-2">
                         <i class="fa-solid fa-timeline text-amber-400 text-sm"></i>
-                        <h4 class="font-bold text-sm text-slate-200">Reconstructed Timeline Sequence</h4>
+                        <h4 class="font-bold text-sm text-slate-900 dark:text-slate-200">Reconstructed Timeline Sequence</h4>
                     </div>
-                    <span class="text-xs text-slate-500 font-mono" id="timeline-count-badge">Select a node or view recent</span>
+                    <span class="text-xs text-slate-700 font-mono" id="timeline-count-badge">Select a node or view recent</span>
                 </div>
                 <div id="timeline-stream-container" class="space-y-2 max-h-44 overflow-y-auto pr-2 text-xs">
-                    <div class="text-slate-500 italic py-3 text-center">Click on any entity or run a query in Copilot to inspect the event timeline.</div>
+                    <div class="text-slate-700 italic py-3 text-center">Click on any entity or run a query in Copilot to inspect the event timeline.</div>
                 </div>
             </div>
         </div>
@@ -168,25 +169,25 @@
         <!-- Right: Intelligence Workstation Panel (4 Cols) -->
         <div class="lg:col-span-4 space-y-4">
             
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl"
+            <div class="bg-[#FFF1E7] dark:bg-slate-900 border border-[#B5D2E6] dark:border-slate-800 rounded-2xl overflow-hidden shadow-xl"
                 x-data="{ activeTab: 'copilot' }">
                 
                 <!-- Panel Tab Navigation -->
-                <div class="flex border-b border-slate-800 bg-slate-950/70 p-1.5 text-xs font-semibold">
+                <div class="flex border-b border-[#B5D2E6] dark:border-slate-800 bg-[#B5D2E6]/70 dark:bg-slate-950/70 p-1.5 text-xs font-semibold">
                     <button type="button" @click="activeTab = 'copilot'"
-                        :class="activeTab === 'copilot' ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20' : 'text-slate-400 hover:text-white'"
+                        :class="activeTab === 'copilot' ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20' : 'text-slate-700 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'"
                         class="flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer">
                         <i class="fa-solid fa-robot text-xs"></i>
                         <span>Copilot Agent</span>
                     </button>
                     <button type="button" @click="activeTab = 'inspector'"
-                        :class="activeTab === 'inspector' ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20' : 'text-slate-400 hover:text-white'"
+                        :class="activeTab === 'inspector' ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20' : 'text-slate-700 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'"
                         class="flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer">
                         <i class="fa-solid fa-address-card text-xs"></i>
                         <span>Inspector</span>
                     </button>
                     <button type="button" @click="activeTab = 'alerts'"
-                        :class="activeTab === 'alerts' ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20' : 'text-slate-400 hover:text-white'"
+                        :class="activeTab === 'alerts' ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20' : 'text-slate-700 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white'"
                         class="flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer relative">
                         <i class="fa-solid fa-bell text-xs"></i>
                         <span>Alerts</span>
@@ -198,36 +199,39 @@
 
                 <!-- Tab 1: Forensic Copilot (Agentic Tool-Calling) -->
                 <div x-show="activeTab === 'copilot'" class="p-4 space-y-4">
-                    <div class="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800">
+                    <div class="flex items-center justify-between text-xs text-slate-700 dark:text-slate-400 pb-2 border-b border-[#B5D2E6] dark:border-slate-800">
                         <span class="flex items-center gap-1.5 text-cyan-400 font-mono">
                             <i class="fa-solid fa-microchip"></i> Tool Calling Engine
                         </span>
-                        <span class="text-[11px] text-slate-500">Autonomous Multi-Tool Agent</span>
+                        <span class="text-[11px] text-slate-700">Autonomous Multi-Tool Agent</span>
                     </div>
 
                     <!-- Chat Message Stream -->
                     <div id="copilot-stream" class="space-y-3 max-h-[460px] overflow-y-auto pr-1 text-xs">
                         <!-- Welcome Message -->
-                        <div class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-slate-300 space-y-2">
-                            <div class="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
+                        <div class="bg-[#FFF1E7]/80 dark:bg-slate-950/80 border border-[#B5D2E6]/80 dark:border-slate-800/80 rounded-xl p-3 text-slate-800 dark:text-slate-300 space-y-2">
+                            <div class="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-bold text-xs">
                                 <i class="fa-solid fa-shield-halved"></i> ForensiQ Copilot Ready
                             </div>
-                            <p class="text-slate-400 leading-relaxed text-[11px]">
+                            <p class="text-slate-700 dark:text-slate-400 leading-relaxed text-[11px]">
                                 I autonomously connect evidence across Q-Bank, Q-Ledger, Q-Mail, Q-Trail, and Q-Verify using structured tool calls.
                             </p>
-                            <div class="pt-1.5 border-t border-slate-800/60">
-                                <span class="text-[10px] uppercase font-mono text-slate-500 tracking-wider">Suggested Queries:</span>
+                            <div class="pt-1.5 border-t border-[#B5D2E6]/60 dark:border-slate-800/60">
+                                <span class="text-[10px] uppercase font-mono text-slate-700 tracking-wider">Suggested Queries:</span>
                                 <div class="flex flex-col gap-1.5 mt-1.5">
                                     <button type="button" onclick="sendCopilotPrompt('Investigate Arun Kumar and detect all connected entities and fund flows.')"
-                                        class="text-left px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-amber-300 text-[11px] border border-slate-800 transition">
+
+                                        class="text-left px-2 py-1 rounded bg-[#B5D2E6] dark:bg-slate-900 hover:bg-[#B5D2E6] dark:hover:bg-slate-800 text-amber-600 dark:text-amber-300 text-[11px] border border-[#B5D2E6] dark:border-slate-800 transition">
                                         👉 Investigate Arun Kumar's network & fund flows
                                     </button>
                                     <button type="button" onclick="sendCopilotPrompt('Detect conflicts of interest and vendor connections for active auditees.')"
-                                        class="text-left px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-amber-300 text-[11px] border border-slate-800 transition">
+
+                                        class="text-left px-2 py-1 rounded bg-[#B5D2E6] dark:bg-slate-900 hover:bg-[#B5D2E6] dark:hover:bg-slate-800 text-amber-600 dark:text-amber-300 text-[11px] border border-[#B5D2E6] dark:border-slate-800 transition">
                                         👉 Detect employee-vendor nexus & PO transactions
                                     </button>
                                     <button type="button" onclick="sendCopilotPrompt('Identify any documents with PDF tampering or altered metadata.')"
-                                        class="text-left px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-amber-300 text-[11px] border border-slate-800 transition">
+
+                                        class="text-left px-2 py-1 rounded bg-[#B5D2E6] dark:bg-slate-900 hover:bg-[#B5D2E6] dark:hover:bg-slate-800 text-amber-600 dark:text-amber-300 text-[11px] border border-[#B5D2E6] dark:border-slate-800 transition">
                                         👉 Trace tampered PDF documents and associated custodians
                                     </button>
                                 </div>
@@ -238,7 +242,7 @@
                     <!-- Agent Input Box -->
                     <form onsubmit="handleCopilotSubmit(event)" class="relative pt-2">
                         <input type="text" id="copilot-input" placeholder="Ask Copilot (e.g. 'Trace Vendor ABC hops')..."
-                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 pr-10" />
+                            class="w-full bg-[#B5D2E6] dark:bg-slate-950 border border-[#805232] dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-950 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-400 pr-10" />
                         <button type="submit" id="btn-copilot-send"
                             class="absolute right-2 top-4 p-1.5 text-amber-400 hover:text-amber-300 rounded-lg transition cursor-pointer">
                             <i class="fa-solid fa-paper-plane text-xs"></i>
@@ -248,14 +252,14 @@
 
                 <!-- Tab 2: Entity Inspector & Traceability Drawer -->
                 <div x-show="activeTab === 'inspector'" class="p-4 space-y-4">
-                    <div id="inspector-placeholder" class="text-center py-12 text-slate-500 space-y-2">
-                        <i class="fa-solid fa-crosshairs text-2xl text-slate-600"></i>
+                    <div id="inspector-placeholder" class="text-center py-12 text-slate-700 space-y-2">
+                        <i class="fa-solid fa-crosshairs text-2xl text-slate-800"></i>
                         <p class="text-xs">Click on any node in the canvas to inspect its complete forensic dossier and original evidence pointers.</p>
                     </div>
 
                     <div id="inspector-content" class="hidden space-y-4 text-xs">
                         <!-- Entity Header -->
-                        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5">
+                        <div class="bg-[#FFF1E7]/80 dark:bg-slate-950/80 border border-[#B5D2E6] dark:border-slate-800 rounded-xl p-3.5">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
                                     <span id="inspect-type-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"></span>
@@ -263,18 +267,18 @@
                                     <p id="inspect-identifier" class="text-[11px] text-slate-400 font-mono mt-0.5"></p>
                                 </div>
                                 <div class="text-right">
-                                    <span class="text-[10px] text-slate-500 uppercase font-mono block">Risk Rating</span>
+                                    <span class="text-[10px] text-slate-700 uppercase font-mono block">Risk Rating</span>
                                     <span id="inspect-risk" class="text-base font-extrabold text-amber-400 font-mono"></span>
                                 </div>
                             </div>
 
                             <div id="inspect-aliases-box" class="mt-2.5 pt-2 border-t border-slate-800/80 text-[11px]">
-                                <span class="text-slate-500">Aliases / Variants:</span>
+                                <span class="text-slate-700">Aliases / Variants:</span>
                                 <div id="inspect-aliases" class="flex flex-wrap gap-1 mt-1"></div>
                             </div>
 
                             <div id="inspect-tags-box" class="mt-2 pt-2 border-t border-slate-800/80 text-[11px]">
-                                <span class="text-slate-500 block mb-1">Forensic Flags & Tags:</span>
+                                <span class="text-slate-700 block mb-1">Forensic Flags & Tags:</span>
                                 <div id="inspect-tags-list" class="flex flex-wrap gap-1 mt-1"></div>
                             </div>
                         </div>
@@ -299,30 +303,30 @@
 
                 <!-- Tab 3: Alerts & Notification Center -->
                 <div x-show="activeTab === 'alerts'" class="p-4 space-y-3">
-                    <div class="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800">
-                        <span class="font-bold text-slate-200">Continuous Monitoring Alerts</span>
-                        <span class="text-[11px] text-slate-500">{{ alerts.count }} Triggered</span>
+                    <div class="flex items-center justify-between text-xs text-slate-700 dark:text-slate-400 pb-2 border-b border-[#B5D2E6] dark:border-slate-800">
+                        <span class="font-bold text-slate-900 dark:text-slate-200">Continuous Monitoring Alerts</span>
+                        <span class="text-[11px] text-slate-700">{{ alerts.count }} Triggered</span>
                     </div>
 
                     <div class="space-y-2.5 max-h-[480px] overflow-y-auto pr-1 text-xs">
                         {% for alert in alerts %}
-                            <div class="bg-slate-950/80 border {% if alert.alert_level == 'CRITICAL' %}border-rose-500/40{% elif alert.alert_level == 'HIGH' %}border-amber-500/40{% else %}border-slate-800{% endif %} rounded-xl p-3 space-y-2"
+                            <div class="bg-[#FFF1E7]/80 dark:bg-slate-950/80 border {% if alert.alert_level == 'CRITICAL' %}border-rose-500/40{% elif alert.alert_level == 'HIGH' %}border-amber-500/40{% else %}border-[#B5D2E6] dark:border-slate-800{% endif %} rounded-xl p-3 space-y-2"
                                 id="alert-card-{{ alert.id }}">
                                 <div class="flex items-start justify-between gap-2">
                                     <span class="font-bold text-xs {% if alert.alert_level == 'CRITICAL' %}text-rose-400{% else %}text-amber-400{% endif %}">
                                         {{ alert.title }}
                                     </span>
-                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-900 border border-slate-700 text-slate-300">
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#B5D2E6] dark:bg-slate-900 border border-[#805232] dark:border-slate-700 text-slate-800 dark:text-slate-300">
                                         Risk {{ alert.risk_score }}
                                     </span>
                                 </div>
-                                <p class="text-[11px] text-slate-300 leading-snug">{{ alert.trigger_reason }}</p>
+                                <p class="text-[11px] text-slate-800 dark:text-slate-300 leading-snug">{{ alert.trigger_reason }}</p>
                                 {% if alert.ai_summary %}
-                                    <p class="text-[11px] text-slate-400 bg-slate-900/80 p-2 rounded border border-slate-800/80 italic">
+                                    <p class="text-[11px] text-slate-700 dark:text-slate-400 bg-[#FFF1E7]/80 dark:bg-slate-900/80 p-2 rounded border border-[#B5D2E6]/80 dark:border-slate-800/80 italic">
                                         "{{ alert.ai_summary }}"
                                     </p>
                                 {% endif %}
-                                <div class="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[10px] text-slate-500">
+                                <div class="flex items-center justify-between pt-1 border-t border-[#B5D2E6]/60 dark:border-slate-800/60 text-[10px] text-slate-700">
                                     <span>{{ alert.created_at|date:"M d, Y H:i" }}</span>
                                     {% if not alert.is_acknowledged %}
                                         <button type="button" onclick="acknowledgeAlert('{{ alert.id }}')"
@@ -335,8 +339,8 @@
                                 </div>
                             </div>
                         {% empty %}
-                            <div class="text-center py-10 text-slate-500 text-xs">
-                                <i class="fa-solid fa-circle-check text-xl text-slate-600 mb-1"></i>
+                            <div class="text-center py-10 text-slate-700 dark:text-slate-500 text-xs">
+                                <i class="fa-solid fa-circle-check text-xl text-slate-800 dark:text-slate-600 mb-1"></i>
                                 <p>No active critical alerts. No suspicious items found.</p>
                             </div>
                         {% endfor %}
@@ -350,9 +354,9 @@
 
     <!-- Slide-out Side Drawer: Audit Evidence Trail -->
     <div id="evidence-trail-drawer"
-        class="fixed inset-y-0 right-0 z-50 w-full sm:w-[460px] bg-slate-950 border-l border-slate-800 shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+        class="fixed inset-y-0 right-0 z-50 w-full sm:w-[460px] bg-[#FFF1E7] dark:bg-slate-950 border-l border-[#B5D2E6] dark:border-slate-800 shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
         <!-- Drawer Header -->
-        <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90 backdrop-blur">
+        <div class="p-4 border-b border-[#B5D2E6] dark:border-slate-800 flex items-center justify-between bg-[#FFF1E7]/90 dark:bg-slate-900/90 backdrop-blur">
             <div class="flex items-center gap-2.5">
                 <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
                     <i class="fa-solid fa-fingerprint text-sm"></i>
@@ -376,7 +380,7 @@
 
     <!-- Backdrop for Drawer -->
     <div id="drawer-backdrop" onclick="closeEvidenceDrawer()"
-        class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-40 hidden transition-opacity"></div>
+        class="fixed inset-0 bg-slate-950/50 dark:bg-slate-950/70 backdrop-blur-xs z-40 hidden transition-opacity"></div>
 
     <!-- Interactive Vis.js & Copilot Integration Script -->
     <script type="text/javascript">
@@ -389,8 +393,40 @@
         let graphEdges = null;
         let isPhysicsEnabled = true;
 
+        // Theme-aware color helper: returns the right color for current mode
+        function isDarkMode() {
+            return document.documentElement.classList.contains('dark');
+        }
+
+        function getThemeColors() {
+            const dark = isDarkMode();
+            return {
+                // Node font colors
+                nodeFontDefault: dark ? "#e2e8f0" : "#1e293b",
+                nodeFontSubstantiated: dark ? "#34d399" : "#059669",
+                nodeFontExternal: dark ? "#94a3b8" : "#64748b",
+                // Target node border
+                targetBorder: dark ? "#ffffff" : "#1e293b",
+                // External node colors
+                externalBg: dark ? "#1e293b" : "#e2e8f0",
+                externalBorder: "#64748b",
+                // Edge colors
+                edgeDefault: dark ? "#475569" : "#94a3b8",
+                edgeFontDefault: dark ? "#94a3b8" : "#475569",
+                edgeStroke: dark ? "#0f172a" : "#e2e8f0",
+                // Highlight on edge
+                edgeHighlight: "#f59e0b",
+                // Dimming colors for non-highlighted nodes/edges
+                dimNodeBg: dark ? "rgba(30, 41, 59, 0.2)" : "rgba(203, 213, 225, 0.3)",
+                dimNodeBorder: dark ? "rgba(51, 65, 85, 0.2)" : "rgba(148, 163, 184, 0.2)",
+                dimNodeFont: dark ? "rgba(100, 116, 139, 0.25)" : "rgba(100, 116, 139, 0.3)",
+                dimEdge: dark ? "rgba(30, 41, 59, 0.15)" : "rgba(203, 213, 225, 0.3)",
+            };
+        }
+
         // Format nodes with forensic styling (Substantiated badge, External dashed border, colors)
         function formatNodes(nodes) {
+            const tc = getThemeColors();
             return nodes.map(n => {
                 let colorBg = "#38bdf8"; // Default cyan/blue for employees
                 let borderCol = "#0284c7";
@@ -420,8 +456,8 @@
                 }
 
                 if (isExternal) {
-                    colorBg = "#1e293b";
-                    borderCol = "#64748b";
+                    colorBg = tc.externalBg;
+                    borderCol = tc.externalBorder;
                 }
 
                 let labelText = n.label;
@@ -433,6 +469,8 @@
                     labelText += "\n[External Vault]";
                 }
 
+                const fontColor = isSubstantiated ? tc.nodeFontSubstantiated : (isExternal ? tc.nodeFontExternal : tc.nodeFontDefault);
+
                 const nodeObj = {
                     id: n.id,
                     label: labelText,
@@ -440,11 +478,11 @@
                     size: n.is_target ? 24 : 16,
                     color: {
                         background: colorBg,
-                        border: isSubstantiated ? "#10b981" : (n.is_target ? "#ffffff" : borderCol),
-                        highlight: { background: "#ffffff", border: borderCol }
+                        border: isSubstantiated ? "#10b981" : (n.is_target ? tc.targetBorder : borderCol),
+                        highlight: { background: isDarkMode() ? "#ffffff" : "#f8fafc", border: borderCol }
                     },
                     font: {
-                        color: isSubstantiated ? "#34d399" : (isExternal ? "#94a3b8" : "#e2e8f0"),
+                        color: fontColor,
                         size: 11,
                         face: "Inter, sans-serif",
                         bold: isSubstantiated
@@ -452,10 +490,10 @@
                     borderWidth: isSubstantiated ? 3 : (n.is_target ? 3 : 1.5),
                     originalColor: {
                         background: colorBg,
-                        border: isSubstantiated ? "#10b981" : (n.is_target ? "#ffffff" : borderCol),
+                        border: isSubstantiated ? "#10b981" : (n.is_target ? tc.targetBorder : borderCol),
                     },
                     originalFont: {
-                        color: isSubstantiated ? "#34d399" : (isExternal ? "#94a3b8" : "#e2e8f0"),
+                        color: fontColor,
                         size: 11,
                         face: "Inter, sans-serif",
                         bold: isSubstantiated
@@ -473,15 +511,16 @@
 
         // Format edges with forensic styling (Rapid layering red dashed, External dashed)
         function formatEdges(edges) {
+            const tc = getThemeColors();
             return edges.map(e => {
                 const isRapidLayering = Boolean(e.is_rapid_layering || (e.relation_type === "RAPID_LAYERING"));
                 const isExternal = Boolean(e.is_external);
 
-                let edgeColor = "#475569";
-                let highlightColor = "#f59e0b";
+                let edgeColor = tc.edgeDefault;
+                let highlightColor = tc.edgeHighlight;
                 let edgeDashes = !e.is_direct;
                 let edgeWidth = Math.min(Math.max(e.weight ? Math.log10(e.weight + 1) : 1, 1), 5);
-                let fontColor = "#94a3b8";
+                let fontColor = tc.edgeFontDefault;
 
                 if (isRapidLayering) {
                     edgeColor = "#ef4444"; // Red for rapid layering
@@ -492,7 +531,7 @@
                 } else if (isExternal) {
                     edgeColor = "#64748b";
                     edgeDashes = [4, 4];
-                    fontColor = "#94a3b8";
+                    fontColor = tc.edgeFontDefault;
                 }
 
                 return {
@@ -502,11 +541,11 @@
                     label: e.label,
                     arrows: "to",
                     color: { color: edgeColor, highlight: highlightColor },
-                    font: { color: fontColor, size: 9, align: "middle", strokeWidth: 2, strokeColor: "#0f172a" },
+                    font: { color: fontColor, size: 9, align: "middle", strokeWidth: 2, strokeColor: tc.edgeStroke },
                     width: edgeWidth,
                     dashes: edgeDashes,
                     originalColor: { color: edgeColor, highlight: highlightColor },
-                    originalFont: { color: fontColor, size: 9, align: "middle", strokeWidth: 2, strokeColor: "#0f172a" },
+                    originalFont: { color: fontColor, size: 9, align: "middle", strokeWidth: 2, strokeColor: tc.edgeStroke },
                     raw: e
                 };
             });
@@ -627,6 +666,7 @@
             });
 
             // Dim unrelated nodes
+            const tc = getThemeColors();
             const nodeUpdates = [];
             graphNodes.forEach(node => {
                 if (highlightedNodeIds.has(node.id)) {
@@ -639,8 +679,8 @@
                 } else {
                     nodeUpdates.push({
                         id: node.id,
-                        color: { background: "rgba(30, 41, 59, 0.2)", border: "rgba(51, 65, 85, 0.2)" },
-                        font: { color: "rgba(100, 116, 139, 0.25)" },
+                        color: { background: tc.dimNodeBg, border: tc.dimNodeBorder },
+                        font: { color: tc.dimNodeFont },
                         opacity: 0.2
                     });
                 }
@@ -660,7 +700,7 @@
                 } else {
                     edgeUpdates.push({
                         id: edge.id,
-                        color: { color: "rgba(30, 41, 59, 0.15)" },
+                        color: { color: tc.dimEdge },
                         font: { color: "transparent", strokeWidth: 0 },
                         hidden: false
                     });
@@ -824,12 +864,12 @@
                             <span class="flex items-center gap-1.5">
                                 <i class="fa-solid fa-fingerprint text-emerald-400"></i> Evidence Records (${items.length})
                             </span>
-                            <span class="text-[10px] text-slate-500 font-mono uppercase">${edge.category}</span>
+                            <span class="text-[10px] text-slate-700 font-mono uppercase">${edge.category}</span>
                         </div>
                 `;
 
                 if (items.length === 0) {
-                    html += `<div class="text-slate-500 text-center py-4">No granular source citations recorded.</div>`;
+                    html += `<div class="text-slate-700 text-center py-4">No granular source citations recorded.</div>`;
                 } else {
                     items.forEach((ev, idx) => {
                         let specificFields = "";
@@ -837,14 +877,14 @@
                         if (edge.category === "FINANCIAL" || ev.narration || ev.debit_amount || ev.credit_amount) {
                             specificFields = `
                                 <div class="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-800/60 font-mono">
-                                    ${ev.date ? `<div><span class="text-slate-500 block text-[10px]">Date</span><span class="text-slate-300">${ev.date}</span></div>` : ''}
-                                    ${ev.ref_no ? `<div><span class="text-slate-500 block text-[10px]">Ref / UTR</span><span class="text-slate-300">${ev.ref_no}</span></div>` : ''}
-                                    ${ev.account_no ? `<div><span class="text-slate-500 block text-[10px]">Source Account</span><span class="text-slate-300">${ev.account_no}</span></div>` : ''}
-                                    ${ev.turnaround ? `<div><span class="text-slate-500 block text-[10px]">Turnaround</span><span class="text-rose-400 font-bold">${ev.turnaround}</span></div>` : ''}
+                                    ${ev.date ? `<div><span class="text-slate-700 block text-[10px]">Date</span><span class="text-slate-300">${ev.date}</span></div>` : ''}
+                                    ${ev.ref_no ? `<div><span class="text-slate-700 block text-[10px]">Ref / UTR</span><span class="text-slate-300">${ev.ref_no}</span></div>` : ''}
+                                    ${ev.account_no ? `<div><span class="text-slate-700 block text-[10px]">Source Account</span><span class="text-slate-300">${ev.account_no}</span></div>` : ''}
+                                    ${ev.turnaround ? `<div><span class="text-slate-700 block text-[10px]">Turnaround</span><span class="text-rose-400 font-bold">${ev.turnaround}</span></div>` : ''}
                                 </div>
                                 ${ev.narration ? `
                                     <div class="mt-2 text-[11px]">
-                                        <span class="text-slate-500 block text-[10px]">Transaction Narration</span>
+                                        <span class="text-slate-700 block text-[10px]">Transaction Narration</span>
                                         <div class="p-2 rounded bg-slate-900 border border-slate-800 text-slate-200 font-mono text-[11px] break-all">
                                             ${ev.narration}
                                         </div>
@@ -915,7 +955,7 @@
                             <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                                 <div class="flex items-center justify-between text-[11px]">
                                     <span class="font-bold text-cyan-400 font-mono uppercase">[${ev.source_module}] ${ev.source_model || ''}</span>
-                                    ${ev.occurred_at ? `<span class="text-slate-500 font-mono text-[10px]">${ev.occurred_at}</span>` : ''}
+                                    ${ev.occurred_at ? `<span class="text-slate-700 font-mono text-[10px]">${ev.occurred_at}</span>` : ''}
                                 </div>
                                 <p class="text-slate-300 text-xs">${ev.summary || ''}</p>
                                 ${specificFields}
@@ -955,7 +995,8 @@
                 if (m === newMode) {
                     btn.className = "px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 bg-amber-500 text-slate-950 font-bold shadow-xs cursor-pointer";
                 } else {
-                    btn.className = "px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 text-slate-400 hover:text-white cursor-pointer";
+
+                    btn.className = "px-2.5 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 text-slate-800 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white cursor-pointer";
                 }
             });
 
@@ -1045,10 +1086,10 @@
         function setEntityFilter(type) {
             document.querySelectorAll(".filter-chip").forEach(el => {
                 el.classList.remove("bg-amber-500", "text-slate-950", "font-bold");
-                el.classList.add("bg-slate-800", "text-slate-300");
+                el.classList.add("bg-[#B5D2E6]", "dark:bg-slate-800", "text-slate-800", "dark:text-slate-300");
             });
             event.target.classList.add("bg-amber-500", "text-slate-950", "font-bold");
-            event.target.classList.remove("bg-slate-800", "text-slate-300");
+            event.target.classList.remove("bg-[#B5D2E6]", "dark:bg-slate-800", "text-slate-800", "dark:text-slate-300");
 
             if (!graphNodes) return;
             if (type === "ALL") {
@@ -1083,12 +1124,12 @@
                 if (e.aliases && e.aliases.length > 0) {
                     e.aliases.forEach(a => {
                         const span = document.createElement("span");
-                        span.className = "px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-slate-300";
+                        span.className = "px-1.5 py-0.5 rounded bg-[#B5D2E6] dark:bg-slate-900 border border-[#B5D2E6] dark:border-slate-800 text-[10px] text-slate-800 dark:text-slate-300";
                         span.innerText = a;
                         aliasContainer.appendChild(span);
                     });
                 } else {
-                    aliasContainer.innerHTML = "<span class='text-slate-500 text-[10px]'>None</span>";
+                    aliasContainer.innerHTML = "<span class='text-slate-700 text-[10px]'>None</span>";
                 }
 
                 // Render Tags & Classifications (Substantiated badge, External, Rapid Layering)
@@ -1118,7 +1159,7 @@
                             tagsContainer.appendChild(badge);
                         });
                     } else {
-                        tagsContainer.innerHTML = "<span class='text-slate-500 text-[10px]'>None</span>";
+                        tagsContainer.innerHTML = "<span class='text-slate-700 text-[10px]'>None</span>";
                     }
                 }
 
@@ -1129,19 +1170,19 @@
                 if (allRels.length > 0) {
                     allRels.slice(0, 10).forEach(r => {
                         const item = document.createElement("div");
-                        item.className = "p-2 rounded bg-slate-950/70 border border-slate-800/80 flex items-center justify-between text-[11px] cursor-pointer hover:border-amber-500/50 transition";
+                        item.className = "p-2 rounded bg-[#B5D2E6]/70 dark:bg-slate-950/70 border border-[#B5D2E6]/80 dark:border-slate-800/80 flex items-center justify-between text-[11px] cursor-pointer hover:border-amber-500/50 transition";
                         item.onclick = () => inspectEdge(r.id);
                         item.innerHTML = `
                             <div>
                                 <span class="font-bold text-slate-200">${r.target_name || r.source_name}</span>
-                                <span class="text-slate-500 block text-[10px]">${r.type} (${r.module})</span>
+                                <span class="text-slate-700 block text-[10px]">${r.type} (${r.module})</span>
                             </div>
                             <span class="text-amber-400 font-mono text-[10px]">₹${r.weight ? Number(r.weight).toLocaleString('en-IN') : '1'}</span>
                         `;
                         relList.appendChild(item);
                     });
                 } else {
-                    relList.innerHTML = "<div class='text-slate-500 text-[11px] py-1'>No direct relations recorded.</div>";
+                    relList.innerHTML = "<div class='text-slate-700 text-[11px] py-1'>No direct relations recorded.</div>";
                 }
 
                 // Underlying Evidence Citations
@@ -1150,11 +1191,11 @@
                 if (data.evidence && data.evidence.length > 0) {
                     data.evidence.forEach(ev => {
                         const card = document.createElement("div");
-                        card.className = "p-2 rounded bg-slate-950 border border-slate-800 text-[11px] space-y-1";
+                        card.className = "p-2 rounded bg-[#B5D2E6] dark:bg-slate-950 border border-[#B5D2E6] dark:border-slate-800 text-[11px] space-y-1";
                         card.innerHTML = `
                             <div class="flex items-center justify-between">
                                 <span class="font-bold text-cyan-400 uppercase text-[10px]">[${ev.module}] ${ev.model}</span>
-                                <span class="text-slate-500 text-[10px]">${ev.date}</span>
+                                <span class="text-slate-700 text-[10px]">${ev.date}</span>
                             </div>
                             <p class="text-slate-300 text-[11px]">${ev.summary}</p>
                             ${ev.url ? `<a href="${ev.url}" target="_blank" class="inline-flex items-center gap-1 text-amber-400 hover:underline text-[10px] font-semibold mt-1"><span>Inspect Source Record</span> <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i></a>` : ''}
@@ -1162,7 +1203,7 @@
                         evList.appendChild(card);
                     });
                 } else {
-                    evList.innerHTML = "<div class='text-slate-500 text-[11px] py-1'>No granular evidence citations.</div>";
+                    evList.innerHTML = "<div class='text-slate-700 text-[11px] py-1'>No granular evidence citations.</div>";
                 }
 
                 // Update Timeline Stream
@@ -1180,7 +1221,7 @@
             container.innerHTML = "";
 
             if (!events || events.length === 0) {
-                container.innerHTML = `<div class='text-slate-500 italic py-2 text-center'>No timeline events recorded for ${entityName || 'selected entity'}.</div>`;
+                container.innerHTML = `<div class='text-slate-700 italic py-2 text-center'>No timeline events recorded for ${entityName || 'selected entity'}.</div>`;
                 badge.innerText = "0 events";
                 return;
             }
@@ -1188,7 +1229,7 @@
             badge.innerText = `${events.length} events for ${entityName}`;
             events.forEach(ev => {
                 const row = document.createElement("div");
-                row.className = "flex items-start gap-3 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80";
+                row.className = "flex items-start gap-3 p-2 rounded-lg bg-[#B5D2E6]/60 dark:bg-slate-950/60 border border-[#B5D2E6]/80 dark:border-slate-800/80";
                 row.innerHTML = `
                     <span class="font-mono text-[10px] text-amber-400 whitespace-nowrap pt-0.5">${ev.date}</span>
                     <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-900 border border-slate-700 text-slate-400">${ev.module}</span>
@@ -1221,7 +1262,7 @@
 
             const stream = document.getElementById("copilot-stream");
             const loadingBubble = document.createElement("div");
-            loadingBubble.className = "p-2.5 rounded-xl bg-slate-950/90 border border-slate-800 text-slate-400 text-xs flex items-center gap-2";
+            loadingBubble.className = "p-2.5 rounded-xl bg-[#B5D2E6]/90 dark:bg-slate-950/90 border border-[#B5D2E6] dark:border-slate-800 text-slate-700 dark:text-slate-400 text-xs flex items-center gap-2";
             loadingBubble.id = "copilot-loading";
             loadingBubble.innerHTML = `<i class="fa-solid fa-gear fa-spin text-amber-400"></i> <span>Copilot is reasoning and executing tools across the graph...</span>`;
             stream.appendChild(loadingBubble);
@@ -1255,14 +1296,14 @@
             const bubble = document.createElement("div");
 
             if (role === "user") {
-                bubble.className = "bg-amber-500/10 border border-amber-500/20 text-slate-200 rounded-xl p-2.5 ml-4";
+                bubble.className = "bg-amber-500/10 border border-amber-500/20 text-slate-900 dark:text-slate-200 rounded-xl p-2.5 ml-4";
                 bubble.innerHTML = `<span class="font-bold text-amber-400 text-[10px] block uppercase mb-1">Investigator</span><p>${text}</p>`;
             } else {
-                bubble.className = "bg-slate-950 border border-slate-800 text-slate-300 rounded-xl p-3 mr-2 space-y-2";
+                bubble.className = "bg-[#B5D2E6] dark:bg-slate-950 border border-[#B5D2E6] dark:border-slate-800 text-slate-800 dark:text-slate-300 rounded-xl p-3 mr-2 space-y-2";
                 let toolHtml = "";
                 if (toolCalls && toolCalls.length > 0) {
-                    toolHtml = `<div class="p-2 rounded bg-slate-900 border border-slate-800 font-mono text-[10px] text-cyan-400 space-y-1">
-                        <span class="text-slate-500 uppercase tracking-wider block font-bold">Executed Tools:</span>
+                    toolHtml = `<div class="p-2 rounded bg-[#B5D2E6] dark:bg-slate-900 border border-[#B5D2E6] dark:border-slate-800 font-mono text-[10px] text-cyan-400 space-y-1">
+                        <span class="text-slate-700 uppercase tracking-wider block font-bold">Executed Tools:</span>
                         ${toolCalls.map(tc => `<div>⚡ <b>${tc.tool}</b>(${JSON.stringify(tc.arguments)})</div>`).join("")}
                     </div>`;
                 }
@@ -1271,7 +1312,7 @@
                     .replace(/### (.*)/g, '<h4 class="font-bold text-sm text-amber-400 mt-2">$1</h4>')
                     .replace(/#### (.*)/g, '<h5 class="font-bold text-xs text-slate-200 mt-1.5">$1</h5>')
                     .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
-                    .replace(/`([^`]+)`/g, '<code class="bg-slate-900 px-1 py-0.5 rounded text-amber-300 text-[10px]">$1</code>')
+                    .replace(/`([^`]+)`/g, '<code class="bg-[#B5D2E6] dark:bg-slate-900 px-1 py-0.5 rounded text-amber-600 dark:text-amber-300 text-[10px]">$1</code>')
                     .replace(/\n/g, '<br/>');
 
                 bubble.innerHTML = `
@@ -1345,9 +1386,34 @@
             }
         }
 
+        // Re-render graph when theme changes to update node/edge colors
+        function refreshGraphTheme() {
+            if (!networkInstance || !graphNodes || !graphEdges) return;
+
+            // Collect raw data from current datasets
+            const rawNodes = [];
+            graphNodes.forEach(n => { if (n.raw) rawNodes.push(n.raw); });
+            const rawEdges = [];
+            graphEdges.forEach(e => { if (e.raw) rawEdges.push(e.raw); });
+
+            // Re-format with new theme colors
+            const formattedNodes = formatNodes(rawNodes);
+            const formattedEdges = formatEdges(rawEdges);
+
+            graphNodes.clear();
+            graphEdges.clear();
+            graphNodes.add(formattedNodes);
+            graphEdges.add(formattedEdges);
+        }
+
         // Initialize on DOM ready
         document.addEventListener("DOMContentLoaded", function() {
             initNetworkGraph(initialGraphData);
+        });
+
+        // Listen for theme toggle events from ForensiQTheme manager
+        window.addEventListener('themeChanged', function() {
+            refreshGraphTheme();
         });
     </script>
 
