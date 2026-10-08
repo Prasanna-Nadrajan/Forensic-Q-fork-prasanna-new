@@ -16,24 +16,39 @@ from .backend.chat_parser import is_whatsapp_system_message
 from .models import ChatChannel, ChatMessage
 
 
-def get_chat_dashboard_metrics() -> dict[str, Any]:
+def get_chat_dashboard_metrics(audit_names: set[str] | None = None) -> dict[str, Any]:
     """
     Computes global metrics for the Q-Chat dashboard.
     """
-    total_channels = ChatChannel.objects.count()
-    total_messages = ChatMessage.objects.count()
-    flagged_messages = ChatMessage.objects.filter(risk_score__gte=50).count()
-    deleted_messages = ChatMessage.objects.filter(is_deleted=True).count()
-    media_messages = ChatMessage.objects.filter(has_media=True).count()
+    channels_qs = ChatChannel.objects.all()
+    messages_qs = ChatMessage.objects.all()
+
+    if audit_names is not None:
+        if not audit_names:
+            channels_qs = channels_qs.none()
+            messages_qs = messages_qs.none()
+        else:
+            q_custodians = Q()
+            for name in audit_names:
+                q_custodians |= Q(custodian_name__iexact=name)
+
+            channels_qs = channels_qs.filter(q_custodians)
+            messages_qs = messages_qs.filter(channel__in=channels_qs)
+
+    total_channels = channels_qs.count()
+    total_messages = messages_qs.count()
+    flagged_messages = messages_qs.filter(risk_score__gte=50).count()
+    deleted_messages = messages_qs.filter(is_deleted=True).count()
+    media_messages = messages_qs.filter(has_media=True).count()
 
     platforms = (
-        ChatChannel.objects.values("platform")
+        channels_qs.values("platform")
         .annotate(channel_count=Count("id"), msg_count=Count("messages"))
         .order_by("-msg_count")
     )
 
     top_flagged_senders = list(
-        ChatMessage.objects.filter(risk_score__gte=50)
+        messages_qs.filter(risk_score__gte=50)
         .exclude(sender_name__in=["System", "system", "WhatsApp", "whatsapp"])
         .values("sender_name")
         .annotate(flagged_count=Count("id"))

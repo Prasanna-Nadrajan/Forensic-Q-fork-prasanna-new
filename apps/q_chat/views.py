@@ -34,7 +34,7 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
     Organized by target custodian profile directory with aggregate metrics.
     """
     active_audit = get_active_audit(request)
-    metrics = get_chat_dashboard_metrics()
+    audit_names = None
     custodians = get_all_custodian_profiles()
     channels = get_all_chat_channels()
 
@@ -42,6 +42,8 @@ def dashboard_view(request: HttpRequest) -> HttpResponse:
         audit_names = {p.full_name.strip().lower() for p in active_audit.profiles.all()}
         custodians = [c for c in custodians if c["custodian_name"].strip().lower() in audit_names]
         channels = [c for c in channels if c.custodian_name.strip().lower() in audit_names]
+
+    metrics = get_chat_dashboard_metrics(audit_names=audit_names)
 
     context = {
         "metrics": metrics,
