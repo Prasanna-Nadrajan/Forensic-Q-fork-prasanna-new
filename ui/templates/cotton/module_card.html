@@ -85,7 +85,7 @@ Props: num, category, name, tagline, tag, accent, href
         </div>
 
         <!-- Module Title: Q-Name -->
-        <h2 class="text-3xl font-extrabold tracking-tight {% if t == 'BUILDING' %}text-zinc-800 dark:text-zinc-200{% else %}text-slate-900 dark:text-white{% endif %} mb-2 flex items-center">
+        <h2 class="text-3xl font-extrabold tracking-tight {% if t == 'BUILDING' %}text-zinc-800 dark:text-zinc-200{% else %}text-theme-text dark:text-white{% endif %} mb-2 flex items-center">
             {% if t == 'BUILDING' %}
                 <span class="text-zinc-400 dark:text-zinc-500">Q</span>-{{ name }}
             {% else %}
@@ -109,7 +109,7 @@ Props: num, category, name, tagline, tag, accent, href
 
         <!-- Catchphrase / Tagline -->
         {% if tagline %}
-        <p class="text-sm font-medium {% if t == 'BUILDING' %}text-zinc-500 dark:text-zinc-400{% else %}text-slate-600 dark:text-zinc-300{% endif %} mb-3.5 leading-relaxed">
+        <p class="text-sm font-medium {% if t == 'BUILDING' %}text-zinc-500 dark:text-zinc-400{% else %}text-theme-text dark:text-zinc-300{% endif %} mb-3.5 leading-relaxed">
             {{ tagline }}
         </p>
         {% endif %}

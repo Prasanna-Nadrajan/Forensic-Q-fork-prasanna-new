@@ -9,7 +9,7 @@
                 <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
                 <span>In-house digital forensic audit ecosystem &bull; AI-Assisted</span>
             </div>
-            <h1 class="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
+            <h1 class="text-3xl sm:text-4xl font-black tracking-tight text-theme-text dark:text-white">
                 Investigation Platform
             </h1>
         </div>
@@ -23,10 +23,10 @@
                 <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-zinc-950/20 text-zinc-950 text-[10px] font-mono" x-text="auditsList.length"></span>
             </button>
             <button type="button" id="landing-profiles-btn" @click="openModalTab('directory')"
-                class="h-10 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-bold flex items-center gap-2 transition border border-slate-200 dark:border-zinc-700 cursor-pointer">
+                class="h-10 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-theme-text dark:text-zinc-200 text-xs font-bold flex items-center gap-2 transition border border-slate-200 dark:border-zinc-700 cursor-pointer">
                 <i class="fa-solid fa-users text-xs text-amber-500"></i>
                 <span>Profiles</span>
-                <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-[10px] font-mono" x-text="profilesList.length"></span>
+                <span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700 text-theme-text dark:text-zinc-200 text-[10px] font-mono" x-text="profilesList.length"></span>
             </button>
         </div>
 
@@ -44,11 +44,11 @@
                             <i class="fa-solid fa-user-shield" x-show="activeTab === 'directory' || activeTab === 'add'"></i>
                         </div>
                         <div>
-                            <h3 class="text-base font-bold text-slate-900 dark:text-white">Forensic Audits &amp; Target Profiles</h3>
+                            <h3 class="text-base font-bold text-theme-text dark:text-white">Forensic Audits &amp; Target Profiles</h3>
                             <p class="text-xs text-slate-500 dark:text-zinc-400">Sequential audit references (YYYY-WB-XX), mapped subject profiles, and keyword tracking.</p>
                         </div>
                     </div>
-                    <button type="button" @click="showProfileModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer p-1">
+                    <button type="button" @click="showProfileModal = false" class="text-slate-400 hover:text-theme-text dark:hover:text-zinc-200 cursor-pointer p-1">
                         <i class="fa-solid fa-xmark text-lg"></i>
                     </button>
                 </div>
@@ -57,16 +57,16 @@
                 <div class="flex items-center gap-2 px-5 pt-3 border-b border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-x-auto">
                     <button type="button" 
                             @click="activeTab = 'audits'"
-                            :class="activeTab === 'audits' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200'"
+                            :class="activeTab === 'audits' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-theme-text dark:text-zinc-400 dark:hover:text-zinc-200'"
                             class="px-3.5 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer shrink-0">
                         <i class="fa-solid fa-folder-tree text-xs"></i>
                         <span>Audits Directory</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-mono" x-text="auditsList.length"></span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-theme-text dark:text-zinc-300 font-mono" x-text="auditsList.length"></span>
                     </button>
 
                     <button type="button" 
                             @click="activeTab = 'create_audit'"
-                            :class="activeTab === 'create_audit' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200'"
+                            :class="activeTab === 'create_audit' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-theme-text dark:text-zinc-400 dark:hover:text-zinc-200'"
                             class="px-3.5 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer shrink-0">
                         <i class="fa-solid fa-plus-circle text-xs"></i>
                         <span>New Audit</span>
@@ -74,16 +74,16 @@
 
                     <button type="button" 
                             @click="activeTab = 'directory'"
-                            :class="activeTab === 'directory' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200'"
+                            :class="activeTab === 'directory' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-theme-text dark:text-zinc-400 dark:hover:text-zinc-200'"
                             class="px-3.5 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer shrink-0">
                         <i class="fa-solid fa-address-book text-xs"></i>
                         <span>Profiles Directory</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-mono" x-text="profilesList.length"></span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-theme-text dark:text-zinc-300 font-mono" x-text="profilesList.length"></span>
                     </button>
 
                     <button type="button" 
                             @click="activeTab = 'add'"
-                            :class="activeTab === 'add' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200'"
+                            :class="activeTab === 'add' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-theme-text dark:text-zinc-400 dark:hover:text-zinc-200'"
                             class="px-3.5 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer shrink-0">
                         <i class="fa-solid fa-user-plus text-xs"></i>
                         <span>Add Profile</span>
@@ -92,7 +92,7 @@
                     <button type="button" 
                             x-show="editingProfile !== null"
                             @click="activeTab = 'edit'"
-                            :class="activeTab === 'edit' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200'"
+                            :class="activeTab === 'edit' ? 'border-amber-500 text-amber-500 bg-amber-500/5 dark:bg-amber-500/10' : 'border-transparent text-slate-500 hover:text-theme-text dark:text-zinc-400 dark:hover:text-zinc-200'"
                             class="px-3.5 py-2 text-xs font-bold border-b-2 rounded-t-lg transition flex items-center gap-2 cursor-pointer shrink-0" x-cloak>
                         <i class="fa-solid fa-user-pen text-xs text-amber-500"></i>
                         <span>Edit Profile</span>
@@ -121,7 +121,7 @@
                             <input type="text" 
                                    x-model="auditSearchQuery" 
                                    placeholder="Filter audits by ID (e.g. 2026-WB-01), title, status, or mapped auditee..."
-                                   class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition">
+                                   class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition">
                         </div>
                         <button type="button" @click="activeTab = 'create_audit'"
                                 class="h-9 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0">
@@ -141,7 +141,7 @@
                                         <span class="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-500 font-mono font-bold text-xs shrink-0"
                                               x-text="audit.name"></span>
                                         <div class="min-w-0">
-                                            <h4 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate" x-text="audit.title || 'Untitled Audit Scope'"></h4>
+                                            <h4 class="font-bold text-xs sm:text-sm text-theme-text dark:text-white truncate" x-text="audit.title || 'Untitled Audit Scope'"></h4>
                                             <span class="text-[10px] text-slate-400 dark:text-zinc-500 font-mono" x-show="audit.created_at" x-text="'Registered ' + audit.created_at"></span>
                                         </div>
                                     </div>
@@ -160,7 +160,7 @@
                                 </div>
 
                                 <!-- Audit Description (if any) -->
-                                <p x-show="audit.description" class="text-xs text-slate-600 dark:text-zinc-400 mb-3" x-text="audit.description"></p>
+                                <p x-show="audit.description" class="text-xs text-theme-text dark:text-zinc-400 mb-3" x-text="audit.description"></p>
 
                                 <!-- Mapped Profiles Row -->
                                 <div class="pt-2.5 border-t border-slate-100 dark:border-zinc-800/80">
@@ -168,7 +168,7 @@
                                         <div class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
                                             <i class="fa-solid fa-users text-amber-500 text-[10px]"></i>
                                             <span>Mapped Profiles</span>
-                                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-mono"
+                                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-zinc-800 text-theme-text dark:text-zinc-300 font-mono"
                                                   x-text="audit.profiles_count || (audit.profiles || []).length"></span>
                                         </div>
                                         <button type="button" 
@@ -182,7 +182,7 @@
                                     <!-- Profiles Chips -->
                                     <div x-show="editingAuditId !== audit.id" class="flex flex-wrap items-center gap-1.5">
                                         <template x-for="p in (audit.profiles || [])" :key="p.id">
-                                            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200">
+                                            <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-zinc-200">
                                                 <span class="w-4 h-4 rounded bg-amber-500/20 text-amber-500 flex items-center justify-center text-[9px] font-mono font-bold" x-text="p.initials || 'Q'"></span>
                                                 <span class="font-medium" x-text="p.full_name"></span>
                                                 <span class="text-[9px] text-slate-400 dark:text-zinc-500" x-show="p.department" x-text="'(' + p.department + ')'"></span>
@@ -196,7 +196,7 @@
                                     <!-- Inline Profile Mapping Checkbox Editor -->
                                     <div x-show="editingAuditId === audit.id" class="mt-2 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-amber-500/30 space-y-2.5" x-cloak>
                                         <div class="flex items-center justify-between">
-                                            <span class="text-[11px] font-bold text-slate-800 dark:text-zinc-200">
+                                            <span class="text-[11px] font-bold text-theme-text dark:text-zinc-200">
                                                 Select profiles to map under <span class="font-mono text-amber-500" x-text="audit.name"></span>:
                                             </span>
                                             <div class="flex items-center gap-2">
@@ -213,7 +213,7 @@
                                                         <input type="checkbox" :value="p.id" x-model="editingAuditSelectedProfiles"
                                                                class="rounded border-slate-300 text-amber-500 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer">
                                                         <span class="w-5 h-5 rounded bg-amber-500/15 text-amber-500 flex items-center justify-center text-[10px] font-mono font-bold" x-text="p.initials || 'Q'"></span>
-                                                        <span class="font-semibold text-slate-900 dark:text-white" x-text="p.full_name"></span>
+                                                        <span class="font-semibold text-theme-text dark:text-white" x-text="p.full_name"></span>
                                                         <span class="text-[10px] text-slate-400 dark:text-zinc-500" x-show="p.department" x-text="'• ' + p.department"></span>
                                                     </div>
                                                     <span class="text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-wider"
@@ -225,7 +225,7 @@
 
                                         <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
                                             <button type="button" @click="cancelEditAuditMapping()"
-                                                    class="px-2.5 py-1 text-xs rounded-lg text-slate-500 hover:text-slate-700 dark:text-zinc-400 cursor-pointer">
+                                                    class="px-2.5 py-1 text-xs rounded-lg text-slate-500 hover:text-theme-text dark:text-zinc-400 cursor-pointer">
                                                 Cancel
                                             </button>
                                             <button type="button" @click="saveAuditMapping(audit.id)"
@@ -260,7 +260,7 @@
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <span class="text-xs font-bold text-slate-900 dark:text-white">Audit Reference ID:</span>
+                                        <span class="text-xs font-bold text-theme-text dark:text-white">Audit Reference ID:</span>
                                         <span class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-500 font-mono font-black text-xs tracking-wider" x-text="nextAuditName"></span>
                                     </div>
                                     <p class="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
@@ -276,19 +276,19 @@
 
                         <!-- Audit Title / Objective -->
                         <div>
-                            <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">
+                            <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">
                                 Audit Title / Subject <span class="text-rose-500">*</span>
                             </label>
                             <input type="text" x-model="newAuditTitle" placeholder="e.g. Strategic Vendor Collusion & Procurement Review" required
-                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                         </div>
 
                         <!-- Status & Optional Custom ID -->
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Audit Status</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Audit Status</label>
                                 <select x-model="newAuditStatus"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
                                     <option value="ACTIVE" selected>Active</option>
                                     <option value="IN_PROGRESS">In Progress</option>
                                     <option value="COMPLETED">Completed</option>
@@ -296,26 +296,26 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">
                                     Override Reference ID <span class="text-[10px] text-slate-400 font-normal">(Leave blank for auto)</span>
                                 </label>
                                 <input type="text" x-model="newAuditCustomName" :placeholder="nextAuditName"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500 font-mono">
                             </div>
                         </div>
 
                         <!-- Scope & Description Notes -->
                         <div>
-                            <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Investigation Scope / Terms of Reference</label>
+                            <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Investigation Scope / Terms of Reference</label>
                             <textarea x-model="newAuditDescription" rows="2" placeholder="Audit terms of reference, whistle-blower allegations, or suspicious parameter hypotheses..."
-                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"></textarea>
+                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500"></textarea>
                         </div>
 
                         <!-- Map Profiles Under This Audit (Multi-Select Checkboxes) -->
                         <div class="pt-2 border-t border-slate-100 dark:border-zinc-800">
                             <div class="flex items-center justify-between mb-2">
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-900 dark:text-white">
+                                    <label class="block text-xs font-bold text-theme-text dark:text-white">
                                         <i class="fa-solid fa-users text-amber-500 mr-1"></i>Map Investigation Profiles Under This Audit
                                     </label>
                                     <p class="text-[11px] text-slate-500 dark:text-zinc-400">Select target auditees and custodians involved in this investigation.</p>
@@ -333,7 +333,7 @@
                             <div class="relative mb-2">
                                 <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 text-[11px]"></i>
                                 <input type="text" x-model="profileAuditFilterQuery" placeholder="Filter targets by name, department, or ID..."
-                                       class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                       class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                             </div>
 
                             <!-- Checkbox List -->
@@ -346,7 +346,7 @@
                                             <span class="w-6 h-6 rounded-md bg-amber-500/15 text-amber-500 flex items-center justify-center text-[10px] font-mono font-bold shrink-0" x-text="p.initials || 'Q'"></span>
                                             <div class="min-w-0">
                                                 <div class="flex items-center gap-1.5">
-                                                    <span class="font-bold text-slate-900 dark:text-white truncate" x-text="p.full_name"></span>
+                                                    <span class="font-bold text-theme-text dark:text-white truncate" x-text="p.full_name"></span>
                                                     <span class="text-[10px] font-mono text-slate-400" x-show="p.employee_id" x-text="'#' + p.employee_id"></span>
                                                 </div>
                                                 <span class="text-[10px] text-slate-500 dark:text-zinc-400 truncate block" x-text="p.department || 'General Audit'"></span>
@@ -368,7 +368,7 @@
                         <!-- Form Actions -->
                         <div class="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-3">
                             <button type="button" @click="activeTab = 'audits'"
-                                class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 bg-slate-100 dark:bg-zinc-800 cursor-pointer">
+                                class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-theme-text dark:hover:text-zinc-200 bg-slate-100 dark:bg-zinc-800 cursor-pointer">
                                 Cancel
                             </button>
                             <button type="submit" :disabled="isSubmittingAudit"
@@ -389,7 +389,7 @@
                         <input type="text" 
                                x-model="searchQuery" 
                                placeholder="Filter profiles by name, department, employee ID, or investigation keyword..."
-                               class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition">
+                               class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition">
                     </div>
 
                     <!-- Profiles List Cards -->
@@ -403,7 +403,7 @@
                                              x-text="prof.initials || 'Q'"></div>
                                         <div class="min-w-0">
                                             <div class="flex items-center gap-2">
-                                                <h4 class="font-bold text-xs text-slate-900 dark:text-white truncate" x-text="prof.full_name"></h4>
+                                                <h4 class="font-bold text-xs text-theme-text dark:text-white truncate" x-text="prof.full_name"></h4>
                                                 <span x-show="prof.employee_id" class="text-[10px] font-mono text-slate-400 dark:text-zinc-500" x-text="'#' + prof.employee_id"></span>
                                             </div>
                                             <p class="text-[11px] text-slate-500 dark:text-zinc-400 truncate">
@@ -481,11 +481,11 @@
                                             </button>
                                             <button type="button" 
                                                     @click="activeAppendProfileId = prof.id; appendKeywordInput = '';"
-                                                    class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-lg bg-slate-200/60 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition cursor-pointer">
+                                                    class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-lg bg-slate-200/60 dark:bg-zinc-800 text-theme-text dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition cursor-pointer">
                                                 <i class="fa-solid fa-plus text-[9px] text-amber-500"></i>
                                                 <span>Add Keyword</span>
                                             </button>
-                                            <label class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-lg bg-slate-200/60 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 border border-slate-300 dark:border-zinc-700 transition cursor-pointer"
+                                            <label class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-lg bg-slate-200/60 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-theme-text dark:text-zinc-300 border border-slate-300 dark:border-zinc-700 transition cursor-pointer"
                                                    :class="isUploadingForProfile === prof.id ? 'opacity-60 pointer-events-none' : ''">
                                                 <i class="fa-solid" :class="isUploadingForProfile === prof.id ? 'fa-spinner fa-spin text-[9px]' : 'fa-file-arrow-up text-[9px]'"></i>
                                                 <span x-text="isUploadingForProfile === prof.id ? 'Uploading...' : 'Upload File (.txt)'"></span>
@@ -504,7 +504,7 @@
                                                    x-model="appendKeywordInput" 
                                                    @keydown.enter.prevent="submitAppendKeyword(prof.id)"
                                                    placeholder="Enter keyword(s), e.g. kickback, bonus..."
-                                                   class="flex-1 px-2.5 py-1 text-xs rounded-lg bg-white dark:bg-zinc-900 border border-amber-500/60 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500">
+                                                   class="flex-1 px-2.5 py-1 text-xs rounded-lg bg-white dark:bg-zinc-900 border border-amber-500/60 text-theme-text dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500">
                                             <button type="button" 
                                                     @click="submitAppendKeyword(prof.id)"
                                                     :disabled="isSubmittingAppend || !appendKeywordInput.trim()"
@@ -514,7 +514,7 @@
                                             </button>
                                             <button type="button" 
                                                     @click="activeAppendProfileId = null; appendKeywordInput = '';"
-                                                    class="px-2 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer">
+                                                    class="px-2 py-1 text-xs font-semibold rounded-lg text-slate-400 hover:text-theme-text dark:hover:text-zinc-200 cursor-pointer">
                                                 Cancel
                                             </button>
                                         </div>
@@ -538,21 +538,21 @@
                         <input type="hidden" name="keywords" :value="JSON.stringify(newKeywords)">
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Target / Auditee Full Name <span class="text-rose-500">*</span></label>
+                            <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Target / Auditee Full Name <span class="text-rose-500">*</span></label>
                             <input type="text" name="full_name" placeholder="e.g. Ramesh Chandra / Rajesh Sharma" required
-                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Employee ID / Target Ref</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Employee ID / Target Ref</label>
                                 <input type="text" name="employee_id" placeholder="e.g. EMP-9042"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500 font-mono">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Investigation Findings</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Investigation Findings</label>
                                 <select name="is_substantiated"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
                                     <option value="false" selected>Unsubstantiated / Inconclusive</option>
                                     <option value="true">Substantiated (Violations Found)</option>
                                 </select>
@@ -561,34 +561,34 @@
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Department / Division</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Department / Division</label>
                                 <input type="text" name="department" placeholder="e.g. Strategic Procurement"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Designation / Role</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Designation / Role</label>
                                 <input type="text" name="designation" placeholder="e.g. Senior Buyer / GM"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Official Email</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Official Email</label>
                                 <input type="email" name="email" placeholder="e.g. target@company.internal"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Contact Phone</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Contact Phone</label>
                                 <input type="text" name="phone" placeholder="e.g. +91 98401 23456"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                             </div>
                         </div>
 
                         <!-- Interactive Keywords Tag Chip Entry -->
                         <div>
                             <div class="flex items-center justify-between mb-1">
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200">
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200">
                                     <i class="fa-solid fa-tags text-amber-500 mr-1"></i>Search &amp; Investigation Keywords
                                     <span class="text-[11px] font-normal text-slate-400 dark:text-zinc-500 ml-1">(Type keyword &amp; press Enter, comma, space, or tab)</span>
                                 </label>
@@ -617,29 +617,29 @@
                                        @keydown.,.prevent="addTag()"
                                        @keydown.backspace="if(!keywordInput) removeTag(newKeywords.length - 1)"
                                        placeholder="Add keyword (e.g. kickback, cash, confidential)..."
-                                       class="flex-1 min-w-[180px] bg-transparent border-0 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-0 p-1">
+                                       class="flex-1 min-w-[180px] bg-transparent border-0 text-xs text-theme-text dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-0 p-1">
                             </div>
                         </div>
 
                         <!-- Optional Attached Evidentiary Document / Deed / Schedule -->
                         <div>
-                            <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">
+                            <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">
                                 <i class="fa-solid fa-file-shield text-amber-500 mr-1"></i>Evidentiary Document / Deed / Nominee Schedule (.pdf, .docx, .txt)
                             </label>
                             <input type="file" name="document_file" accept=".pdf,.docx,.txt"
-                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 focus:outline-none focus:border-amber-500 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-amber-500/10 file:text-amber-500 hover:file:bg-amber-500/20 cursor-pointer">
+                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-zinc-300 focus:outline-none focus:border-amber-500 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-amber-500/10 file:text-amber-500 hover:file:bg-amber-500/20 cursor-pointer">
                             <p class="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">Extracts partner deeds, firm names, company directors, and nominee links directly into Q-Link.</p>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Investigation Hypothesis / Notes</label>
+                            <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Investigation Hypothesis / Notes</label>
                             <textarea name="notes" rows="2" placeholder="Audit scope, whistle-blower allegations, or suspicious parameter notes..."
-                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"></textarea>
+                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500"></textarea>
                         </div>
 
                         <div class="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-3">
                             <button type="button" @click="activeTab = 'directory'"
-                                class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 bg-slate-100 dark:bg-zinc-800 cursor-pointer">
+                                class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-theme-text dark:hover:text-zinc-200 bg-slate-100 dark:bg-zinc-800 cursor-pointer">
                                 Cancel
                             </button>
                             <button type="submit"
@@ -656,33 +656,33 @@
                     <form @submit.prevent="submitEditProfile()" class="space-y-3.5">
                         <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
                             <div>
-                                <h4 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <h4 class="text-xs font-bold text-theme-text dark:text-white flex items-center gap-2">
                                     <i class="fa-solid fa-user-pen text-amber-500"></i>
                                     <span>Edit Investigation Profile</span>
                                 </h4>
                                 <p class="text-[11px] text-slate-500 dark:text-zinc-400">Update target auditee records, findings, or attached keywords.</p>
                             </div>
-                            <button type="button" @click="cancelEditProfile()" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer">
+                            <button type="button" @click="cancelEditProfile()" class="text-xs text-slate-400 hover:text-theme-text dark:hover:text-zinc-200 cursor-pointer">
                                 Back to Directory
                             </button>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Target / Auditee Full Name <span class="text-rose-500">*</span></label>
+                            <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Target / Auditee Full Name <span class="text-rose-500">*</span></label>
                             <input type="text" x-model="editingProfile.full_name" required
-                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Employee ID / Target Ref</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Employee ID / Target Ref</label>
                                 <input type="text" x-model="editingProfile.employee_id" placeholder="e.g. EMP-9042"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 font-mono">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500 font-mono">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Investigation Findings</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Investigation Findings</label>
                                 <select x-model="editingProfile.is_substantiated"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
                                     <option :value="false">Unsubstantiated / Inconclusive</option>
                                     <option :value="true">Substantiated (Violations Found)</option>
                                 </select>
@@ -691,35 +691,35 @@
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Department / Division</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Department / Division</label>
                                 <input type="text" x-model="editingProfile.department" placeholder="e.g. Strategic Procurement"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Designation / Role</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Designation / Role</label>
                                 <input type="text" x-model="editingProfile.designation" placeholder="e.g. Senior Buyer / GM"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Official Email</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Official Email</label>
                                 <input type="email" x-model="editingProfile.email" placeholder="e.g. target@company.internal"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Contact Phone</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Contact Phone</label>
                                 <input type="text" x-model="editingProfile.phone" placeholder="e.g. +91 98401 23456"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500">
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Investigation Status</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Investigation Status</label>
                                 <select x-model="editingProfile.status"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
                                     <option value="ACTIVE">Active Investigation</option>
                                     <option value="MONITORING">Under Monitoring</option>
                                     <option value="CLEARED">Cleared / Closed</option>
@@ -727,9 +727,9 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">UI Accent Color</label>
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">UI Accent Color</label>
                                 <select x-model="editingProfile.avatar_color"
-                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
+                                    class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer">
                                     <option value="indigo">Indigo</option>
                                     <option value="orange">Orange</option>
                                     <option value="rose">Rose</option>
@@ -742,7 +742,7 @@
                         <!-- Interactive Keywords Tag Chip Entry for Edit -->
                         <div>
                             <div class="flex items-center justify-between mb-1">
-                                <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200">
+                                <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200">
                                     <i class="fa-solid fa-tags text-amber-500 mr-1"></i>Search &amp; Investigation Keywords
                                     <span class="text-[11px] font-normal text-slate-400 dark:text-zinc-500 ml-1">(Type keyword &amp; press Enter, comma, space, or tab)</span>
                                 </label>
@@ -772,19 +772,19 @@
                                        @keydown.tab.prevent="addEditTag()"
                                        @keydown.backspace="if(!editKeywordInput && (editingProfile.keywords || []).length) removeEditTag(editingProfile.keywords.length - 1)"
                                        placeholder="Add keyword (e.g. kickback, cash, confidential)..."
-                                       class="flex-1 min-w-[180px] bg-transparent border-0 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-0 p-1">
+                                       class="flex-1 min-w-[180px] bg-transparent border-0 text-xs text-theme-text dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-0 p-1">
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-800 dark:text-zinc-200 mb-1">Investigation Hypothesis / Notes</label>
+                            <label class="block text-xs font-semibold text-theme-text dark:text-zinc-200 mb-1">Investigation Hypothesis / Notes</label>
                             <textarea x-model="editingProfile.notes" rows="2" placeholder="Audit scope, whistle-blower allegations, or suspicious parameter notes..."
-                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"></textarea>
+                                class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500"></textarea>
                         </div>
 
                         <div class="pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center justify-end gap-3">
                             <button type="button" @click="cancelEditProfile()"
-                                class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 bg-slate-100 dark:bg-zinc-800 cursor-pointer">
+                                class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-theme-text dark:hover:text-zinc-200 bg-slate-100 dark:bg-zinc-800 cursor-pointer">
                                 Cancel
                             </button>
                             <button type="submit" :disabled="isSubmittingEditProfile"
@@ -815,12 +815,12 @@
                             <div class="flex items-center gap-2">
                                 <span class="text-[10px] font-mono uppercase tracking-wider text-amber-500 font-bold">Launch Engine</span>
                                 <span class="text-xs text-slate-400 dark:text-zinc-500">&bull;</span>
-                                <span class="text-xs font-bold text-slate-700 dark:text-zinc-300" x-text="'Q-' + pendingModule.name"></span>
+                                <span class="text-xs font-bold text-theme-text dark:text-zinc-300" x-text="'Q-' + pendingModule.name"></span>
                             </div>
-                            <h3 class="text-base font-black text-slate-900 dark:text-white">Select Audit Workspace</h3>
+                            <h3 class="text-base font-black text-theme-text dark:text-white">Select Audit Workspace</h3>
                         </div>
                     </div>
-                    <button type="button" @click="showLaunchModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer p-1">
+                    <button type="button" @click="showLaunchModal = false" class="text-slate-400 hover:text-theme-text dark:hover:text-zinc-200 cursor-pointer p-1">
                         <i class="fa-solid fa-xmark text-lg"></i>
                     </button>
                 </div>
@@ -828,14 +828,14 @@
                 <!-- Body -->
                 <div class="p-5 space-y-4 flex-1 overflow-y-auto">
                     <p class="text-xs text-slate-500 dark:text-zinc-400">
-                        Choose a registered forensic audit below to scope subjects, financial accounts, and intelligence inside <span class="font-bold text-slate-800 dark:text-zinc-200" x-text="'Q-' + pendingModule.name"></span>.
+                        Choose a registered forensic audit below to scope subjects, financial accounts, and intelligence inside <span class="font-bold text-theme-text dark:text-zinc-200" x-text="'Q-' + pendingModule.name"></span>.
                     </p>
 
                     <!-- Search box -->
                     <div class="relative" x-show="auditsList.length > 0">
                         <i class="fa-solid fa-magnifying-glass text-xs text-slate-400 dark:text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
                         <input type="text" x-model="launchAuditSearchQuery" placeholder="Filter audit by ID (e.g. 2026-WB-01), title, or scope..."
-                            class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition">
+                            class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 text-theme-text dark:text-white focus:outline-none focus:border-amber-500 transition">
                     </div>
 
                     <!-- Audits List -->
@@ -847,7 +847,7 @@
                                 <div class="min-w-0 pr-3">
                                     <div class="flex items-center gap-2 mb-1">
                                         <span class="font-mono font-bold text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-500" x-text="audit.name"></span>
-                                        <h4 class="font-bold text-xs text-slate-900 dark:text-white truncate" x-text="audit.title || 'Untitled Audit'"></h4>
+                                        <h4 class="font-bold text-xs text-theme-text dark:text-white truncate" x-text="audit.title || 'Untitled Audit'"></h4>
                                         <span x-show="currentActiveAuditId === audit.id" class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">Active</span>
                                     </div>
                                     <p class="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-1" x-show="audit.description" x-text="audit.description"></p>
@@ -873,7 +873,7 @@
 
                         <div x-show="auditsList.length === 0" class="py-8 text-center space-y-2 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl p-4">
                             <i class="fa-solid fa-folder-open text-2xl text-amber-500 mb-1 block"></i>
-                            <h4 class="text-xs font-bold text-slate-800 dark:text-zinc-200">No Audits Created Yet</h4>
+                            <h4 class="text-xs font-bold text-theme-text dark:text-zinc-200">No Audits Created Yet</h4>
                             <p class="text-[11px] text-slate-400 dark:text-zinc-500">Create an audit with sequential ID (e.g. 2026-WB-01) or open in unrestricted mode.</p>
                         </div>
                     </div>
@@ -887,7 +887,7 @@
                                     <i class="fa-solid fa-globe"></i>
                                 </div>
                                 <div>
-                                    <div class="text-xs font-bold text-slate-800 dark:text-zinc-200 group-hover:text-amber-500 transition-colors">
+                                    <div class="text-xs font-bold text-theme-text dark:text-zinc-200 group-hover:text-amber-500 transition-colors">
                                         Open with All Profiles (Global Mode)
                                     </div>
                                     <div class="text-[10px] text-slate-400 dark:text-zinc-500">
@@ -907,7 +907,7 @@
                         <i class="fa-solid fa-plus-circle text-xs"></i>
                         <span>Create New Audit</span>
                     </button>
-                    <button type="button" @click="showLaunchModal = false" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold cursor-pointer">
+                    <button type="button" @click="showLaunchModal = false" class="px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-theme-text dark:text-zinc-300 font-semibold cursor-pointer">
                         Cancel
                     </button>
                 </div>
@@ -970,7 +970,7 @@
                 <div
                     class="col-span-full p-12 text-center text-slate-500 dark:text-zinc-500 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800">
                     <i class="fa-solid fa-folder-open text-4xl text-amber-500 mb-3 block"></i>
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white mb-1">No Active Modules</h3>
+                    <h3 class="text-base font-bold text-theme-text dark:text-white mb-1">No Active Modules</h3>
                     <p class="text-xs">No investigation modules are currently configured for this session.</p>
                 </div>
                 {% endfor %}

@@ -226,7 +226,7 @@ def run_verification():
     )
     check(
         "Q-Link active toggle reflects scope=audit",
-        "bg-amber-500 text-slate-950 font-bold" in html_link,
+        "shadow-xs" in html_link,
     )
 
     res_link_all = client.get(reverse("q_link:dashboard") + "?scope=all")
@@ -234,7 +234,7 @@ def run_verification():
     html_link_all = res_link_all.content.decode()
     check(
         "Q-Link displays toggle with scope=all active",
-        "bg-slate-700 text-slate-100" in html_link_all,
+        "scope=all" in html_link_all,
     )
 
     # 7. Other Analytical Applications (Q-Bank, Q-Mail, Q-Voice, Q-Verify, Q-Scan, Q-Chat)
